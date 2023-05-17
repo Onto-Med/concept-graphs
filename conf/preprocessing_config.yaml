@@ -23,11 +23,5 @@ filter_max_df: 1.0
 filter_stop: None
 # Name of spaCy pipeline components to disable (None or array)
 disable: None
-
-
-# ToDo: data will be POSTed
-#base_data: Union[pathlib.Path, Iterable[Dict[str, str]]],
-# ToDo: file with data-label mapping will be POSTed
-#labels: Optional[Union[dict, Callable]] = None,
-# ToDo: file with stopwords will be POSTed
-#filter_stop: Optional[list] = None,
+# Meaningless property
+i_am_meaningless: None
