@@ -31,6 +31,7 @@ root.addHandler(default_handler)
 
 FILE_STORAGE_TMP = "./tmp" #ToDo: replace it with proper path in docker
 # ToDo: file with stopwords will be POSTed: #filter_stop: Optional[list] = None,
+# ToDo: evaluate 'None' values (yaml reader converts it to str) or maybe use boolean values only
 
 @app.route("/preprocessing", methods=['POST'])
 def data_preprocessing():
@@ -55,8 +56,9 @@ def data_preprocessing():
         start_preprocessing(data, config, process_name)
 
     elif len(request.files) <= 0 or "data" not in request.files:
-        app.logger.error("There were no files or no data files POSTed."
+        app.logger.error("There were no files at all or no data files POSTed."
                          " At least a zip folder with the data is necessary!\n"
+                         " It is also necessary to conform to the naming convention!\n"
                          "\t\ti.e.: curl -X POST -F data=@\"#SOME/PATH/TO/FILE.zip\"")
     return jsonify("Done.")
 
@@ -96,10 +98,11 @@ def read_labels(labels) -> Dict[str, str]:
 
 
 def read_zip_content(zip_archive, config, labels) -> List[Dict[str, str]]:
+    extension = config.get("file_extension", "txt")
     return [{"name": Path(f.filename).stem,
              "content": zip_archive.read(f.filename).decode(config.get('file_encoding', 'utf-8')),
              "label": labels.get(Path(f.filename).stem, None)}
-            for f in zip_archive.filelist if not f.is_dir()]
+            for f in zip_archive.filelist if (not f.is_dir()) and (Path(f.filename).suffix.lstrip('.') == extension.lstrip('.'))]
 
 
 def start_preprocessing(data, config, cache_name):
