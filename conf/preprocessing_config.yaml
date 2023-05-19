@@ -4,6 +4,8 @@ corpus_name: default
 spacy_model: de_dep_news_trf
 # Number of processes that will be spawned (how many cores will be utilized)
 n_process: 1
+# Only files in the data zip will be processed that have this file extension
+file_extension: txt
 # Encoding of the text files
 file_encoding: utf-8
 # Lemmatize the input data
