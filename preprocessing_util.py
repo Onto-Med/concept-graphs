@@ -11,7 +11,7 @@ class PreprocessingUtil:
 
     def __init__(self, app, file_storage):
         self._app = app
-        self._file_storage = file_storage
+        self._file_storage = Path(file_storage)
         self.config = None
         self.labels = None
         self.data = None
@@ -25,7 +25,7 @@ class PreprocessingUtil:
 
     def read_data(self, data):
         try:
-            archive_path = f"{self._file_storage}/{data.filename}"
+            archive_path = Path(self._file_storage / data.filename)
             data.save(archive_path)
             with zipfile.ZipFile(archive_path, mode='r') as archive:
                 self.data = self._read_zip_content(archive, self.labels)
@@ -63,7 +63,7 @@ class PreprocessingUtil:
             pipeline=spacy_language,
             base_data=self.data,
             cache_name=f"{cache_name}_data-processed",
-            cache_path=Path(self._file_storage),
+            cache_path=self._file_storage,
             save_to_file=True,
             **config
         )

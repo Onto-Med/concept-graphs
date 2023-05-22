@@ -7,10 +7,11 @@ from flask import Flask, jsonify, request
 from flask.logging import default_handler
 
 from preprocessing_util import PreprocessingUtil
+from embedding_util import PhraseEmbeddingUtil
 
 sys.path.insert(0, "src")
 import data_functions
-# import embedding_functions
+import embedding_functions
 # import cluster_functions
 # import util_functions
 
@@ -27,7 +28,7 @@ FILE_STORAGE_TMP = "./tmp" #ToDo: replace it with proper path in docker
 
 @app.route("/preprocessing", methods=['POST'])
 def data_preprocessing():
-    app.logger.info("Preprocessing started")
+    app.logger.info("=== Preprocessing started ===")
     if request.method == "POST" and len(request.files) > 0 and "data" in request.files:
         pre_proc = PreprocessingUtil(app, FILE_STORAGE_TMP)
 
@@ -58,7 +59,18 @@ def data_preprocessing():
 
 @app.route("/embedding", methods=['POST', 'GET'])
 def phrase_embedding():
-    pass
+    app.logger.info("=== Phrase embedding started ===")
+    if request.method in ["POST", "GET"]:
+        phra_emb = PhraseEmbeddingUtil(app, FILE_STORAGE_TMP)
+
+        app.logger.info("Reading config ...")
+        phra_emb.read_config(request.files.get("config", None))
+        app.logger.info(f"Parsed the following arguments for phrase embedding:\n\t{phra_emb.config}")
+        process_name = phra_emb.config.get("corpus_name",
+                                           request.files.get("data", namedtuple('Corpus', ['name'])("default")).name)
+
+        app.logger.info(f"Start phrase embedding '{process_name}' ...")
+        phra_emb.start_phrase_embedding(process_name, embedding_functions.SentenceEmbeddingsFactory)
 
 
 if __name__ == "__main__":
