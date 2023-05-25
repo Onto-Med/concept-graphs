@@ -71,6 +71,7 @@ def phrase_embedding():
 
         app.logger.info(f"Start phrase embedding '{process_name}' ...")
         phra_emb.start_phrase_embedding(process_name, embedding_functions.SentenceEmbeddingsFactory)
+    return jsonify("Done.")
 
 
 if __name__ == "__main__":
