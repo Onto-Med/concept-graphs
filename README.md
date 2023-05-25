@@ -7,10 +7,15 @@ upload text data to be preprocessed (i.e. extraction of phrases)
 `curl -X POST -F data=@"PATH/TO/DATA.zip" -F config=@"PATH/TO/CONFIG.yaml" -F labels=@"PATH/TO/LABELS.yaml" http://SOME_IP:SOME_PORT/preprocessing`  
 
 * `data`  (mandatory) : the text files provided as one zip file
-* `config` (optional) : configurations for the preprocessing step provided as yaml file
+* `config` (optional) : configurations for the preprocessing step provided as yaml file (if not provided, default values will be used)
 * `labels` (optional) : the label (if any) of each data text file provided as yaml file (line-wise) (e.g. an entry looks like this: `file1: LABEL1`) 
 
 ### `/embedding`
+embed the extracted phrases into a vector space  
+
+`curl -X POST -F config=@"PATH/TO/CONFIG.yaml" http://SOME_IP:SOME_PORT/preprocessing`  
+
+* `config` (optional) : configurations for the embedding step provided as yaml file (if not provided, default values will be used)
 
 ### `/clustering`
 
@@ -44,4 +49,18 @@ filter_max_df: 1.0
 filter_stop: None
 # Name of spaCy pipeline components to disable (None or array)
 disable: None
+```
+
+### `/embedding`
+```
+# Name of the corpus; can be chosen freely (but acts as reference point between the different endpoint actions)
+corpus_name: default
+# 
+model_name: sentence-transformers/paraphrase-albert-small-v2
+# Number of processes that will be spawned (how many cores will be utilized)
+n_process: 1
+# Right now, only 'umap' is supported or 'None' (the latter, however, is not advised) 
+down_scale_algorithm: umap
+# With the prefix 'scaling_' you can tune the various parameters for the 'down_scale_algorithm' if desired
+scaling_*
 ```

@@ -100,7 +100,7 @@ class SentenceEmbeddingsFactory:
             self._data_obj = data_obj
             self._down_scale_obj = down_scale_obj
             self._embeddings = None
-            self._head_only = head_only
+            self._head_only = head_only #ToDo?
 
         @property
         def sentence_embeddings(
@@ -128,7 +128,7 @@ class SentenceEmbeddingsFactory:
                 **kwargs
         ):
             if "convert_to_numpy" in kwargs.keys():
-                kwargs.pop("convert_to_numpy")
+                kwargs.pop("convert_to_numpy") #ToDo?
             if n_process > 1:
                 for _key in list(kwargs.keys()):
                     if _key not in ["batch_size", "chunk_size"]:

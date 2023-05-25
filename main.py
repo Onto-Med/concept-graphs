@@ -12,8 +12,7 @@ from embedding_util import PhraseEmbeddingUtil
 sys.path.insert(0, "src")
 import data_functions
 import embedding_functions
-# import cluster_functions
-# import util_functions
+import cluster_functions
 
 
 app = Flask(__name__)
@@ -21,7 +20,9 @@ app = Flask(__name__)
 root = logging.getLogger()
 root.addHandler(default_handler)
 
-FILE_STORAGE_TMP = "./tmp" #ToDo: replace it with proper path in docker
+FILE_STORAGE_TMP = "./tmp"  # ToDo: replace it with proper path in docker
+
+
 # ToDo: file with stopwords will be POSTed: #filter_stop: Optional[list] = None,
 # ToDo: evaluate 'None' values (yaml reader converts it to str) or maybe use boolean values only
 
@@ -32,15 +33,12 @@ def data_preprocessing():
     if request.method == "POST" and len(request.files) > 0 and "data" in request.files:
         pre_proc = PreprocessingUtil(app, FILE_STORAGE_TMP)
 
-        app.logger.info("Reading config ...")
-        pre_proc.read_config(request.files.get("config", None))
-        app.logger.info(f"Parsed the following arguments for preprocessing:\n\t{pre_proc.config}")
-        process_name = pre_proc.config.get("corpus_name",
-                                           request.files.get("data", namedtuple('Corpus', ['name'])("default")).name)
+        process_name = read_config(pre_proc)
 
         app.logger.info("Reading labels ...")
         pre_proc.read_labels(request.files.get("labels", None))
-        app.logger.info(f"Gathered the following labels:\n\t{list(pre_proc.labels.values()) if pre_proc.labels is not None else []}")
+        app.logger.info(
+            f"Gathered the following labels:\n\t{list(pre_proc.labels.values()) if pre_proc.labels is not None else []}")
 
         app.logger.info("Reading data ...")
         pre_proc.read_data(request.files.get("data", None))
@@ -63,15 +61,24 @@ def phrase_embedding():
     if request.method in ["POST", "GET"]:
         phra_emb = PhraseEmbeddingUtil(app, FILE_STORAGE_TMP)
 
-        app.logger.info("Reading config ...")
-        phra_emb.read_config(request.files.get("config", None))
-        app.logger.info(f"Parsed the following arguments for phrase embedding:\n\t{phra_emb.config}")
-        process_name = phra_emb.config.get("corpus_name",
-                                           request.files.get("data", namedtuple('Corpus', ['name'])("default")).name)
+        process_name = read_config(phra_emb)
 
         app.logger.info(f"Start phrase embedding '{process_name}' ...")
         phra_emb.start_phrase_embedding(process_name, embedding_functions.SentenceEmbeddingsFactory)
     return jsonify("Done.")
+
+
+@app.route("/clustering", methods=['POST', 'GET'])
+def phrase_clustering():
+    pass
+
+
+def read_config(processor):
+    app.logger.info("Reading config ...")
+    processor.read_config(request.files.get("config", None))
+    app.logger.info(f"Parsed the following arguments for phrase embedding:\n\t{processor.config}")
+    return processor.config.get("corpus_name",
+                                request.files.get("data", namedtuple('Corpus', ['name'])("default")).name)
 
 
 if __name__ == "__main__":
