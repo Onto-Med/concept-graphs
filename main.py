@@ -26,6 +26,10 @@ FILE_STORAGE_TMP = "./tmp"  # ToDo: replace it with proper path in docker
 # ToDo: file with stopwords will be POSTed: #filter_stop: Optional[list] = None,
 # ToDo: evaluate 'None' values (yaml reader converts it to str) or maybe use boolean values only
 
+# ToDo: I downscale the embeddings twice... (that snuck in somehow); once in SentenceEmbeddings via create(down_scale_algorithm)
+# ToDo: and once PhraseCluster via create(down_scale_algorithm). I can't remember why I added this to SentenceEmbeddings later on...
+# ToDo: but I should make sure, that there is a check somewhere that the down scaling is not applied twice!
+
 
 @app.route("/preprocessing", methods=['POST'])
 def data_preprocessing():
@@ -69,7 +73,7 @@ def phrase_embedding():
 
 
 @app.route("/clustering", methods=['POST', 'GET'])
-def phrase_clustering():
+def phrase_yclustering():
     pass
 
 

@@ -22,3 +22,13 @@ class ClusteringUtil:
 
     def start_clustering(self):
         pass
+
+
+        # cache_path=cache_path,
+        # cache_name=f"{name_prefix}_phrase-cluster-obj{('_' + suffix) if suffix is not None else ''}",
+        # cluster_algorithm=cluster_algorithm,
+        # scaling_n_neighbors=scaling_n_neighbors, scaling_min_dist=scaling_min_dist, scaling_n_components=scaling_n_components,
+        # scaling_metric='euclidean', scaling_random_state=42,
+        # kelbow_k=(10, 100), kelbow_show=False,
+        # cluster_by_down_scale=cluster_by_down_scale,
+        # **kwargs
