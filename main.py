@@ -85,5 +85,6 @@ def read_config(processor):
                                 request.files.get("data", namedtuple('Corpus', ['name'])("default")).name)
 
 
+# ToDo: set debug=False
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=9007)

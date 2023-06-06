@@ -1,6 +1,8 @@
 # concept-graphs
+`docker image build -t concept-graphs-api .`  
+`docker run -p 9007:9007 concept-graphs-api`
 
-## Endpoints
+# Endpoints
 ### `/preprocessing`
 upload text data to be preprocessed (i.e. extraction of phrases)  
 
@@ -13,9 +15,13 @@ upload text data to be preprocessed (i.e. extraction of phrases)
 ### `/embedding`
 embed the extracted phrases into a vector space  
 
-`curl -X POST -F config=@"PATH/TO/CONFIG.yaml" http://SOME_IP:SOME_PORT/preprocessing`  
+`curl -X GET http://SOME_IP:SOME_PORT/embedding`  
+or  
+`curl -X POST -F config=@"PATH/TO/CONFIG.yaml" http://SOME_IP:SOME_PORT/embedding`  
 
 * `config` (optional) : configurations for the embedding step provided as yaml file (if not provided, default values will be used)
+
+The first time this endpoint is called, the respective model (as given in config or the default one) will be downloaded
 
 ### `/clustering`
 
@@ -55,7 +61,7 @@ disable: None
 ```
 # Name of the corpus; can be chosen freely (but acts as reference point between the different endpoint actions)
 corpus_name: default
-# 
+# (for German: Sahajtomar/German-semantic)
 model_name: sentence-transformers/paraphrase-albert-small-v2
 # Number of processes that will be spawned (how many cores will be utilized)
 n_process: 1
