@@ -17,11 +17,33 @@ class ClusteringUtil:
         self._file_storage = Path(file_storage)
         self.config = None
 
-    def read_config(self):
-        pass
+    def read_config(self, config):
+        base_config = {"algorithm": "kmeans", "downscale": "umap"}
+        if config is None:
+            self._app.logger.info("No config file provided; using default values")
+        else:
+            try:
+                base_config = yaml.safe_load(config.stream)
+            except Exception as e:
+                self._app.logger.error(f"Couldn't read config file: {e}")
+                return jsonify("Encountered error. See log.")
+        self.config = base_config
 
-    def start_clustering(self):
-        pass
+    def start_clustering(self, cache_name, process_factory):
+        config = self.config.copy()
+        # default_args = inspect.getfullargspec(process_factory.create)[0]
+        # _ = [config.pop(x, None) for x in list(config.keys()) if x not in default_args]
+
+        emb_obj = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_embeddings.pickle"))
+        process_factory.create(
+            # sentence_embeddings: Union[SentenceEmbeddingsFactory.SentenceEmbeddings, np.ndarray],
+            # cache_path: pathlib.Path,
+            # cache_name: str,
+            # cluster_algorithm: str = 'kmeans',
+            # down_scale_algorithm: str = 'umap',
+            # cluster_by_down_scale: bool = True,
+            # ** kwargs
+        )
 
 
         # cache_path=cache_path,

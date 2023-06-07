@@ -1,8 +1,14 @@
-# concept-graphs
-`docker image build -t concept-graphs-api .`  
-`docker run -p 9007:9007 concept-graphs-api`
+# Concept Graphs
 
-# Endpoints
+## Docker Image
+1. `docker image build -t concept-graphs-api .` (the resulting image is appr. 12GB)
+2. `docker run -p 9007:9007 concept-graphs-api`
+
+If you start the container as described, the address for the `curl` command would be `http://0.0.0.0:9007`.  
+Right now, the path where all results (the processed documents, the embeddings, etc.) are stored is under `/rest_api/concept-graphs/tmp` (if you want to access them via `docker volumes`).
+However, they are serialized as Python Objects
+
+## Endpoints
 ### `/preprocessing`
 upload text data to be preprocessed (i.e. extraction of phrases)  
 

@@ -1,4 +1,5 @@
 import logging
+import pathlib
 import sys
 
 from collections import namedtuple
@@ -73,7 +74,7 @@ def phrase_embedding():
 
 
 @app.route("/clustering", methods=['POST', 'GET'])
-def phrase_yclustering():
+def phrase_clustering():
     pass
 
 
@@ -87,4 +88,7 @@ def read_config(processor):
 
 # ToDo: set debug=False
 if __name__ == "__main__":
+    f_storage = pathlib.Path(FILE_STORAGE_TMP)
+    if not f_storage.exists():
+        f_storage.mkdir()
     app.run(debug=True, host='0.0.0.0', port=9007)
