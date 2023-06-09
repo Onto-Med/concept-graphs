@@ -82,8 +82,8 @@ def read_config(processor):
     app.logger.info("Reading config ...")
     processor.read_config(request.files.get("config", None))
     app.logger.info(f"Parsed the following arguments for phrase embedding:\n\t{processor.config}")
-    return processor.config.get("corpus_name",
-                                request.files.get("data", namedtuple('Corpus', ['name'])("default")).name)
+    return processor.config.get("corpus_name", "default")
+                                # request.files.get("data", namedtuple('Corpus', ['name'])("default")).name)
 
 
 # ToDo: set debug=False

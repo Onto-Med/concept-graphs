@@ -6,7 +6,10 @@
 
 If you start the container as described, the address for the `curl` command would be `http://0.0.0.0:9007`.  
 Right now, the path where all results (the processed documents, the embeddings, etc.) are stored is under `/rest_api/concept-graphs/tmp` (if you want to access them via `docker volumes`).
-However, they are serialized as Python Objects
+However, they are serialized as Python Objects and need to be loaded with:
+1. processed documents: `src/data_functions/DataProcessingFactory.load(PATH/TO/DOCUMENT_OBJECT)`
+2. phrase embeddings: `src/embedding_functions/SentenceEmbeddingsFactory.load(PATH/TO/DOCUMENT_OBJECT, PATH/TO/EMBEDDING_OBJECT)`
+3. phrase cluster: `src/cluster_functions/PhraseClusterFactory.load(PATH/TO/CLUSTER_OBJECT)`
 
 ## Endpoints
 ### `/preprocessing`

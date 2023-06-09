@@ -7,6 +7,9 @@ import spacy
 import yaml
 
 
+DEFAULT_SPACY_MODEL = "en_core_web_trf"
+
+
 class PreprocessingUtil:
 
     def __init__(self, app, file_storage):
@@ -33,7 +36,7 @@ class PreprocessingUtil:
             self._app.logger.error(f"Something went wrong with data file reading: {e}")
 
     def read_config(self, config):
-        base_config = {'pipeline': 'en_core_web_trf', 'file_encoding': 'utf-8'}
+        base_config = {'spacy_model': DEFAULT_SPACY_MODEL, 'file_encoding': 'utf-8'}
         if config is None:
             self._app.logger.info("No config file provided; using default values")
         else:
@@ -57,7 +60,7 @@ class PreprocessingUtil:
     def start_preprocessing(self, cache_name, process_factory):
         config = self.config.copy()
         default_args = inspect.getfullargspec(process_factory.create)[0]
-        spacy_language = spacy.load(config.pop("spacy_model"))
+        spacy_language = spacy.load(config.pop("spacy_model", DEFAULT_SPACY_MODEL))
         _ = [config.pop(x, None) for x in list(config.keys()) if x not in default_args]
         process_factory.create(
             pipeline=spacy_language,
