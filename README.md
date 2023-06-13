@@ -1,5 +1,5 @@
 # Concept Graphs
-still WIP: two more endpoints need to be implemented (the src, however, is already fully functional).
+still WIP: two more endpoints need to be implemented (the `src` and `DockerImage` creation, however, is already fully functional).
 
 ## Docker Image
 1. `docker image build -t concept-graphs-api .` (the resulting image is appr. 12GB)
