@@ -1,4 +1,5 @@
 # Concept Graphs
+still WIP: two more endpoints need to be implemented (the src, however, is already fully functional).
 
 ## Docker Image
 1. `docker image build -t concept-graphs-api .` (the resulting image is appr. 12GB)
@@ -33,6 +34,11 @@ or
 The first time this endpoint is called, the respective model (as given in config or the default one) will be downloaded
 
 ### `/clustering`
+WIP
+
+### `/graph`
+WIP
+
 
 ## Example Config Files (YAML)
 ### `/preprocessing`
