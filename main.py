@@ -9,6 +9,7 @@ from flask.logging import default_handler
 
 from preprocessing_util import PreprocessingUtil
 from embedding_util import PhraseEmbeddingUtil
+from clustering_util import ClusteringUtil
 
 sys.path.insert(0, "src")
 import data_functions
@@ -30,6 +31,12 @@ FILE_STORAGE_TMP = "./tmp"  # ToDo: replace it with proper path in docker
 # ToDo: I downscale the embeddings twice... (that snuck in somehow); once in SentenceEmbeddings via create(down_scale_algorithm)
 # ToDo: and once PhraseCluster via create(down_scale_algorithm). I can't remember why I added this to SentenceEmbeddings later on...
 # ToDo: but I should make sure, that there is a check somewhere that the down scaling is not applied twice!
+
+# ToDo: replace `jsonify` output with something more meaningful
+
+# ToDo: uncommented sknet in cluster_functions (otherwise I could not debug)
+
+# ToDo: make sure that no arguments can be supplied via config that won't work
 
 
 @app.route("/preprocessing", methods=['POST'])
@@ -75,14 +82,22 @@ def phrase_embedding():
 
 @app.route("/clustering", methods=['POST', 'GET'])
 def phrase_clustering():
-    pass
+    app.logger.info("=== Phrase clustering started ===")
+    if request.method in ["POST", "GET"]:
+        phra_clus = ClusteringUtil(app, FILE_STORAGE_TMP)
+
+        process_name = read_config(phra_clus)
+
+        app.logger.info(f"Start phrase clustering '{process_name}' ...")
+        phra_clus.start_clustering(process_name, cluster_functions.PhraseClusterFactory)
+    return jsonify("Done.")
 
 
 def read_config(processor):
     app.logger.info("Reading config ...")
     processor.read_config(request.files.get("config", None))
-    app.logger.info(f"Parsed the following arguments for phrase embedding:\n\t{processor.config}")
-    return processor.config.get("corpus_name", "default")
+    app.logger.info(f"Parsed the following arguments for {processor}:\n\t{processor.config}")
+    return processor.config.pop("corpus_name", "default")
                                 # request.files.get("data", namedtuple('Corpus', ['name'])("default")).name)
 
 

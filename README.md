@@ -1,5 +1,6 @@
 # Concept Graphs
-still WIP: two more endpoints need to be implemented (the `src` and `DockerImage` creation, however, is already fully functional).
+WARNING: doesn't work for small number of phrases. You need a document corpus with at least 100 (?) different phrases
+still WIP: one more endpoint needs to be implemented (the `src` and `DockerImage` creation, however, is already fully functional).
 
 ## Docker Image
 1. `docker image build -t concept-graphs-api .` (the resulting image is appr. 12GB)
@@ -34,7 +35,14 @@ or
 The first time this endpoint is called, the respective model (as given in config or the default one) will be downloaded
 
 ### `/clustering`
-WIP
+create the concept clusters from the embeddings which serve as the base for the concept graphs in the next step  
+
+`curl -X GET http://SOME_IP:SOME_PORT/clustering`  
+or  
+`curl -X POST -F config=@"PATH/TO/CONFIG.yaml" http://SOME_IP:SOME_PORT/clustering`  
+
+* `config` (optional): configuration for the clustering step provided as yaml file (if not provided, default values will be used)
+
 
 ### `/graph`
 WIP
@@ -45,7 +53,7 @@ WIP
 ```
 # Name of the corpus; can be chosen freely (but acts as reference point between the different endpoint actions)
 corpus_name: default
-# Name of the spaCy model; pre-installed: de_dep_news_trf, de_core_news_sm (German) & en_core_web_trf (English)
+# Name of the spaCy model; pre-installed: de_dep_news_trf, de_core_news_sm (German) & en_core_web_trf (English) [default]
 spacy_model: de_dep_news_trf
 # Number of processes that will be spawned (how many cores will be utilized)
 n_process: 1
@@ -76,12 +84,27 @@ disable: None
 ```
 # Name of the corpus; can be chosen freely (but acts as reference point between the different endpoint actions)
 corpus_name: default
-# (for German: Sahajtomar/German-semantic)
-model_name: sentence-transformers/paraphrase-albert-small-v2
+# (for German: Sahajtomar/German-semantic; English: sentence-transformers/paraphrase-albert-small-v2 [default])
+model: sentence-transformers/paraphrase-albert-small-v2
 # Number of processes that will be spawned (how many cores will be utilized)
 n_process: 1
-# Right now, only 'umap' is supported or 'None' (the latter, however, is not advised) 
-down_scale_algorithm: umap
-# With the prefix 'scaling_' you can tune the various parameters for the 'down_scale_algorithm' if desired
-scaling_*
 ```
+
+### `/clustering`
+```
+# The clustering algorithm to be used. One of {kmeans (default), kmeans-mb, affinity-prop}
+algorithm: kmeans
+# The downscale algorithm to be used (to effectively cluster the high-dimensional embeddings); only "umap" supported.
+downscale: umap
+# Whether the recommended settings for 'clustering', 'downscaling' & 'cluster number deduction' shall be used if nothing else is stated
+missing_as_recommended: True
+# UMAP arguments prefixed with 'scaling_' (see umap-learn.readthedocs.io)
+scaling_*
+# Clustering arguments prefixed with 'clustering_' (dependent on algorithm used: see scikit-learn)
+clustering_*
+# KElbow method arguments for deducing the number of clusters prefixed with 'kelbow_' (see scikit-yb.org)
+kelbow_*
+```
+
+### `/graph`
+WIP

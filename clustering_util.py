@@ -18,12 +18,19 @@ class ClusteringUtil:
         self.config = None
 
     def read_config(self, config):
-        base_config = {"algorithm": "kmeans", "downscale": "umap"}
+        base_config = {"algorithm": "kmeans", "downscale": "umap", "scaling_n_neighbors": 10, "scaling_min_dist": 0.1,
+                       "scaling_n_components": 100, "scaling_metric": 'euclidean', "scaling_random_state": 42,
+                       "kelbow_k": (10, 100), "kelbow_show": False}
         if config is None:
             self._app.logger.info("No config file provided; using default values")
         else:
             try:
-                base_config = yaml.safe_load(config.stream)
+                _config = yaml.safe_load(config.stream)
+                if _config.pop("missing_as_recommended", True):
+                    for k, v in base_config.items():
+                        if k not in _config:
+                            _config[k] = v
+                base_config = _config
             except Exception as e:
                 self._app.logger.error(f"Couldn't read config file: {e}")
                 return jsonify("Encountered error. See log.")
@@ -32,25 +39,17 @@ class ClusteringUtil:
     def start_clustering(self, cache_name, process_factory):
         config = self.config.copy()
         # default_args = inspect.getfullargspec(process_factory.create)[0]
+        algorithm = config.pop("algorithm", "kmeans")
+        downscale = config.pop("downscale", "umap")
         # _ = [config.pop(x, None) for x in list(config.keys()) if x not in default_args]
 
         emb_obj = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_embeddings.pickle"))
         process_factory.create(
-            # sentence_embeddings: Union[SentenceEmbeddingsFactory.SentenceEmbeddings, np.ndarray],
-            # cache_path: pathlib.Path,
-            # cache_name: str,
-            # cluster_algorithm: str = 'kmeans',
-            # down_scale_algorithm: str = 'umap',
-            # cluster_by_down_scale: bool = True,
-            # ** kwargs
+            sentence_embeddings=emb_obj,
+            cache_path=self._file_storage,
+            cache_name=f"{cache_name}_clustering",
+            cluster_algorithm=algorithm,
+            down_scale_algorithm=downscale,
+            cluster_by_down_scale=True,  # ToDo: is this feasible to toggle via config?
+            ** config
         )
-
-
-        # cache_path=cache_path,
-        # cache_name=f"{name_prefix}_phrase-cluster-obj{('_' + suffix) if suffix is not None else ''}",
-        # cluster_algorithm=cluster_algorithm,
-        # scaling_n_neighbors=scaling_n_neighbors, scaling_min_dist=scaling_min_dist, scaling_n_components=scaling_n_components,
-        # scaling_metric='euclidean', scaling_random_state=42,
-        # kelbow_k=(10, 100), kelbow_show=False,
-        # cluster_by_down_scale=cluster_by_down_scale,
-        # **kwargs

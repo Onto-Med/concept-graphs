@@ -61,7 +61,7 @@ class PreprocessingUtil:
         config = self.config.copy()
         default_args = inspect.getfullargspec(process_factory.create)[0]
         spacy_language = spacy.load(config.pop("spacy_model", DEFAULT_SPACY_MODEL))
-        _ = [config.pop(x, None) for x in list(config.keys()) if x not in default_args]
+        # _ = [config.pop(x, None) for x in list(config.keys()) if x not in default_args]
         process_factory.create(
             pipeline=spacy_language,
             base_data=self.data,
