@@ -1,5 +1,5 @@
 # Concept Graphs
-WARNING: doesn't work for small number of phrases. You need a document corpus with at least 100 (?) different phrases
+WARNING: doesn't work for small number of phrases. You need a document corpus with at least 100 (?) different phrases  
 still WIP: one more endpoint needs to be implemented (the `src` and `DockerImage` creation, however, is already fully functional).
 
 ## Docker Image
