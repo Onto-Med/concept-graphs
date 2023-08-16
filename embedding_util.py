@@ -27,8 +27,11 @@ class PhraseEmbeddingUtil:
         else:
             try:
                 base_config = yaml.safe_load(config.stream)
-                if base_config.get('model', False):
+                if not base_config.get('model', False):
                     raise KeyError(f"No model name provided in config: {base_config}")
+                with Path(Path(self._file_storage) / f"{base_config.get('corpus_name', 'default')}_embedding_config.yaml"
+                          ).open('w') as config_save:
+                    yaml.safe_dump(base_config, config_save)
             except Exception as e:
                 self._app.logger.error(f"Couldn't read config file: {e}")
                 return jsonify("Encountered error. See log.")
@@ -40,11 +43,11 @@ class PhraseEmbeddingUtil:
         # _ = [config.pop(x, None) for x in list(config.keys()) if x not in default_args]
 
         data_obj = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_data-processed.pickle"))
-        process_factory.create(
+        return process_factory.create(
             data_obj=data_obj,
             cache_path=self._file_storage,
             cache_name=f"{cache_name}_embeddings",
-            model_name=config.pop("model_name", DEFAULT_EMBEDDING_MODEL),
+            model_name=config.pop("model", DEFAULT_EMBEDDING_MODEL),
             down_scale_algorithm=None,
             **config
         )

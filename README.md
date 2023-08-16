@@ -17,7 +17,33 @@ However, they are serialized as Python Objects and need to be loaded with:
 ### `/preprocessing`
 upload text data to be preprocessed (i.e. extraction of phrases)  
 
-`curl -X POST -F data=@"PATH/TO/DATA.zip" -F config=@"PATH/TO/CONFIG.yaml" -F labels=@"PATH/TO/LABELS.yaml" http://SOME_IP:SOME_PORT/preprocessing`  
+#### curl
+`curl -X POST -F data=@"PATH/TO/DATA.zip" -F config=@"PATH/TO/CONFIG.yaml" -F labels=@"PATH/TO/LABELS.yaml" http://SOME_IP:SOME_PORT/preprocessing`
+
+#### HTTP Requests
+```
+POST http://SOME_IP:SOME_PORT/preprocessing
+Content-Type: multipart/form-data; boundary="boundary"
+
+--boundary
+Content-Disposition: form-data; name="data"; filename="DATA.zip"
+Content-Type: application/zip
+
+< PATH/TO/DATA.zip
+
+--boundary
+Content-Disposition: form-data; name="config"; filename="CONFIG.yaml"
+Content-Type: application/x-yaml
+
+< PATH/TO/CONFIG.yaml
+
+--boundary
+Content-Disposition: form-data; name="labels"; filename="LABELS.yaml"
+Content-Type: application/x-yaml
+
+< PATH/TO/LABELS.yaml
+--boundary--
+```
 
 * `data`  (mandatory) : the text files provided as one zip file
 * `config` (optional) : configurations for the preprocessing step provided as yaml file (if not provided, default values will be used)
@@ -26,9 +52,27 @@ upload text data to be preprocessed (i.e. extraction of phrases)
 ### `/embedding`
 embed the extracted phrases into a vector space  
 
+#### curl
 `curl -X GET http://SOME_IP:SOME_PORT/embedding`  
 or  
-`curl -X POST -F config=@"PATH/TO/CONFIG.yaml" http://SOME_IP:SOME_PORT/embedding`  
+`curl -X POST -F config=@"PATH/TO/CONFIG.yaml" http://SOME_IP:SOME_PORT/embedding`
+
+#### HTTP Requests
+```
+GET http://SOME_IP:SOME_PORT/embedding
+```
+or
+```
+POST http://SOME_IP:SOME_PORT/embedding
+Content-Type: multipart/form-data; boundary="boundary"
+
+--boundary
+Content-Disposition: form-data; name="config"; filename="CONFIG.yaml"
+Content-Type: application/x-yaml
+
+< PATH/TO/CONFIG.yaml
+--boundary--
+```
 
 * `config` (optional) : configurations for the embedding step provided as yaml file (if not provided, default values will be used)
 
@@ -92,6 +136,8 @@ n_process: 1
 
 ### `/clustering`
 ```
+# Name of the corpus; can be chosen freely (but acts as reference point between the different endpoint actions)
+corpus_name: default
 # The clustering algorithm to be used. One of {kmeans (default), kmeans-mb, affinity-prop}
 algorithm: kmeans
 # The downscale algorithm to be used (to effectively cluster the high-dimensional embeddings); only "umap" supported.

@@ -1,0 +1,24 @@
+# python 3.9
+llvmlite
+numba == 0.53.0
+yellowbrick
+umap-learn == 0.5.2
+tensorflow
+transformers
+sentence-transformers
+datasets
+spacy
+spacy-lookups-data
+spacy-transformers
+torch == 1.11.0
+altair
+networkx
+pyvis
+umap-learn[plot]
+python-Levenshtein
+fuzzywuzzy
+bratiaa
+flask
+pyyaml
+scikit-network
+requests

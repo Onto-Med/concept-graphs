@@ -42,6 +42,9 @@ class PreprocessingUtil:
         else:
             try:
                 base_config = yaml.safe_load(config.stream)
+                with Path(Path(self._file_storage) / base_config.get("corpus_name", "default") / "_config.yaml"
+                          ).open('w') as config_save:
+                    yaml.safe_dump(base_config, config_save)
             except Exception as e:
                 self._app.logger.error(f"Couldn't read config file: {e}")
         self.config = base_config
@@ -61,8 +64,12 @@ class PreprocessingUtil:
         config = self.config.copy()
         default_args = inspect.getfullargspec(process_factory.create)[0]
         spacy_language = spacy.load(config.pop("spacy_model", DEFAULT_SPACY_MODEL))
-        # _ = [config.pop(x, None) for x in list(config.keys()) if x not in default_args]
-        process_factory.create(
+
+        for x in list(config.keys()):
+            if x not in default_args:
+                config.pop(x)
+
+        return process_factory.create(
             pipeline=spacy_language,
             base_data=self.data,
             cache_name=f"{cache_name}_data-processed",

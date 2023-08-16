@@ -1,7 +1,7 @@
 # Name of the corpus; can be chosen freely (but acts as reference point between the different endpoint actions)
 corpus_name: default
 # (for German: Sahajtomar/German-semantic; English: sentence-transformers/paraphrase-albert-small-v2)
-model_name: Sahajtomar/German-semantic
+model: Sahajtomar/German-semantic
 # Number of processes that will be spawned (how many cores will be utilized)
 n_process: 1
 # With the prefix 'scaling_' you can tune the various parameters for the 'down_scale_algorithm' if desired
