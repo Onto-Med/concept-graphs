@@ -508,7 +508,8 @@ class WordEmbeddingClustering:
                 restrict_to_cluster: bool = False,
                 filter_min_df: Union[int, float] = 1,
                 filter_max_df: Union[int, float] = 1.,
-                filter_stop: Optional[list] = None
+                filter_stop: Optional[list] = None,
+                break_after_graph_creation: bool = False
         ):
             if (self._data_proc.tfidf_filter is not None and (
                     self._data_proc.tfidf_filter.get_params().get("min_df", -1) != filter_min_df or
@@ -537,6 +538,9 @@ class WordEmbeddingClustering:
                                                graph_simplify_alg=graph_simplify_alg,
                                                graph_sub_clustering=True if isinstance(graph_sub_clustering,
                                                                                        float) else False)
+            if break_after_graph_creation:
+                return _concept_graphs
+
             self._document_concept_matrix = np.zeros((self._data_proc.documents_n, len(_concept_graphs)))
             sub_cluster_reward = graph_sub_clustering if isinstance(graph_sub_clustering, float) else (
                 1.75 if graph_sub_clustering is True else 1.0)

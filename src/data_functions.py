@@ -281,8 +281,9 @@ class DataProcessingFactory:
         ) -> Optional[tfidfVec]:
             if self._tfidf_filter is None:
                 if self._filter_min_df != 1 or self._filter_max_df != 1.0 or self._filter_stop is not None:
+                    filter_stop = self._filter_stop if self._filter_stop is not None else []
                     self._tfidf_filter = tfidfVec(
-                        min_df=self._filter_min_df, max_df=self._filter_max_df, stop_words=self._filter_stop,
+                        min_df=self._filter_min_df, max_df=self._filter_max_df, stop_words=filter_stop,
                         analyzer=lambda x: re.split(self._chunk_boundary, x)
                     )
                     self._tfidf_filter_vec = self._tfidf_filter.fit_transform(self.document_chunk_matrix)
