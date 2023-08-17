@@ -1,0 +1,8 @@
+# Name of the corpus; can be chosen freely (but acts as reference point between the different endpoint actions)
+corpus_name: default
+# The clustering algorithm to be used. One of {kmeans (default), kmeans-mb, affinity-prop}
+algorithm: kmeans
+# The downscale algorithm to be used (to effectively cluster the high-dimensional embeddings); only "umap" supported.
+downscale: umap
+# Whether the recommended settings for 'clustering', 'downscaling' & 'cluster number deduction' shall be used if nothing else is stated
+missing_as_recommended: True

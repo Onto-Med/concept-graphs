@@ -81,9 +81,23 @@ The first time this endpoint is called, the respective model (as given in config
 ### `/clustering`
 create the concept clusters from the embeddings which serve as the base for the concept graphs in the next step  
 
+#### curl
 `curl -X GET http://SOME_IP:SOME_PORT/clustering`  
 or  
 `curl -X POST -F config=@"PATH/TO/CONFIG.yaml" http://SOME_IP:SOME_PORT/clustering`  
+
+#### HTTP Requests
+```
+GET http://127.0.0.1:5000/clustering
+Content-Type: multipart/form-data; boundary="boundary"
+
+--boundary
+Content-Disposition: form-data; name="config"; filename="CONFIG.yaml"
+Content-Type: application/x-yaml
+
+< PATH/TO/CONFIG.yaml
+--boundary--
+```
 
 * `config` (optional): configuration for the clustering step provided as yaml file (if not provided, default values will be used)
 

@@ -29,7 +29,7 @@ class PhraseEmbeddingUtil:
                 base_config = yaml.safe_load(config.stream)
                 if not base_config.get('model', False):
                     raise KeyError(f"No model name provided in config: {base_config}")
-                with Path(Path(self._file_storage) / f"{base_config.get('corpus_name', 'default')}_embedding_config.yaml"
+                with Path(Path(self._file_storage) / f"{base_config.get('corpus_name', 'default')}_embeddings_config.yaml"
                           ).open('w') as config_save:
                     yaml.safe_dump(base_config, config_save)
             except Exception as e:

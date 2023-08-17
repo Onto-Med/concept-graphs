@@ -3,9 +3,11 @@ import pathlib
 import sys
 
 from collections import namedtuple, defaultdict
+from typing import Optional, Union
 
 from flask import Flask, jsonify, request
 from flask.logging import default_handler
+from werkzeug.datastructures.file_storage import FileStorage
 
 from preprocessing_util import PreprocessingUtil
 from embedding_util import PhraseEmbeddingUtil
@@ -41,6 +43,8 @@ FILE_STORAGE_TMP = "./tmp"  # ToDo: replace it with proper path in docker
 # ToDo: make sure that no arguments can be supplied via config that won't work
 
 # ToDo: add PATH and QUERY args to README
+
+# ToDo: endpoints with path arguments should throw a response/warning if there is no saved pickle
 
 
 @app.route("/")
@@ -180,8 +184,20 @@ def clustering_with_arg(path_arg):
 @app.route("/graph", methods=['POST', 'GET'])
 def graph_creation():
     app.logger.info("=== Graph creation started ===")
+    exclusion_ids_query = read_exclusion_ids(request.args.get("exclusion_ids", "[]"))
+    # ToDo: files read doesn't work...
+    # exclusion_ids_files = read_exclusion_ids(request.files.get("exclusion_ids", "[]"))
     if request.method in ["POST", "GET"]:
         graph_create = GraphCreationUtil(app, FILE_STORAGE_TMP)
+
+        process_name = read_config(graph_create)
+
+        app.logger.info(f"Start Graph Creation '{process_name}' ...")
+        try:
+            return graph_create.start_graph_creation(process_name, cluster_functions.WordEmbeddingClustering, exclusion_ids_query)
+        except FileNotFoundError:
+            return jsonify(f"There is no processed data for the '{process_name}' process to be embedded.")
+    return jsonify("Nothing to do.")
 
 
 def read_config(processor):
@@ -190,6 +206,18 @@ def read_config(processor):
     app.logger.info(f"Parsed the following arguments for {processor}:\n\t{processor.config}")
     return processor.config.pop("corpus_name", "default")
                                 # request.files.get("data", namedtuple('Corpus', ['name'])("default")).name)
+
+
+def read_exclusion_ids(exclusion: Union[str, FileStorage]):
+    if isinstance(exclusion, str):
+        if exclusion.startswith("[") and exclusion.endswith("]"):
+            try:
+                return [int(i.strip()) for i in exclusion[1:-1].split(",")]
+            except Exception:
+                pass
+    elif isinstance(exclusion, FileStorage):
+        read_exclusion_ids(f"[{exclusion.stream.read().decode()}]")
+    return []
 
 
 def get_data_statistics(data_obj):
