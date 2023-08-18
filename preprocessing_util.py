@@ -26,6 +26,9 @@ class PreprocessingUtil:
                  "label": labels.get(Path(f.filename).stem, None)}
                 for f in zip_archive.filelist if (not f.is_dir()) and (Path(f.filename).suffix.lstrip('.') == extension.lstrip('.'))]
 
+    def set_file_storage_path(self, sub_path):
+        self._file_storage = Path(self._file_storage / sub_path)
+
     def read_data(self, data):
         try:
             archive_path = Path(self._file_storage / data.filename)

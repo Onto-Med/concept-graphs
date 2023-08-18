@@ -32,6 +32,9 @@ class GraphCreationUtil:
                 return jsonify("Encountered error. See log.")
         self.config = base_config
 
+    def set_file_storage_path(self, sub_path):
+        self._file_storage = Path(self._file_storage / sub_path)
+
     def start_graph_creation(self, cache_name, process_factory, exclusion_ids):
         sent_emb = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_embeddings.pickle"))
         cluster_obj = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_clustering.pickle"))

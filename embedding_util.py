@@ -37,6 +37,9 @@ class PhraseEmbeddingUtil:
                 return jsonify("Encountered error. See log.")
         self.config = base_config
 
+    def set_file_storage_path(self, sub_path):
+        self._file_storage = Path(self._file_storage / sub_path)
+
     def start_phrase_embedding(self, cache_name, process_factory):
         config = self.config.copy()
         # default_args = inspect.getfullargspec(process_factory.create)[0]

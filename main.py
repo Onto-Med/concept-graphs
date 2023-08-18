@@ -213,7 +213,10 @@ def read_config(processor):
         if isinstance(v, str) and v.lower() == "none":
             processor.config[k] = None
     app.logger.info(f"Parsed the following arguments for {processor}:\n\t{processor.config}")
-    return processor.config.pop("corpus_name", "default")
+    process_name = processor.config.pop("corpus_name", "default")
+    processor.set_file_storage_path(process_name)
+    processor._file_storage.mkdir()
+    return process_name
 
 
 def read_exclusion_ids(exclusion: Union[str, FileStorage]):
