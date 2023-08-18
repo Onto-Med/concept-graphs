@@ -88,7 +88,7 @@ or
 
 #### HTTP Requests
 ```
-GET http://127.0.0.1:5000/clustering
+GET http://SOME_IP:SOME_PORT/clustering
 Content-Type: multipart/form-data; boundary="boundary"
 
 --boundary
@@ -111,21 +111,21 @@ WIP
 #### HTTP Requests
 ```
 ### POST with config
-POST http://127.0.0.1:5000/graph_creation?exclusion_ids=[COMMA-SEPARATED LIST OF INTEGERS]
+POST http://SOME_IP:SOME_PORT/graph/creation?exclusion_ids=[COMMA-SEPARATED LIST OF INTEGERS]
 Content-Type: multipart/form-data; boundary="boundary"
 
 --boundary
 Content-Disposition: form-data; name="config"; filename="CONFIG.yaml"
 Content-Type: application/x-yaml
 
-< PATH/TO/CONFI>G.yaml
+< PATH/TO/CONFIG.yaml
 --boundary--
 
 ### GET statistics
-GET http://127.0.0.1:5000/graph_creation/statistics
+GET http://SOME_IP:SOME_PORT/graph/statistics
 
 ### GET specific graph
-GET http://127.0.0.1:5000/graph_creation/graph/GRAPH_ID
+GET http://SOME_IP:SOME_PORT/graph/GRAPH_ID
 ```
 
 

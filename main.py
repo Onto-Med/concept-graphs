@@ -182,33 +182,12 @@ def clustering_with_arg(path_arg):
         return get_clustering_concepts(_cluster_gen)
 
 
-@app.route("/graph_creation", methods=['POST', 'GET'])
-def graph_creation():
-    app.logger.info("=== Graph creation started ===")
-    exclusion_ids_query = read_exclusion_ids(request.args.get("exclusion_ids", "[]"))
-    # ToDo: files read doesn't work...
-    # exclusion_ids_files = read_exclusion_ids(request.files.get("exclusion_ids", "[]"))
-    if request.method in ["POST", "GET"]:
-        graph_create = GraphCreationUtil(app, FILE_STORAGE_TMP)
-
-        process_name = read_config(graph_create)
-
-        app.logger.info(f"Start Graph Creation '{process_name}' ...")
-        try:
-            concept_graphs = graph_create.start_graph_creation(process_name, cluster_functions.WordEmbeddingClustering,
-                                                               exclusion_ids_query)
-            return get_graph_statistics(concept_graphs)
-        except FileNotFoundError:
-            return jsonify(f"There is no processed data for the '{process_name}' process to be embedded.")
-    return jsonify("Nothing to do.")
-
-
-@app.route("/graph_creation/<path_arg>", methods=['GET'])
+@app.route("/graph/<path_arg>", methods=['POST', 'GET'])
 def graph_creation_with_arg(path_arg):
     process = request.args.get("process", "default")
     path_arg = path_arg.lower()
 
-    _path_args = ["statistics"]
+    _path_args = ["statistics", "creation"]
     if path_arg in _path_args:
         try:
             graph_list = pickle.load(
@@ -216,30 +195,64 @@ def graph_creation_with_arg(path_arg):
             )
             if path_arg == "statistics":
                 return get_graph_statistics(graph_list)
+            elif path_arg == "creation":
+                app.logger.info("=== Graph creation started ===")
+                exclusion_ids_query = read_exclusion_ids(request.args.get("exclusion_ids", "[]"))
+                # ToDo: files read doesn't work...
+                # exclusion_ids_files = read_exclusion_ids(request.files.get("exclusion_ids", "[]"))
+                if request.method in ["POST", "GET"]:
+                    graph_create = GraphCreationUtil(app, FILE_STORAGE_TMP)
+
+                    process_name = read_config(graph_create)
+
+                    app.logger.info(f"Start Graph Creation '{process_name}' ...")
+                    try:
+                        concept_graphs = graph_create.start_graph_creation(process_name,
+                                                                           cluster_functions.WordEmbeddingClustering,
+                                                                           exclusion_ids_query)
+                        return get_graph_statistics(concept_graphs)
+                    except FileNotFoundError:
+                        return jsonify(f"There is no processed data for the '{process_name}' process to be embedded.")
+                return jsonify("Nothing to do.")
+        except FileNotFoundError:
+            return jsonify(f"There is no graph data present for '{process}'.")
+    elif path_arg.isdigit():
+        graph_nr = int(path_arg)
+        try:
+            graph_list = pickle.load(
+                pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_graphs.pickle").open('rb')
+            )
+            if (len(graph_list) - 1) > graph_nr >= 0:
+                return jsonify({
+                    "adjacency": nx.to_dict_of_dicts(graph_list[graph_nr]),
+                    "nodes": {n: v for n, v in graph_list[graph_nr].nodes(data=True)}
+                })
+            else:
+                return jsonify(f"{graph_nr} is not in range [0, {len(graph_list)}]; no such graph present.")
         except FileNotFoundError:
             return jsonify(f"There is no graph data present for '{process}'.")
     else:
         return jsonify(error=f"No such path argument '{path_arg}' for 'graph' endpoint.",
-                       possible_path_args=[f"/{p}" for p in _path_args])
+                       possible_path_args=[f"/{p}" for p in _path_args]+["any integer"])
 
 
-@app.route("/graph_creation/graph/<graph_nr>", methods=['GET'])
-def graph_request(graph_nr):
-    process = request.args.get("process", "default")
-    graph_nr = int(graph_nr)
-    try:
-        graph_list = pickle.load(
-                pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_graphs.pickle").open('rb')
-            )
-        if (len(graph_list) - 1) > graph_nr >= 0:
-            return jsonify({
-                    "adjacency": nx.to_dict_of_dicts(graph_list[graph_nr]),
-                    "nodes": {n: v for n, v in graph_list[graph_nr].nodes(data=True)}
-                })
-        else:
-            return jsonify(f"{graph_nr} is not in range [0, {len(graph_list)}]; no such graph present.")
-    except FileNotFoundError:
-        return jsonify(f"There is no graph data present for '{process}'.")
+# @app.route("/graph_creation/graph/<graph_nr>", methods=['GET'])
+# def graph_request(graph_nr):
+#     process = request.args.get("process", "default")
+#     graph_nr = int(graph_nr)
+#     try:
+#         graph_list = pickle.load(
+#                 pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_graphs.pickle").open('rb')
+#             )
+#         if (len(graph_list) - 1) > graph_nr >= 0:
+#             return jsonify({
+#                     "adjacency": nx.to_dict_of_dicts(graph_list[graph_nr]),
+#                     "nodes": {n: v for n, v in graph_list[graph_nr].nodes(data=True)}
+#                 })
+#         else:
+#             return jsonify(f"{graph_nr} is not in range [0, {len(graph_list)}]; no such graph present.")
+#     except FileNotFoundError:
+#         return jsonify(f"There is no graph data present for '{process}'.")
 
 
 def read_config(processor):
