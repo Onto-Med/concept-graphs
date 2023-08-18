@@ -36,12 +36,19 @@ class GraphCreationUtil:
         sent_emb = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_embeddings.pickle"))
         cluster_obj = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_clustering.pickle"))
 
+        config = self.config.copy()
+
         concept_graph_clustering = process_factory(
             sentence_embedding_obj=sent_emb,
             cluster_obj=cluster_obj.concept_cluster,
             cluster_exclusion_ids=exclusion_ids
         ).create_concept_graph_clustering()
 
-        concept_graphs = concept_graph_clustering.build_document_concept_matrix(break_after_graph_creation=True)  # ToDo: <- **config as **kwargs
-        with pathlib.Path(self._file_storage / f"{cache_name}_embeddings.pickle").open("wb") as graphs_out:
+        concept_graphs = concept_graph_clustering.build_document_concept_matrix(
+            break_after_graph_creation=True,
+            **config
+        )
+        with pathlib.Path(self._file_storage / f"{cache_name}_graphs.pickle").open("wb") as graphs_out:
             pickle.dump(concept_graphs, graphs_out)
+
+        return concept_graphs

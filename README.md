@@ -105,6 +105,29 @@ Content-Type: application/x-yaml
 ### `/graph`
 WIP
 
+#### curl
+WIP
+
+#### HTTP Requests
+```
+### POST with config
+POST http://127.0.0.1:5000/graph_creation?exclusion_ids=[COMMA-SEPARATED LIST OF INTEGERS]
+Content-Type: multipart/form-data; boundary="boundary"
+
+--boundary
+Content-Disposition: form-data; name="config"; filename="CONFIG.yaml"
+Content-Type: application/x-yaml
+
+< PATH/TO/CONFI>G.yaml
+--boundary--
+
+### GET statistics
+GET http://127.0.0.1:5000/graph_creation/statistics
+
+### GET specific graph
+GET http://127.0.0.1:5000/graph_creation/graph/GRAPH_ID
+```
+
 
 ## Example Config Files (YAML)
 ### `/preprocessing`
@@ -166,5 +189,24 @@ clustering_*
 kelbow_*
 ```
 
-### `/graph`
-WIP
+### `/graph_creation`
+```
+# Name of the corpus; can be chosen freely (but acts as reference point between the different endpoint actions)
+corpus_name: default
+cluster_distance: 0.6
+cluster_min_size: 1
+graph_cosine_weight: .5
+graph_merge_threshold: .95
+# edges where weight is smaller than this value are cut
+graph_weight_cut_off: .5
+graph_unroll: True
+graph_simplify: .5
+graph_simplify_alg: significance
+graph_sub_clustering: False
+graph_distance_cutoff: .5
+connection_distance: 2
+restrict_to_cluster: False
+filter_min_df: 1
+filter_max_df: 1.
+filter_stop: None
+```

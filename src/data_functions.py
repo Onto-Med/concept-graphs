@@ -175,7 +175,7 @@ class DataProcessingFactory:
             self._chunk_boundary = "<chunk-boundary/>"
             self._filter_min_df = filter_min_df
             self._filter_max_df = filter_max_df
-            self._filter_stop = filter_stop
+            self._filter_stop = filter_stop if filter_stop is not None else []
             self._tfidf_filter = None
             self._tfidf_filter_vec = None
             self._process_documents(

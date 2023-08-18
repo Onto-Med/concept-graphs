@@ -1,0 +1,18 @@
+corpus_name: default
+cluster_distance: 0.6
+cluster_min_size: 1
+#cluster_exclusion_ids: None
+graph_cosine_weight: .5
+graph_merge_threshold: .95
+# edges where weight is smaller than this value are cut
+graph_weight_cut_off: .5
+graph_unroll: True
+graph_simplify: .5
+graph_simplify_alg: significance
+graph_sub_clustering: False
+graph_distance_cutoff: .5
+connection_distance: 2
+restrict_to_cluster: False
+filter_min_df: 1
+filter_max_df: 1.
+filter_stop: None

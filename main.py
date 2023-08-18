@@ -1,10 +1,12 @@
 import logging
 import pathlib
+import pickle
 import sys
 
 from collections import namedtuple, defaultdict
 from typing import Optional, Union
 
+import networkx as nx
 from flask import Flask, jsonify, request
 from flask.logging import default_handler
 from werkzeug.datastructures.file_storage import FileStorage
@@ -30,7 +32,6 @@ FILE_STORAGE_TMP = "./tmp"  # ToDo: replace it with proper path in docker
 
 
 # ToDo: file with stopwords will be POSTed: #filter_stop: Optional[list] = None,
-# ToDo: evaluate 'None' values (yaml reader converts it to str) or maybe use boolean values only
 
 # ToDo: I downscale the embeddings twice... (that snuck in somehow); once in SentenceEmbeddings via create(down_scale_algorithm)
 # ToDo: and once PhraseCluster via create(down_scale_algorithm). I can't remember why I added this to SentenceEmbeddings later on...
@@ -93,9 +94,9 @@ def data_preprocessing_with_arg(path_arg):
         return jsonify(error=f"No such path argument '{path_arg}' for 'preprocessing' endpoint.",
                        possible_path_args=[f"/{p}" for p in _path_args])
 
-    if path_arg.lower() == "statistics":
+    if path_arg == "statistics":
         return get_data_statistics(data_obj)
-    elif path_arg.lower() == "noun_chunks":
+    elif path_arg == "noun_chunks":
         return jsonify(
             noun_chunks=data_obj.data_chunk_sets
         )
@@ -130,10 +131,10 @@ def phrase_embedding_with_arg(path_arg):
             pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_embeddings.pickle"),
         )
     else:
-        return jsonify(error=f"No such path argument '{path_arg}' for 'preprocessing' endpoint.",
+        return jsonify(error=f"No such path argument '{path_arg}' for 'embedding' endpoint.",
                        possible_path_args=[f"/{p}" for p in _path_args])
 
-    if path_arg.lower() == "statistics":
+    if path_arg == "statistics":
         return get_embedding_statistics(emb_obj)
 
 
@@ -150,7 +151,7 @@ def phrase_clustering():
             app.logger.info(f"Start phrase clustering '{process_name}' ...")
             try:
                 _cluster_gen = phra_clus.start_clustering(process_name, cluster_functions.PhraseClusterFactory)
-                get_clustering_concepts(_cluster_gen)
+                return get_clustering_concepts(_cluster_gen)
             except FileNotFoundError:
                 return jsonify(f"There is no embedded data for the '{process_name}' process to be clustered.")
         else:
@@ -169,10 +170,10 @@ def clustering_with_arg(path_arg):
             pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_clustering.pickle"),
         )
     else:
-        return jsonify(error=f"No such path argument '{path_arg}' for 'preprocessing' endpoint.",
+        return jsonify(error=f"No such path argument '{path_arg}' for 'clustering' endpoint.",
                        possible_path_args=[f"/{p}" for p in _path_args])
 
-    if path_arg.lower() == "concepts":
+    if path_arg == "concepts":
         emb_obj = util_functions.load_pickle(pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_embeddings.pickle"))
         _cluster_gen = embedding_functions.show_top_k_for_concepts(
             cluster_obj=cluster_obj.concept_cluster, embedding_object=emb_obj, yield_concepts=True,
@@ -181,7 +182,7 @@ def clustering_with_arg(path_arg):
         return get_clustering_concepts(_cluster_gen)
 
 
-@app.route("/graph", methods=['POST', 'GET'])
+@app.route("/graph_creation", methods=['POST', 'GET'])
 def graph_creation():
     app.logger.info("=== Graph creation started ===")
     exclusion_ids_query = read_exclusion_ids(request.args.get("exclusion_ids", "[]"))
@@ -194,18 +195,62 @@ def graph_creation():
 
         app.logger.info(f"Start Graph Creation '{process_name}' ...")
         try:
-            return graph_create.start_graph_creation(process_name, cluster_functions.WordEmbeddingClustering, exclusion_ids_query)
+            concept_graphs = graph_create.start_graph_creation(process_name, cluster_functions.WordEmbeddingClustering,
+                                                               exclusion_ids_query)
+            return get_graph_statistics(concept_graphs)
         except FileNotFoundError:
             return jsonify(f"There is no processed data for the '{process_name}' process to be embedded.")
     return jsonify("Nothing to do.")
 
 
+@app.route("/graph_creation/<path_arg>", methods=['GET'])
+def graph_creation_with_arg(path_arg):
+    process = request.args.get("process", "default")
+    path_arg = path_arg.lower()
+
+    _path_args = ["statistics"]
+    if path_arg in _path_args:
+        try:
+            graph_list = pickle.load(
+                pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_graphs.pickle").open('rb')
+            )
+            if path_arg == "statistics":
+                return get_graph_statistics(graph_list)
+        except FileNotFoundError:
+            return jsonify(f"There is no graph data present for '{process}'.")
+    else:
+        return jsonify(error=f"No such path argument '{path_arg}' for 'graph' endpoint.",
+                       possible_path_args=[f"/{p}" for p in _path_args])
+
+
+@app.route("/graph_creation/graph/<graph_nr>", methods=['GET'])
+def graph_request(graph_nr):
+    process = request.args.get("process", "default")
+    graph_nr = int(graph_nr)
+    try:
+        graph_list = pickle.load(
+                pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_graphs.pickle").open('rb')
+            )
+        if (len(graph_list) - 1) > graph_nr >= 0:
+            return jsonify({
+                    "adjacency": nx.to_dict_of_dicts(graph_list[graph_nr]),
+                    "nodes": {n: v for n, v in graph_list[graph_nr].nodes(data=True)}
+                })
+        else:
+            return jsonify(f"{graph_nr} is not in range [0, {len(graph_list)}]; no such graph present.")
+    except FileNotFoundError:
+        return jsonify(f"There is no graph data present for '{process}'.")
+
+
 def read_config(processor):
     app.logger.info("Reading config ...")
     processor.read_config(request.files.get("config", None))
+    # pyyaml doesn't handle 'None' so we need to convert them
+    for k, v in processor.config.items():
+        if isinstance(v, str) and v.lower() == "none":
+            processor.config[k] = None
     app.logger.info(f"Parsed the following arguments for {processor}:\n\t{processor.config}")
     return processor.config.pop("corpus_name", "default")
-                                # request.files.get("data", namedtuple('Corpus', ['name'])("default")).name)
 
 
 def read_exclusion_ids(exclusion: Union[str, FileStorage]):
@@ -240,6 +285,15 @@ def get_clustering_concepts(cluster_gen):
     for c_id, _, text in cluster_gen:
         _cluster_dict[f"concept-{c_id}"].append(text)
     return jsonify(**_cluster_dict)
+
+
+def get_graph_statistics(concept_graphs):
+    return_dict = defaultdict(dict)
+    for i, cg in enumerate(concept_graphs):
+        return_dict[f"concept_graph_{i}"]["edges"] = len(cg.edges)
+        return_dict[f"concept_graph_{i}"]["nodes"] = len(cg.nodes)
+    return_dict.update({"number_of_graphs": len(return_dict)})
+    return jsonify(**return_dict)
 
 
 # ToDo: set debug=False

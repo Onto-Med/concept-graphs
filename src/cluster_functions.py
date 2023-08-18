@@ -517,6 +517,7 @@ class WordEmbeddingClustering:
                     self._data_proc.tfidf_filter.get_params().get("stop_words", -1) != filter_stop)) or (
                     self._data_proc.tfidf_filter is None and (
                     filter_min_df != 1 or filter_max_df != 1. or filter_stop is not None)):
+                filter_stop = filter_stop if filter_stop is not None else []
                 logging.info(
                     f"Resetting tfidf filter with min_df: {filter_min_df}, max_df: {filter_max_df}, stopwords: {filter_stop}")
                 self._data_proc.reset_filter(filter_min_df=filter_min_df, filter_max_df=filter_max_df,
@@ -539,6 +540,13 @@ class WordEmbeddingClustering:
                                                graph_sub_clustering=True if isinstance(graph_sub_clustering,
                                                                                        float) else False)
             if break_after_graph_creation:
+                # !unnecessary!
+                # for _cg in _concept_graphs:
+                #     _label_dict = {}
+                #     for _chunk in _cg.nodes:
+                #         _label = self._data_proc.data_chunk_sets[int(_chunk)]['text']
+                #         _label_dict[int(_chunk)] = {"label": _label}
+                #     nx.set_node_attributes(_cg, _label_dict)
                 return _concept_graphs
 
             self._document_concept_matrix = np.zeros((self._data_proc.documents_n, len(_concept_graphs)))
