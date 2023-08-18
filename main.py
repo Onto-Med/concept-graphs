@@ -3,8 +3,8 @@ import pathlib
 import pickle
 import sys
 
-from collections import namedtuple, defaultdict
-from typing import Optional, Union
+from collections import defaultdict
+from typing import Union
 
 import networkx as nx
 from flask import Flask, jsonify, request
@@ -36,8 +36,6 @@ FILE_STORAGE_TMP = "./tmp"  # ToDo: replace it with proper path in docker
 # ToDo: I downscale the embeddings twice... (that snuck in somehow); once in SentenceEmbeddings via create(down_scale_algorithm)
 # ToDo: and once PhraseCluster via create(down_scale_algorithm). I can't remember why I added this to SentenceEmbeddings later on...
 # ToDo: but I should make sure, that there is a check somewhere that the down scaling is not applied twice!
-
-# ToDo: replace `jsonify` output with something more meaningful
 
 # ToDo: uncommented sknet in cluster_functions (otherwise I could not debug)
 
@@ -71,7 +69,7 @@ def data_preprocessing():
         app.logger.info(f"Counted {len(pre_proc.data)} item ins zip file.")
 
         app.logger.info(f"Start preprocessing '{process_name}' ...")
-        return get_data_statistics(pre_proc.start_preprocessing(process_name, data_functions.DataProcessingFactory))
+        return data_get_statistics(pre_proc.start_preprocessing(process_name, data_functions.DataProcessingFactory))
 
     elif len(request.files) <= 0 or "data" not in request.files:
         app.logger.error("There were no files at all or no data files POSTed."
@@ -95,7 +93,7 @@ def data_preprocessing_with_arg(path_arg):
                        possible_path_args=[f"/{p}" for p in _path_args])
 
     if path_arg == "statistics":
-        return get_data_statistics(data_obj)
+        return data_get_statistics(data_obj)
     elif path_arg == "noun_chunks":
         return jsonify(
             noun_chunks=data_obj.data_chunk_sets
@@ -112,7 +110,7 @@ def phrase_embedding():
 
         app.logger.info(f"Start phrase embedding '{process_name}' ...")
         try:
-            return get_embedding_statistics(
+            return embedding_get_statistics(
                 phra_emb.start_phrase_embedding(process_name, embedding_functions.SentenceEmbeddingsFactory))
         except FileNotFoundError:
             return jsonify(f"There is no processed data for the '{process_name}' process to be embedded.")
@@ -135,7 +133,7 @@ def phrase_embedding_with_arg(path_arg):
                        possible_path_args=[f"/{p}" for p in _path_args])
 
     if path_arg == "statistics":
-        return get_embedding_statistics(emb_obj)
+        return embedding_get_statistics(emb_obj)
 
 
 @app.route("/clustering", methods=['POST', 'GET'])
@@ -151,7 +149,7 @@ def phrase_clustering():
             app.logger.info(f"Start phrase clustering '{process_name}' ...")
             try:
                 _cluster_gen = phra_clus.start_clustering(process_name, cluster_functions.PhraseClusterFactory)
-                return get_clustering_concepts(_cluster_gen)
+                return clustering_get_concepts(_cluster_gen)
             except FileNotFoundError:
                 return jsonify(f"There is no embedded data for the '{process_name}' process to be clustered.")
         else:
@@ -179,7 +177,7 @@ def clustering_with_arg(path_arg):
             cluster_obj=cluster_obj.concept_cluster, embedding_object=emb_obj, yield_concepts=True,
             top_k=int(request.args.get("top_k", 15)), distance=float(request.args.get("distance", .6))
         )
-        return get_clustering_concepts(_cluster_gen)
+        return clustering_get_concepts(_cluster_gen)
 
 
 @app.route("/graph/<path_arg>", methods=['POST', 'GET'])
@@ -194,65 +192,17 @@ def graph_creation_with_arg(path_arg):
                 pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_graphs.pickle").open('rb')
             )
             if path_arg == "statistics":
-                return get_graph_statistics(graph_list)
+                return graph_get_statistics(graph_list)
             elif path_arg == "creation":
-                app.logger.info("=== Graph creation started ===")
-                exclusion_ids_query = read_exclusion_ids(request.args.get("exclusion_ids", "[]"))
-                # ToDo: files read doesn't work...
-                # exclusion_ids_files = read_exclusion_ids(request.files.get("exclusion_ids", "[]"))
-                if request.method in ["POST", "GET"]:
-                    graph_create = GraphCreationUtil(app, FILE_STORAGE_TMP)
-
-                    process_name = read_config(graph_create)
-
-                    app.logger.info(f"Start Graph Creation '{process_name}' ...")
-                    try:
-                        concept_graphs = graph_create.start_graph_creation(process_name,
-                                                                           cluster_functions.WordEmbeddingClustering,
-                                                                           exclusion_ids_query)
-                        return get_graph_statistics(concept_graphs)
-                    except FileNotFoundError:
-                        return jsonify(f"There is no processed data for the '{process_name}' process to be embedded.")
-                return jsonify("Nothing to do.")
+                return graph_create()
         except FileNotFoundError:
             return jsonify(f"There is no graph data present for '{process}'.")
     elif path_arg.isdigit():
         graph_nr = int(path_arg)
-        try:
-            graph_list = pickle.load(
-                pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_graphs.pickle").open('rb')
-            )
-            if (len(graph_list) - 1) > graph_nr >= 0:
-                return jsonify({
-                    "adjacency": nx.to_dict_of_dicts(graph_list[graph_nr]),
-                    "nodes": {n: v for n, v in graph_list[graph_nr].nodes(data=True)}
-                })
-            else:
-                return jsonify(f"{graph_nr} is not in range [0, {len(graph_list)}]; no such graph present.")
-        except FileNotFoundError:
-            return jsonify(f"There is no graph data present for '{process}'.")
+        return graph_get_specific(process, graph_nr)
     else:
         return jsonify(error=f"No such path argument '{path_arg}' for 'graph' endpoint.",
                        possible_path_args=[f"/{p}" for p in _path_args]+["any integer"])
-
-
-# @app.route("/graph_creation/graph/<graph_nr>", methods=['GET'])
-# def graph_request(graph_nr):
-#     process = request.args.get("process", "default")
-#     graph_nr = int(graph_nr)
-#     try:
-#         graph_list = pickle.load(
-#                 pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_graphs.pickle").open('rb')
-#             )
-#         if (len(graph_list) - 1) > graph_nr >= 0:
-#             return jsonify({
-#                     "adjacency": nx.to_dict_of_dicts(graph_list[graph_nr]),
-#                     "nodes": {n: v for n, v in graph_list[graph_nr].nodes(data=True)}
-#                 })
-#         else:
-#             return jsonify(f"{graph_nr} is not in range [0, {len(graph_list)}]; no such graph present.")
-#     except FileNotFoundError:
-#         return jsonify(f"There is no graph data present for '{process}'.")
 
 
 def read_config(processor):
@@ -278,7 +228,7 @@ def read_exclusion_ids(exclusion: Union[str, FileStorage]):
     return []
 
 
-def get_data_statistics(data_obj):
+def data_get_statistics(data_obj):
     return jsonify(
         number_of_documents=data_obj.documents_n,
         number_of_data_chunks=data_obj.chunk_sets_n,
@@ -286,27 +236,64 @@ def get_data_statistics(data_obj):
     )
 
 
-def get_embedding_statistics(emb_obj):
+def embedding_get_statistics(emb_obj):
     return jsonify(
         number_of_embeddings=emb_obj.sentence_embeddings.shape[0],
         embedding_dim=emb_obj.embedding_dim
     )
 
 
-def get_clustering_concepts(cluster_gen):
+def clustering_get_concepts(cluster_gen):
     _cluster_dict = defaultdict(list)
     for c_id, _, text in cluster_gen:
         _cluster_dict[f"concept-{c_id}"].append(text)
     return jsonify(**_cluster_dict)
 
 
-def get_graph_statistics(concept_graphs):
+def graph_get_statistics(concept_graphs):
     return_dict = defaultdict(dict)
     for i, cg in enumerate(concept_graphs):
         return_dict[f"concept_graph_{i}"]["edges"] = len(cg.edges)
         return_dict[f"concept_graph_{i}"]["nodes"] = len(cg.nodes)
     return_dict.update({"number_of_graphs": len(return_dict)})
     return jsonify(**return_dict)
+
+
+def graph_get_specific(process, graph_nr):
+    try:
+        graph_list = pickle.load(
+            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_graphs.pickle").open('rb')
+        )
+        if (len(graph_list) - 1) > graph_nr >= 0:
+            return jsonify({
+                "adjacency": nx.to_dict_of_dicts(graph_list[graph_nr]),
+                "nodes": {n: v for n, v in graph_list[graph_nr].nodes(data=True)}
+            })
+        else:
+            return jsonify(f"{graph_nr} is not in range [0, {len(graph_list)}]; no such graph present.")
+    except FileNotFoundError:
+        return jsonify(f"There is no graph data present for '{process}'.")
+
+
+def graph_create():
+    app.logger.info("=== Graph creation started ===")
+    exclusion_ids_query = read_exclusion_ids(request.args.get("exclusion_ids", "[]"))
+    # ToDo: files read doesn't work...
+    # exclusion_ids_files = read_exclusion_ids(request.files.get("exclusion_ids", "[]"))
+    if request.method in ["POST", "GET"]:
+        graph_create = GraphCreationUtil(app, FILE_STORAGE_TMP)
+
+        process_name = read_config(graph_create)
+
+        app.logger.info(f"Start Graph Creation '{process_name}' ...")
+        try:
+            concept_graphs = graph_create.start_graph_creation(process_name,
+                                                               cluster_functions.WordEmbeddingClustering,
+                                                               exclusion_ids_query)
+            return graph_get_statistics(concept_graphs)
+        except FileNotFoundError:
+            return jsonify(f"There is no processed data for the '{process_name}' process to be embedded.")
+    return jsonify("Nothing to do.")
 
 
 # ToDo: set debug=False

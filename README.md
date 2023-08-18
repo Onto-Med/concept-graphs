@@ -1,6 +1,6 @@
 # Concept Graphs
+This is the implementation as described in [1].
 WARNING: doesn't work for small number of phrases. You need a document corpus with at least 100 (?) different phrases  
-still WIP: one more endpoint needs to be implemented (the `src` and `DockerImage` creation, however, is already fully functional).
 
 ## Docker Image
 1. `docker image build -t concept-graphs-api .` (the resulting image is appr. 12GB)
@@ -12,6 +12,7 @@ However, they are serialized as Python Objects and need to be loaded with:
 1. processed documents: `src/data_functions/DataProcessingFactory.load(PATH/TO/DOCUMENT_OBJECT)`
 2. phrase embeddings: `src/embedding_functions/SentenceEmbeddingsFactory.load(PATH/TO/DOCUMENT_OBJECT, PATH/TO/EMBEDDING_OBJECT)`
 3. phrase cluster: `src/cluster_functions/PhraseClusterFactory.load(PATH/TO/CLUSTER_OBJECT)`
+4. concept graphs: these are a list of serialized networkx [2] graphs
 
 ## Endpoints
 ### `/preprocessing`
@@ -103,15 +104,17 @@ Content-Type: application/x-yaml
 
 
 ### `/graph`
-WIP
+create graph representations for each phrase cluster that was found during the 'clustering' step 
 
 #### curl
-WIP
+`curl -X GET http://SOME_IP:SOME_PORT/graph/creation`  
+or  
+`curl -X POST -F config=@"PATH/TO/CONFIG.yaml" http://SOME_IP:SOME_PORT/graph/creation`  
 
 #### HTTP Requests
 ```
 ### POST with config
-POST http://SOME_IP:SOME_PORT/graph/creation?exclusion_ids=[COMMA-SEPARATED LIST OF INTEGERS]
+POST http://SOME_IP:SOME_PORT/graph/creation?exclusion_ids=[COMMA-SEPERATED LIST OF INTEGERS]
 Content-Type: multipart/form-data; boundary="boundary"
 
 --boundary
@@ -127,6 +130,8 @@ GET http://SOME_IP:SOME_PORT/graph/statistics
 ### GET specific graph
 GET http://SOME_IP:SOME_PORT/graph/GRAPH_ID
 ```
+
+* `config` (optional): configuration for the clustering step provided as yaml file (if not provided, default values will be used)
 
 
 ## Example Config Files (YAML)
@@ -189,24 +194,37 @@ clustering_*
 kelbow_*
 ```
 
-### `/graph_creation`
+### `/graph/creation`
 ```
 # Name of the corpus; can be chosen freely (but acts as reference point between the different endpoint actions)
 corpus_name: default
+# Phrases that are farther away (in cosinus) from the cluster center than this won't be used for graph creation
 cluster_distance: 0.6
+# A cluster needs to have at least this many phrases or else the whole cluster will be skipped
 cluster_min_size: 1
+# How important should the cosinus distance be when connecting phrases 
 graph_cosine_weight: .5
+# At which weight threshold between two phrase they will be merged into one
 graph_merge_threshold: .95
-# edges where weight is smaller than this value are cut
+# Edges where the weight is smaller than this value are cut
 graph_weight_cut_off: .5
+# Whether the graph will be transformed to treelike (each node has max one incoming and one outgoing edge) 
 graph_unroll: True
+# What proportion of edges shall be trimmed
 graph_simplify: .5
+# Shall the importance of an edge (when trimming) be measured by 'weight' or by 'significance' [3]
 graph_simplify_alg: significance
+# If true, sub clusters in a cluster will be formed that might be used downstream
 graph_sub_clustering: False
-graph_distance_cutoff: .5
-connection_distance: 2
-restrict_to_cluster: False
+# Whether phrases adhere strictly to their assigned cluster even if they might be nearer to another cluster center
+restrict_to_cluster: True
+# (Deprecated?)
 filter_min_df: 1
 filter_max_df: 1.
 filter_stop: None
 ```
+
+## References
+**[1]** Matthies, F et al. *Concept Graphs: A Novel Approach for Textual Analysis of Medical Documents.* (accepted)  
+**[2]** https://networkx.org/  
+**[3]** Dianati N. *Unwinding the hairball graph: Pruning algorithms for weighted complex networks.* Phys Rev E [Internet]. 2016;93(1). Available from: https://link.aps.org/doi/10.1103/PhysRevE.93.012304  

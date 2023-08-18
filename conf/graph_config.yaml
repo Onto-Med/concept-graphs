@@ -1,18 +1,22 @@
+# Name of the corpus; can be chosen freely (but acts as reference point between the different endpoint actions)
 corpus_name: default
+# Phrases that are farther away (in cosinus) from the cluster center than this won't be used for graph creation
 cluster_distance: 0.6
+# A cluster needs to have at least this many phrases or else the whole cluster will be skipped
 cluster_min_size: 1
-#cluster_exclusion_ids: None
+# How important should the cosinus distance be when connecting phrases
 graph_cosine_weight: .5
+# At which weight threshold between two phrase they will be merged into one
 graph_merge_threshold: .95
-# edges where weight is smaller than this value are cut
+# Edges where the weight is smaller than this value are cut
 graph_weight_cut_off: .5
+# Whether the graph will be transformed to treelike (each node has max one incoming and one outgoing edge)
 graph_unroll: True
+# What proportion of edges shall be trimmed
 graph_simplify: .5
+# Shall the importance of an edge (when trimming) be measured by 'weight' or by 'significance' [1]
 graph_simplify_alg: significance
+# If true, sub clusters in a cluster will be formed that might be used downstream
 graph_sub_clustering: False
-graph_distance_cutoff: .5
-connection_distance: 2
-restrict_to_cluster: False
-filter_min_df: 1
-filter_max_df: 1.
-filter_stop: None
+# Whether phrases adhere strictly to their assigned cluster even if they might be nearer to another cluster center
+restrict_to_cluster: True
