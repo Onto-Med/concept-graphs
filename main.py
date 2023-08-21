@@ -69,7 +69,7 @@ def data_preprocessing():
         app.logger.info(f"Counted {len(pre_proc.data)} item ins zip file.")
 
         app.logger.info(f"Start preprocessing '{process_name}' ...")
-        return data_get_statistics(pre_proc.start_preprocessing(process_name, data_functions.DataProcessingFactory))
+        return data_get_statistics(pre_proc.start_process(process_name, data_functions.DataProcessingFactory))
 
     elif len(request.files) <= 0 or "data" not in request.files:
         app.logger.error("There were no files at all or no data files POSTed."
@@ -111,7 +111,7 @@ def phrase_embedding():
         app.logger.info(f"Start phrase embedding '{process_name}' ...")
         try:
             return embedding_get_statistics(
-                phra_emb.start_phrase_embedding(process_name, embedding_functions.SentenceEmbeddingsFactory))
+                phra_emb.start_process(process_name, embedding_functions.SentenceEmbeddingsFactory))
         except FileNotFoundError:
             return jsonify(f"There is no processed data for the '{process_name}' process to be embedded.")
     return jsonify("Nothing to do.")
@@ -148,7 +148,7 @@ def phrase_clustering():
 
             app.logger.info(f"Start phrase clustering '{process_name}' ...")
             try:
-                _cluster_gen = phra_clus.start_clustering(process_name, cluster_functions.PhraseClusterFactory)
+                _cluster_gen = phra_clus.start_process(process_name, cluster_functions.PhraseClusterFactory)
                 return clustering_get_concepts(_cluster_gen)
             except FileNotFoundError:
                 return jsonify(f"There is no embedded data for the '{process_name}' process to be clustered.")
@@ -188,11 +188,8 @@ def graph_creation_with_arg(path_arg):
     _path_args = ["statistics", "creation"]
     if path_arg in _path_args:
         try:
-            graph_list = pickle.load(
-                pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_graphs.pickle").open('rb')
-            )
             if path_arg == "statistics":
-                return graph_get_statistics(graph_list)
+                return graph_get_statistics(process)
             elif path_arg == "creation":
                 return graph_create()
         except FileNotFoundError:
@@ -205,17 +202,58 @@ def graph_creation_with_arg(path_arg):
                        possible_path_args=[f"/{p}" for p in _path_args]+["any integer"])
 
 
-def read_config(processor):
+@app.route("/pipeline", methods=['POST'])
+def complete_pipeline():
+    process = request.args.get("process", "default")
+    app.logger.info(f"Using process name '{process}'")
+    language = {"en": "en", "de": "de"}.get(request.args.get("lang", "en"), "en")
+    app.logger.info(f"Using preset language settings for '{language}'")
+    skip_present = request.args.get("skip_present", True)
+    if isinstance(skip_present, str):
+        skip_present = {"true": True, "false": False}.get(skip_present.lower(), True)
+    if skip_present:
+        app.logger.info("Skipping present saved steps")
+
+    data = request.files.get("data", False)
+    if not data:
+        return jsonify("No data provided with 'data' key")
+    labels = request.files.get("labels", None)
+
+    processes = [
+        ("data", PreprocessingUtil, request.files.get("data_config", None), data_functions.DataProcessingFactory, ),
+        ("embedding", PhraseEmbeddingUtil, request.files.get("embedding_config", None), embedding_functions.SentenceEmbeddingsFactory, ),
+        ("clustering", ClusteringUtil, request.files.get("clustering_config", None), cluster_functions.PhraseClusterFactory, ),
+        ("graph", GraphCreationUtil, request.files.get("graph_config", None), cluster_functions.WordEmbeddingClustering, )
+    ]
+
+    for _name, _proc, _conf, _fact in processes:
+        process_obj = _proc(app=app, file_storage=FILE_STORAGE_TMP)
+        process_obj.set_file_storage_path(process)
+        if process_obj.has_pickle(process) and skip_present:
+            continue
+        read_config(processor=process_obj, process_name=process, config=_conf, step=_name, language=language)
+        if _name == "data":
+            process_obj.read_labels(labels)
+            process_obj.read_data(data)
+        process_obj.start_process(cache_name=process, process_factory=_fact)
+
+    return graph_get_statistics(process)
+
+
+def read_config(processor, process_name=None, config=None, step=None, language=None):
     app.logger.info("Reading config ...")
-    processor.read_config(request.files.get("config", None))
+    processor.read_config(config=config if config is not None else request.files.get("config", None),
+                          process_name=process_name,
+                          language=None if step not in ["data", "embedding"] else language)
     # pyyaml doesn't handle 'None' so we need to convert them
     for k, v in processor.config.items():
         if isinstance(v, str) and v.lower() == "none":
             processor.config[k] = None
     app.logger.info(f"Parsed the following arguments for {processor}:\n\t{processor.config}")
-    process_name = processor.config.pop("corpus_name", "default")
-    processor.set_file_storage_path(process_name)
-    processor._file_storage.mkdir()
+    process_name_conf = processor.config.pop("corpus_name", "default")
+    if process_name is None:
+        process_name = process_name_conf
+        processor.set_file_storage_path(process_name)
     return process_name
 
 
@@ -253,9 +291,12 @@ def clustering_get_concepts(cluster_gen):
     return jsonify(**_cluster_dict)
 
 
-def graph_get_statistics(concept_graphs):
+def graph_get_statistics(process):
+    graph_list = pickle.load(
+        pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(f"{process}") / f"{process}_graphs.pickle").open('rb')
+    )
     return_dict = defaultdict(dict)
-    for i, cg in enumerate(concept_graphs):
+    for i, cg in enumerate(graph_list):
         return_dict[f"concept_graph_{i}"]["edges"] = len(cg.edges)
         return_dict[f"concept_graph_{i}"]["nodes"] = len(cg.nodes)
     return_dict.update({"number_of_graphs": len(return_dict)})
@@ -265,7 +306,7 @@ def graph_get_statistics(concept_graphs):
 def graph_get_specific(process, graph_nr):
     try:
         graph_list = pickle.load(
-            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_graphs.pickle").open('rb')
+            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(f"{process}") / f"{process}_graphs.pickle").open('rb')
         )
         if (len(graph_list) - 1) > graph_nr >= 0:
             return jsonify({
@@ -290,9 +331,9 @@ def graph_create():
 
         app.logger.info(f"Start Graph Creation '{process_name}' ...")
         try:
-            concept_graphs = graph_create.start_graph_creation(process_name,
-                                                               cluster_functions.WordEmbeddingClustering,
-                                                               exclusion_ids_query)
+            concept_graphs = graph_create.start_process(process_name,
+                                                        cluster_functions.WordEmbeddingClustering,
+                                                        exclusion_ids_query)
             return graph_get_statistics(concept_graphs)
         except FileNotFoundError:
             return jsonify(f"There is no processed data for the '{process_name}' process to be embedded.")

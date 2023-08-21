@@ -104,7 +104,8 @@ Content-Type: application/x-yaml
 
 
 ### `/graph`
-create graph representations for each phrase cluster that was found during the 'clustering' step 
+create graph representations for each phrase cluster that was found during the 'clustering' step.  
+you get a response with all graphs found and their respective edge/node count. To get a specific graph's adjacency matrix use its id as path argument (the id is just the number given in the formerly mentioned response). 
 
 #### curl
 `curl -X GET http://SOME_IP:SOME_PORT/graph/creation`  
@@ -132,6 +133,57 @@ GET http://SOME_IP:SOME_PORT/graph/GRAPH_ID
 ```
 
 * `config` (optional): configuration for the clustering step provided as yaml file (if not provided, default values will be used)
+
+
+### `/pipeline`
+starts a complete pipeline with all 4 sub steps.
+It takes three query arguments
+* `process`: overrides the `corpus_name` given in the config
+* `lang` (`de` or `en`): if declared here and no model provided in `config`, will use default language specific models for `preprocessing` and `clustering` (default: en)
+* `skip_present`: true or false - whether to skip already saved steps for this particular process name (default: true)
+
+``data``, ``labels`` and ``configs`` need to be provided like in the base endpoints except for the configs need to be specified accordingly:
+* ``preprocessing``: ``config`` -> ``data_config``
+* ``embedding``: ``config`` -> ``embedding_config``
+* ``clustering``: ``config`` -> ``clustering_config``
+* ``graph``: ``config`` -> ``graph_config``
+
+(see example below)
+
+
+#### HTTP Requests
+```
+POST http://SOME_IP:SOME_PORT/pipeline?process=default&lang=en&skip_present=true
+Content-Type: multipart/form-data; boundary="boundary"
+
+--boundary
+Content-Disposition: form-data; name="data"; filename="DATA.zip"
+Content-Type: application/zip
+
+< PATH/TO/DATA.zip
+
+--boundary
+Content-Disposition: form-data; name="data_config"; filename="DATA_CONFIG.yaml"
+Content-Type: application/x-yaml
+
+< PATH/TO/DATA/CONFIG.yaml
+--boundary
+Content-Disposition: form-data; name="embedding_config"; filename="EMBEDDING_CONFIG.yaml"
+Content-Type: application/x-yaml
+
+< PATH/TO/EMBEDDING/CONFIG.yaml
+--boundary
+Content-Disposition: form-data; name="clustering_config"; filename="CLUSTERING_CONFIG.yaml"
+Content-Type: application/x-yaml
+
+< PATH/TO/CLUSTERING/CONFIG.yaml
+--boundary
+Content-Disposition: form-data; name="graph_config"; filename="GRAPH_CONFIG.yaml"
+Content-Type: application/x-yaml
+
+< PATH/TO/GRAPH/CONFIG.yaml
+--boundary--
+```
 
 
 ## Example Config Files (YAML)

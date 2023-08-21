@@ -28,6 +28,12 @@ class PreprocessingUtil:
 
     def set_file_storage_path(self, sub_path):
         self._file_storage = Path(self._file_storage / sub_path)
+        self._file_storage.mkdir(exist_ok=True)  # ToDo: warning when folder exists
+
+    def has_pickle(self, process):
+        _step = "data-processed"
+        _pickle = Path(self._file_storage / f"{process}_{_step}.pickle")
+        return _pickle.exists()
 
     def read_data(self, data):
         try:
@@ -38,19 +44,25 @@ class PreprocessingUtil:
         except Exception as e:
             self._app.logger.error(f"Something went wrong with data file reading: {e}")
 
-    def read_config(self, config):
+    def read_config(self, config, process_name=None, language=None):
         base_config = {'spacy_model': DEFAULT_SPACY_MODEL, 'file_encoding': 'utf-8'}
         if config is None:
             self._app.logger.info("No config file provided; using default values")
         else:
             try:
                 base_config = yaml.safe_load(config.stream)
-                with Path(Path(self._file_storage) / base_config.get("corpus_name", "default") / "_config.yaml"
-                          ).open('w') as config_save:
-                    yaml.safe_dump(base_config, config_save)
             except Exception as e:
                 self._app.logger.error(f"Couldn't read config file: {e}")
+        if language is not None and not base_config.get("spacy_model", False):
+            base_config["spacy_model"] = {"en": DEFAULT_SPACY_MODEL, "de": "de_dep_news_trf"}.get(language, DEFAULT_SPACY_MODEL)
+
         self.config = base_config
+        if process_name is not None:
+            base_config["corpus_name"] = process_name
+        sub_path = base_config.get('corpus_name', 'default')
+        with Path(Path(self._file_storage) / f"{sub_path}_preprocessing_config.yaml"
+                  ).open('w') as config_save:
+            yaml.safe_dump(base_config, config_save)
 
     def read_labels(self, labels):
         base_labels = {}
@@ -63,7 +75,7 @@ class PreprocessingUtil:
                 self._app.logger.error(f"Couldn't read labels file: {e}")
         self.labels = base_labels
 
-    def start_preprocessing(self, cache_name, process_factory):
+    def start_process(self, cache_name, process_factory):
         config = self.config.copy()
         default_args = inspect.getfullargspec(process_factory.create)[0]
         spacy_language = spacy.load(config.pop("spacy_model", DEFAULT_SPACY_MODEL))

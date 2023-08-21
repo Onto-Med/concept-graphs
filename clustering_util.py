@@ -19,7 +19,7 @@ class ClusteringUtil:
         self._file_storage = Path(file_storage)
         self.config = None
 
-    def read_config(self, config):
+    def read_config(self, config, process_name=None, language=None):
         base_config = {"algorithm": "kmeans", "downscale": "umap", "scaling_n_neighbors": 10, "scaling_min_dist": 0.1,
                        "scaling_n_components": 100, "scaling_metric": 'euclidean', "scaling_random_state": 42,
                        "kelbow_k": (10, 100), "kelbow_show": False}
@@ -33,18 +33,27 @@ class ClusteringUtil:
                         if k not in _config:
                             _config[k] = v
                 base_config = _config
-                with Path(Path(self._file_storage) / base_config.get("corpus_name", "default") / "_config.yaml"
-                          ).open('w') as config_save:
-                    yaml.safe_dump(base_config, config_save)
             except Exception as e:
                 self._app.logger.error(f"Couldn't read config file: {e}")
                 return jsonify("Encountered error. See log.")
         self.config = base_config
+        if process_name is not None:
+            base_config["corpus_name"] = process_name
+        sub_path = base_config.get('corpus_name', 'default')
+        with Path(Path(self._file_storage) / f"{sub_path}_clustering_config.yaml"
+                  ).open('w') as config_save:
+            yaml.safe_dump(base_config, config_save)
 
     def set_file_storage_path(self, sub_path):
         self._file_storage = Path(self._file_storage / sub_path)
+        self._file_storage.mkdir(exist_ok=True)  # ToDo: warning when folder exists
 
-    def start_clustering(self, cache_name, process_factory):
+    def has_pickle(self, process):
+        _step = "clustering"
+        _pickle = Path(self._file_storage / f"{process}_{_step}.pickle")
+        return _pickle.exists()
+
+    def start_process(self, cache_name, process_factory):
         config = self.config.copy()
         # default_args = inspect.getfullargspec(process_factory.create)[0]
         algorithm = config.pop("algorithm", "kmeans")

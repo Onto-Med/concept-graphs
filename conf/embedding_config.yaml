@@ -1,5 +1,5 @@
 # Name of the corpus; can be chosen freely (but acts as reference point between the different endpoint actions)
-corpus_name: bronco
+corpus_name: default
 # (for German: Sahajtomar/German-semantic; English: sentence-transformers/paraphrase-albert-small-v2)
 model: Sahajtomar/German-semantic
 # Number of processes that will be spawned (how many cores will be utilized)
