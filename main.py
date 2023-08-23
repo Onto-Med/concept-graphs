@@ -300,7 +300,10 @@ def graph_get_statistics(process):
         return_dict[f"concept_graph_{i}"]["edges"] = len(cg.edges)
         return_dict[f"concept_graph_{i}"]["nodes"] = len(cg.nodes)
     return_dict.update({"number_of_graphs": len(return_dict)})
-    return jsonify(**return_dict)
+    response = ["To get a specific graph (its nodes (with labels) and edges (with weight) as an adjacency list)"
+                "use the endpoint '/graph/GRAPH-ID', where GRAPH-ID can be gleaned by 'concept_graph_GRAPH-ID",
+                return_dict]
+    return jsonify(response)
 
 
 def graph_get_specific(process, graph_nr):
