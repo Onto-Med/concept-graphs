@@ -68,7 +68,7 @@ RUN git clone https://github.com/Onto-Med/concept-graphs
 
 # Install ML, DL & Visualization
 RUN ${PYTHON} -m pip install llvmlite --ignore-installed && \
-    ${PYTHON} -m pip install numba==0.53.0 yellowbrick umap-learn==0.5.2 --ignore-installed && \
+    ${PYTHON} -m pip install numba>=0.53.0 yellowbrick umap-learn==0.5.2 --ignore-installed && \
     ${PYTHON} -m pip install tensorflow transformers sentence-transformers datasets && \
     ${PYTHON} -m pip install spacy spacy-lookups-data spacy-transformers && \
     ${PYTHON} -m pip install torch==1.11.0+cpu torchvision==0.12.0+cpu torchaudio==0.11.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html && \
