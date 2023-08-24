@@ -48,7 +48,7 @@ FILE_STORAGE_TMP = "./tmp"  # ToDo: replace it with proper path in docker
 
 @app.route("/")
 def index():
-    return jsonify(available_endpoints=['/preprocessing', '/embedding', '/clustering', '/graph'])
+    return jsonify(available_endpoints=['/preprocessing', '/embedding', '/clustering', '/graph', '/pipeline'])
 
 
 @app.route("/preprocessing", methods=['POST'])
