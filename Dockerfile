@@ -82,7 +82,7 @@ RUN ${PYTHON} -m pip install llvmlite --ignore-installed && \
     ${PYTHON} -m spacy download de_core_news_sm && \
     ${PYTHON} -m spacy download de_dep_news_trf
     
-ENTRYPOINT [ "${PYTHON}" ]
+ENTRYPOINT ${PYTHON}
 
 WORKDIR "${REST_API_WORKDIR}/concept-graphs"
 
