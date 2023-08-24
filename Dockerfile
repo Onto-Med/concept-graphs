@@ -13,6 +13,8 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 USER root
 
+ARG PYTHON=python3.10
+
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt-get update --yes && \
     # - apt-get upgrade is run to patch known vulnerabilities in apt-get packages as
@@ -25,9 +27,9 @@ RUN apt-get update --yes && \
     apt-get install --yes --no-install-recommends \
     gcc \
     libgcc-9-dev \
-    python3.9 \
-    python3.9-dev \
-    python3.9-distutils \
+    ${PYTHON} \
+    ${PYTHON}-dev \
+    ${PYTHON}-distutils \
     # - bzip2 is necessary to extract the micromamba executable.
     bzip2 \
     ca-certificates \
@@ -61,22 +63,22 @@ RUN git clone https://github.com/Onto-Med/concept-graphs
 
 
 # Install ML, DL & Visualization
-RUN python3.9 -m pip install llvmlite --ignore-installed && \
-    python3.9 -m pip install numba==0.53.0 yellowbrick umap-learn==0.5.2 --ignore-installed && \
-    python3.9 -m pip install tensorflow transformers sentence-transformers datasets && \
-    python3.9 -m pip install spacy spacy-lookups-data spacy-transformers && \
-    python3.9 -m pip install torch==1.11.0+cpu torchvision==0.12.0+cpu torchaudio==0.11.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html && \
-    python3.9 -m pip install altair networkx pyvis umap-learn[plot] && \
-    python3.9 -m pip install python-Levenshtein fuzzywuzzy && \
-    python3.9 -m pip install bratiaa && \
-    python3.9 -m pip install flask && \
-    python3.9 -m pip install pyyaml && \
-    python3.9 -m pip install scikit-network && \
-    python3.9 -m pip install --upgrade requests && \
-    python3.9 -m spacy download de_core_news_sm && \
-    python3.9 -m spacy download de_dep_news_trf
+RUN ${PYTHON} -m pip install llvmlite --ignore-installed && \
+    ${PYTHON} -m pip install numba==0.53.0 yellowbrick umap-learn==0.5.2 --ignore-installed && \
+    ${PYTHON} -m pip install tensorflow transformers sentence-transformers datasets && \
+    ${PYTHON} -m pip install spacy spacy-lookups-data spacy-transformers && \
+    ${PYTHON} -m pip install torch==1.11.0+cpu torchvision==0.12.0+cpu torchaudio==0.11.0+cpu -f https://download.pytorch.org/whl/cpu/torch_stable.html && \
+    ${PYTHON} -m pip install altair networkx pyvis umap-learn[plot] && \
+    ${PYTHON} -m pip install python-Levenshtein fuzzywuzzy && \
+    ${PYTHON} -m pip install bratiaa && \
+    ${PYTHON} -m pip install flask && \
+    ${PYTHON} -m pip install pyyaml && \
+    ${PYTHON} -m pip install scikit-network && \
+    ${PYTHON} -m pip install --upgrade requests && \
+    ${PYTHON} -m spacy download de_core_news_sm && \
+    ${PYTHON} -m spacy download de_dep_news_trf
     
-ENTRYPOINT [ "python3.9" ]
+ENTRYPOINT [ "${PYTHON}" ]
 
 WORKDIR "${REST_API_WORKDIR}/concept-graphs"
 
