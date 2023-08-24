@@ -47,13 +47,14 @@ RUN apt-get update --yes && \
     #   processes and such of the actual executable we want to start, see
     #   https://github.com/krallin/tini#why-tini for details.
     tini \
+    curl \
     wget && \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     locale-gen
 
 # Install current pip version for python version
-curl -sS https://bootstrap.pypa.io/get-pip.py | ${PYTHON}
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py | ${PYTHON}
 
 # Install Git-LFS and download models
 RUN apt-get update --yes && \
