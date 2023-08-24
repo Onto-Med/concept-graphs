@@ -20,7 +20,7 @@ RUN apt-get update --yes && \
     # - apt-get upgrade is run to patch known vulnerabilities in apt-get packages as
     #   the ubuntu base image is rebuilt too seldom sometimes (less than once a month)
     apt-get upgrade --yes && \
-    apt-get install --yes --no-install-recommends software-properties-common python3-pip && \
+    apt-get install --yes --no-install-recommends software-properties-common && \
     add-apt-repository ppa:deadsnakes/ppa  --yes
     
 RUN apt-get update --yes && \
@@ -51,6 +51,9 @@ RUN apt-get update --yes && \
     apt-get clean && rm -rf /var/lib/apt/lists/* && \
     echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     locale-gen
+
+# Install current pip version for python version
+curl -sS https://bootstrap.pypa.io/get-pip.py | ${PYTHON}
 
 # Install Git-LFS and download models
 RUN apt-get update --yes && \
