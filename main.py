@@ -87,7 +87,7 @@ def data_preprocessing_with_arg(path_arg):
     _path_args = ["statistics", "noun_chunks"]
     if path_arg in _path_args:
         data_obj = data_functions.DataProcessingFactory.load(
-            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_data-processed.pickle"))
+            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process) / f"{process}_data-processed.pickle"))
     else:
         return jsonify(error=f"No such path argument '{path_arg}' for 'preprocessing' endpoint.",
                        possible_path_args=[f"/{p}" for p in _path_args])
@@ -125,8 +125,8 @@ def phrase_embedding_with_arg(path_arg):
     _path_args = ["statistics"]
     if path_arg in _path_args:
         emb_obj = embedding_functions.SentenceEmbeddingsFactory.load(
-            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_data-processed.pickle"),
-            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_embeddings.pickle"),
+            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process) / f"{process}_data-processed.pickle"),
+            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process) / f"{process}_embeddings.pickle"),
         )
     else:
         return jsonify(error=f"No such path argument '{path_arg}' for 'embedding' endpoint.",
@@ -165,7 +165,7 @@ def clustering_with_arg(path_arg):
     _path_args = ["concepts"]
     if path_arg in _path_args:
         cluster_obj = cluster_functions.PhraseClusterFactory.load(
-            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_clustering.pickle"),
+            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process) / f"{process}_clustering.pickle"),
         )
     else:
         return jsonify(error=f"No such path argument '{path_arg}' for 'clustering' endpoint.",
@@ -293,7 +293,7 @@ def clustering_get_concepts(cluster_gen):
 
 def graph_get_statistics(process):
     graph_list = pickle.load(
-        pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(f"{process}") / f"{process}_graphs.pickle").open('rb')
+        pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process) / f"{process}_graphs.pickle").open('rb')
     )
     return_dict = defaultdict(dict)
     for i, cg in enumerate(graph_list):
@@ -309,7 +309,7 @@ def graph_get_statistics(process):
 def graph_get_specific(process, graph_nr):
     try:
         graph_list = pickle.load(
-            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(f"{process}") / f"{process}_graphs.pickle").open('rb')
+            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process) / f"{process}_graphs.pickle").open('rb')
         )
         if (len(graph_list) - 1) > graph_nr >= 0:
             return jsonify({
