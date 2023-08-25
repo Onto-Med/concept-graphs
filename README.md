@@ -50,6 +50,13 @@ Content-Type: application/x-yaml
 * `config` (optional) : configurations for the preprocessing step provided as yaml file (if not provided, default values will be used)
 * `labels` (optional) : the label (if any) of each data text file provided as yaml file (line-wise) (e.g. an entry looks like this: `file1: LABEL1`) 
 
+#### Path Parameters
+* ``/preprocessing/statistics``: gets some basic statistics for the corpus
+* ``/preprocessing/noun_chunks``: gets all noun chunks that were found (with the documents where)
+
+####  Query Parameters
+* ``process``: name of the process (e.g. ``corpus_name`` in config); if not provided, uses 'default'
+
 ### `/embedding`
 embed the extracted phrases into a vector space  
 
@@ -79,6 +86,13 @@ Content-Type: application/x-yaml
 
 The first time this endpoint is called, the respective model (as given in config or the default one) will be downloaded
 
+#### Path Parameters
+* ``/embedding/statistics``: gets some basic statistics for the embedding object
+
+####  Query Parameters
+* ``process``: name of the process (e.g. ``corpus_name`` in config); if not provided, uses 'default'
+
+
 ### `/clustering`
 create the concept clusters from the embeddings which serve as the base for the concept graphs in the next step  
 
@@ -102,10 +116,18 @@ Content-Type: application/x-yaml
 
 * `config` (optional): configuration for the clustering step provided as yaml file (if not provided, default values will be used)
 
+#### Path Parameters
+* ``/clustering/concepts``: shows the concepts that were found
+
+####  Query Parameters
+* ``process``: name of the process (e.g. ``corpus_name`` in config); if not provided, uses 'default'
+* ``top_k`` (only for `../concepts`): how many top k representatives of each cluster
+* ``distance`` (only for `../concepts`): how far away (cosine) a representative can be
 
 ### `/graph`
-create graph representations for each phrase cluster that was found during the 'clustering' step.  
-you get a response with all graphs found and their respective edge/node count. To get a specific graph's adjacency matrix use its id as path argument (the id is just the number given in the formerly mentioned response). 
+**Attention**: the base endpoint has no funtion as such. To create the graphs you need to call the ``../creation`` path argument  
+Creates graph representations for each phrase cluster that was found during the 'clustering' step.  
+You get a response with all graphs found and their respective edge/node count. To get a specific graph's adjacency matrix use its id as path argument (the id is just the number given in the formerly mentioned response). 
 
 #### curl
 `curl -X GET http://SOME_IP:SOME_PORT/graph/creation`  
@@ -134,6 +156,13 @@ GET http://SOME_IP:SOME_PORT/graph/GRAPH_ID
 
 * `config` (optional): configuration for the clustering step provided as yaml file (if not provided, default values will be used)
 
+#### Path Parameters
+* ``/graph/creation``: creates the graphs according to config
+* ``/graph/statistics``: shows some basic statistics
+* ``/graph/<GRAPH-ID>``: returns nodes and adjacency information for a specific graph 
+
+####  Query Parameters
+* ``process``: name of the process (e.g. ``corpus_name`` in config); if not provided, uses 'default'
 
 ### `/pipeline`
 starts a complete pipeline with all 4 sub steps.

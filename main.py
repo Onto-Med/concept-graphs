@@ -37,13 +37,11 @@ FILE_STORAGE_TMP = "./tmp"  # ToDo: replace it with proper path in docker
 # ToDo: and once PhraseCluster via create(down_scale_algorithm). I can't remember why I added this to SentenceEmbeddings later on...
 # ToDo: but I should make sure, that there is a check somewhere that the down scaling is not applied twice!
 
-# ToDo: uncommented sknet in cluster_functions (otherwise I could not debug)
-
 # ToDo: make sure that no arguments can be supplied via config that won't work
 
-# ToDo: add PATH and QUERY args to README
-
 # ToDo: endpoints with path arguments should throw a response/warning if there is no saved pickle
+
+# ToDo: implement socket.io (or similar) so that the requests can update on the progress of each process
 
 
 @app.route("/")
@@ -160,6 +158,8 @@ def phrase_clustering():
 @app.route("/clustering/<path_arg>", methods=['GET'])
 def clustering_with_arg(path_arg):
     process = request.args.get("process", "default")
+    top_k = int(request.args.get("top_k", 15))
+    distance = float(request.args.get("distance", .6))
     path_arg = path_arg.lower()
 
     _path_args = ["concepts"]
@@ -175,7 +175,7 @@ def clustering_with_arg(path_arg):
         emb_obj = util_functions.load_pickle(pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_embeddings.pickle"))
         _cluster_gen = embedding_functions.show_top_k_for_concepts(
             cluster_obj=cluster_obj.concept_cluster, embedding_object=emb_obj, yield_concepts=True,
-            top_k=int(request.args.get("top_k", 15)), distance=float(request.args.get("distance", .6))
+            top_k=top_k, distance=distance
         )
         return clustering_get_concepts(_cluster_gen)
 

@@ -24,7 +24,7 @@ from sklearn.preprocessing import normalize, MinMaxScaler
 from yellowbrick.cluster import kelbow_visualizer
 from scipy.sparse.csgraph import shortest_path, construct_dist_matrix, NegativeCycleError
 from sklearn.feature_extraction.text import TfidfVectorizer as tfidfVec
-# import sknetwork as skn
+import sknetwork as skn
 
 from data_functions import DataProcessingFactory, clean_span, get_actual_str
 from pruning import unimodal
