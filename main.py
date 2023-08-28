@@ -291,10 +291,16 @@ def clustering_get_concepts(cluster_gen):
     return jsonify(**_cluster_dict)
 
 
-def graph_get_statistics(process):
-    graph_list = pickle.load(
-        pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process) / f"{process}_graphs.pickle").open('rb')
-    )
+def graph_get_statistics(data: Union[str, list]):
+    if isinstance(data, str):
+        graph_list = pickle.load(
+            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(data) / f"{data}_graphs.pickle").open('rb')
+        )
+    elif isinstance(data, list):
+        graph_list = data
+    else:
+        graph_list = []
+
     return_dict = defaultdict(dict)
     for i, cg in enumerate(graph_list):
         return_dict[f"concept_graph_{i}"]["edges"] = len(cg.edges)
@@ -337,7 +343,7 @@ def graph_create():
             concept_graphs = graph_create.start_process(process_name,
                                                         cluster_functions.WordEmbeddingClustering,
                                                         exclusion_ids_query)
-            return graph_get_statistics(concept_graphs)
+            return graph_get_statistics(concept_graphs)  #ToDo: if concept_graphs -> need to adapt method
         except FileNotFoundError:
             return jsonify(f"There is no processed data for the '{process_name}' process to be embedded.")
     return jsonify("Nothing to do.")

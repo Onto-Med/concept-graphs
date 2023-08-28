@@ -163,6 +163,7 @@ GET http://SOME_IP:SOME_PORT/graph/GRAPH_ID
 
 ####  Query Parameters
 * ``process``: name of the process (e.g. ``corpus_name`` in config); if not provided, uses 'default'
+* ``exlusion_ids`` (only for creation): list of concept ids (as returned by e.g. ``/clustering/concepts``), that shall be excluded from the final graphs in the form of ``[ID1, ID2, etc.]``
 
 ### `/pipeline`
 starts a complete pipeline with all 4 sub steps.
