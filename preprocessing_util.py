@@ -56,13 +56,9 @@ class PreprocessingUtil:
         if language is not None and not base_config.get("spacy_model", False):
             base_config["spacy_model"] = {"en": DEFAULT_SPACY_MODEL, "de": "de_dep_news_trf"}.get(language, DEFAULT_SPACY_MODEL)
 
-        self.config = base_config
         if process_name is not None:
             base_config["corpus_name"] = process_name
-        sub_path = base_config.get('corpus_name', 'default')
-        with Path(Path(self._file_storage) / f"{sub_path}_preprocessing_config.yaml"
-                  ).open('w') as config_save:
-            yaml.safe_dump(base_config, config_save)
+        self.config = base_config
 
     def read_labels(self, labels):
         base_labels = {}

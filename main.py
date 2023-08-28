@@ -7,6 +7,7 @@ from collections import defaultdict
 from typing import Union
 
 import networkx as nx
+import yaml
 from flask import Flask, jsonify, request
 from flask.logging import default_handler
 from werkzeug.datastructures.file_storage import FileStorage
@@ -254,6 +255,13 @@ def read_config(processor, process_name=None, config=None, step=None, language=N
     if process_name is None:
         process_name = process_name_conf
         processor.set_file_storage_path(process_name)
+
+    with pathlib.Path(
+            pathlib.Path(processor._file_storage) /
+            pathlib.Path(f"{process_name}") /
+            pathlib.Path(f"{process_name}_preprocessing_config.yaml")
+    ).open('w') as config_save:
+        yaml.safe_dump(processor.config, config_save)
     return process_name
 
 
