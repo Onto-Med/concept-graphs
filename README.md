@@ -223,7 +223,7 @@ Content-Type: application/x-yaml
 # Name of the corpus; can be chosen freely (but acts as reference point between the different endpoint actions)
 corpus_name: default
 # Name of the spaCy model; pre-installed: de_dep_news_trf, de_core_news_sm (German) & en_core_web_trf (English) [default]
-spacy_model: de_dep_news_trf
+spacy_model: en_core_web_trf
 # Number of processes that will be spawned (how many cores will be utilized)
 n_process: 1
 # Only files in the data zip will be processed that have this file extension
