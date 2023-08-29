@@ -338,7 +338,9 @@ def graph_get_specific(process, graph_nr, draw=False):
                 templates_path = pathlib.Path(store_path.parent.parent / "templates")
                 templates_path.mkdir(exist_ok=True)
                 graph_path = graph_creation_util.visualize_graph(
-                    graph_list[graph_nr], store=str(pathlib.Path(templates_path / "graph.html").resolve()))
+                    graph=graph_list[graph_nr], store=str(pathlib.Path(templates_path / "graph.html").resolve()),
+                    height="800px"
+                )
                 return render_template(pathlib.Path(graph_path).name)
         else:
             return jsonify(f"{graph_nr} is not in range [0, {len(graph_list)}]; no such graph present.")

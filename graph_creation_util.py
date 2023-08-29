@@ -71,8 +71,8 @@ class GraphCreationUtil:
         return concept_graphs
 
 
-def visualize_graph(graph: nx.Graph, directed=False, store="index.html"):
-    g = net.Network(notebook=True, width='100%', directed=directed)
+def visualize_graph(graph: nx.Graph, height="800px", directed=False, store="index.html"):
+    g = net.Network(height=height, select_menu=False, filter_menu=False, notebook=True, width='100%', directed=directed)
     # if directed:
     #     g.from_nx(transform2directed(graph))
     #     return g
