@@ -8,10 +8,11 @@ from typing import Union
 
 import networkx as nx
 import yaml
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
 from flask.logging import default_handler
 from werkzeug.datastructures.file_storage import FileStorage
 
+import graph_creation_util
 from preprocessing_util import PreprocessingUtil
 from embedding_util import PhraseEmbeddingUtil
 from clustering_util import ClusteringUtil
@@ -184,6 +185,7 @@ def clustering_with_arg(path_arg):
 @app.route("/graph/<path_arg>", methods=['POST', 'GET'])
 def graph_creation_with_arg(path_arg):
     process = request.args.get("process", "default")
+    draw = True if request.args.get("draw", "false").lower() == "true" else False
     path_arg = path_arg.lower()
 
     _path_args = ["statistics", "creation"]
@@ -197,7 +199,7 @@ def graph_creation_with_arg(path_arg):
             return jsonify(f"There is no graph data present for '{process}'.")
     elif path_arg.isdigit():
         graph_nr = int(path_arg)
-        return graph_get_specific(process, graph_nr)
+        return graph_get_specific(process, graph_nr, draw=draw)
     else:
         return jsonify(error=f"No such path argument '{path_arg}' for 'graph' endpoint.",
                        possible_path_args=[f"/{p}" for p in _path_args]+["any integer"])
@@ -320,16 +322,24 @@ def graph_get_statistics(data: Union[str, list]):
     return jsonify(response)
 
 
-def graph_get_specific(process, graph_nr):
+def graph_get_specific(process, graph_nr, draw=False):
+    store_path = pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}")
     try:
         graph_list = pickle.load(
-            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process) / f"{process}_graphs.pickle").open('rb')
+            pathlib.Path(store_path / f"{process}_graphs.pickle").open('rb')
         )
         if (len(graph_list) - 1) > graph_nr >= 0:
-            return jsonify({
-                "adjacency": nx.to_dict_of_dicts(graph_list[graph_nr]),
-                "nodes": {n: v for n, v in graph_list[graph_nr].nodes(data=True)}
-            })
+            if not draw:
+                return jsonify({
+                    "adjacency": nx.to_dict_of_dicts(graph_list[graph_nr]),
+                    "nodes": {n: v for n, v in graph_list[graph_nr].nodes(data=True)}
+                })
+            else:
+                templates_path = pathlib.Path(store_path.parent.parent / "templates")
+                templates_path.mkdir(exist_ok=True)
+                graph_path = graph_creation_util.visualize_graph(
+                    graph_list[graph_nr], store=str(pathlib.Path(templates_path / "graph.html").resolve()))
+                return render_template(pathlib.Path(graph_path).name)
         else:
             return jsonify(f"{graph_nr} is not in range [0, {len(graph_list)}]; no such graph present.")
     except FileNotFoundError:

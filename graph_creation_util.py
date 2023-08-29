@@ -1,9 +1,11 @@
 import pathlib
 import pickle
+import sys
 from pathlib import Path
 
 import yaml
-import sys
+import networkx as nx
+from pyvis import network as net
 
 from flask import jsonify
 
@@ -67,3 +69,38 @@ class GraphCreationUtil:
             pickle.dump(concept_graphs, graphs_out)
 
         return concept_graphs
+
+
+def visualize_graph(graph: nx.Graph, directed=False, store="index.html"):
+    g = net.Network(notebook=True, width='100%', directed=directed)
+    # if directed:
+    #     g.from_nx(transform2directed(graph))
+    #     return g
+    for _node, _node_attrs in graph.nodes(data=True):
+        _node_attrs.update({"size": 10, "title": str(_node)})
+        if _node_attrs.get("parent", False):
+            _node_attrs.update({"color": "red"})
+        if _node_attrs.get("root", False):
+            _node_attrs.update({"size": 18})
+        g.add_node(_node, **_node_attrs)
+    for _source_edge, _target_edge, _edge_attrs in graph.edges(data=True):
+        if not directed:
+            _edge_weight = _edge_attrs.get("weight", 0.0)
+            _edge_sepcial = _edge_attrs.get("sub_cluster", False)
+            if _edge_weight >= 0.9:
+                _edge_attrs.update({"color": "red", "width": 5})
+            elif 0.9 > _edge_weight >= 0.8:
+                _edge_attrs.update({"color": "green", "width": 3})
+            elif 0.8 > _edge_weight >= 0.65:
+                _edge_attrs.update({"color": "blue", "width": 2})
+            elif 0.65 > _edge_weight >= 0.5:
+                _edge_attrs.update({"color": "blue", "dashes": True, "physics": True})
+            else:
+                _edge_attrs.update({"dashes": True, "physics": False, "color": "yellow"})
+            if _edge_sepcial:
+                #_edge_attrs.update({"color": "black", "dashes": True, "physics": True})
+                continue # skip edge visualization
+            _edge_attrs.update({"title": str(round(_edge_weight, 2))})
+        g.add_edge(_source_edge, _target_edge, **_edge_attrs)
+    g.write_html(name=store)
+    return store
