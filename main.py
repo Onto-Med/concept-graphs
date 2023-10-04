@@ -8,9 +8,9 @@ from typing import Union
 
 import networkx as nx
 import yaml
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, render_template_string
 from flask.logging import default_handler
-from werkzeug.datastructures.file_storage import FileStorage
+from werkzeug.datastructures import FileStorage
 
 import graph_creation_util
 from preprocessing_util import PreprocessingUtil
@@ -45,19 +45,21 @@ FILE_STORAGE_TMP = "./tmp"  # ToDo: replace it with proper path in docker
 
 # ToDo: implement socket.io (or similar) so that the requests can update on the progress of each process
 
+# ToDo: get info on each base endpoint, when providing no further args or params (if necessary)
+
 
 @app.route("/")
 def index():
     return jsonify(available_endpoints=['/preprocessing', '/embedding', '/clustering', '/graph', '/pipeline'])
 
 
-@app.route("/preprocessing", methods=['POST'])
+@app.route("/preprocessing", methods=['GET', 'POST'])
 def data_preprocessing():
     app.logger.info("=== Preprocessing started ===")
     if request.method == "POST" and len(request.files) > 0 and "data" in request.files:
         pre_proc = PreprocessingUtil(app, FILE_STORAGE_TMP)
 
-        process_name = read_config(pre_proc)
+        process_name = read_config(pre_proc, "data")
 
         app.logger.info("Reading labels ...")
         pre_proc.read_labels(request.files.get("labels", None))
@@ -70,6 +72,9 @@ def data_preprocessing():
 
         app.logger.info(f"Start preprocessing '{process_name}' ...")
         return data_get_statistics(pre_proc.start_process(process_name, data_functions.DataProcessingFactory))
+
+    elif request.method == "GET":
+        pass
 
     elif len(request.files) <= 0 or "data" not in request.files:
         app.logger.error("There were no files at all or no data files POSTed."
@@ -106,7 +111,7 @@ def phrase_embedding():
     if request.method in ["POST", "GET"]:
         phra_emb = PhraseEmbeddingUtil(app, FILE_STORAGE_TMP)
 
-        process_name = read_config(phra_emb)
+        process_name = read_config(phra_emb, "embedding")
 
         app.logger.info(f"Start phrase embedding '{process_name}' ...")
         try:
@@ -144,7 +149,7 @@ def phrase_clustering():
         if not saved_config:
             phra_clus = ClusteringUtil(app, FILE_STORAGE_TMP)
 
-            process_name = read_config(phra_clus)
+            process_name = read_config(phra_clus, "clustering")
 
             app.logger.info(f"Start phrase clustering '{process_name}' ...")
             try:
@@ -231,10 +236,10 @@ def complete_pipeline():
 
     for _name, _proc, _conf, _fact in processes:
         process_obj = _proc(app=app, file_storage=FILE_STORAGE_TMP)
-        process_obj.set_file_storage_path(process)
+        # process_obj.set_file_storage_path(process)
         if process_obj.has_pickle(process) and skip_present:
             continue
-        read_config(processor=process_obj, process_name=process, config=_conf, step=_name, language=language)
+        read_config(processor=process_obj, process_type=_name, process_name=process, config=_conf, language=language)
         if _name == "data":
             process_obj.read_labels(labels)
             process_obj.read_data(data)
@@ -243,11 +248,11 @@ def complete_pipeline():
     return graph_get_statistics(process)
 
 
-def read_config(processor, process_name=None, config=None, step=None, language=None):
+def read_config(processor, process_type, process_name=None, config=None, language=None):
     app.logger.info("Reading config ...")
     processor.read_config(config=config if config is not None else request.files.get("config", None),
                           process_name=process_name,
-                          language=None if step not in ["data", "embedding"] else language)
+                          language=None if process_type not in ["data", "embedding"] else language)
     # pyyaml doesn't handle 'None' so we need to convert them
     for k, v in processor.config.items():
         if isinstance(v, str) and v.lower() == "none":
@@ -256,12 +261,11 @@ def read_config(processor, process_name=None, config=None, step=None, language=N
     process_name_conf = processor.config.pop("corpus_name", "default")
     if process_name is None:
         process_name = process_name_conf
-        processor.set_file_storage_path(process_name)
+    processor.set_file_storage_path(process_name)
 
     with pathlib.Path(
             pathlib.Path(processor._file_storage) /
-            pathlib.Path(f"{process_name}") /
-            pathlib.Path(f"{process_name}_preprocessing_config.yaml")
+            pathlib.Path(f"{process_name}_{process_type}_config.yaml")
     ).open('w') as config_save:
         yaml.safe_dump(processor.config, config_save)
     return process_name
@@ -335,13 +339,13 @@ def graph_get_specific(process, graph_nr, draw=False):
                     "nodes": {n: v for n, v in graph_list[graph_nr].nodes(data=True)}
                 })
             else:
-                templates_path = pathlib.Path(store_path.parent.parent / "templates")
+                templates_path = pathlib.Path(store_path)
                 templates_path.mkdir(exist_ok=True)
                 graph_path = graph_creation_util.visualize_graph(
                     graph=graph_list[graph_nr], store=str(pathlib.Path(templates_path / "graph.html").resolve()),
                     height="800px"
                 )
-                return render_template(pathlib.Path(graph_path).name)
+                return render_template_string(pathlib.Path(graph_path).resolve().read_text())
         else:
             return jsonify(f"{graph_nr} is not in range [0, {len(graph_list)}]; no such graph present.")
     except FileNotFoundError:
@@ -356,7 +360,7 @@ def graph_create():
     if request.method in ["POST", "GET"]:
         graph_create = GraphCreationUtil(app, FILE_STORAGE_TMP)
 
-        process_name = read_config(graph_create)
+        process_name = read_config(graph_create, "graph")
 
         app.logger.info(f"Start Graph Creation '{process_name}' ...")
         try:

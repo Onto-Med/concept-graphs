@@ -35,13 +35,9 @@ class PhraseEmbeddingUtil:
         if language is not None and not base_config.get("model", False):
             base_config["model"] = {"en": DEFAULT_EMBEDDING_MODEL, "de": "Sahajtomar/German-semantic"}.get(language, DEFAULT_EMBEDDING_MODEL)
 
-        self.config = base_config
         if process_name is not None:
             base_config["corpus_name"] = process_name
-        sub_path = base_config.get('corpus_name', 'default')
-        with Path(Path(self._file_storage) / f"{sub_path}_embedding_config.yaml"
-                  ).open('w') as config_save:
-            yaml.safe_dump(base_config, config_save)
+        self.config = base_config
 
     def set_file_storage_path(self, sub_path):
         self._file_storage = Path(self._file_storage / sub_path)

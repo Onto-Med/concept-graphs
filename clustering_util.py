@@ -36,13 +36,9 @@ class ClusteringUtil:
             except Exception as e:
                 self._app.logger.error(f"Couldn't read config file: {e}")
                 return jsonify("Encountered error. See log.")
-        self.config = base_config
         if process_name is not None:
             base_config["corpus_name"] = process_name
-        sub_path = base_config.get('corpus_name', 'default')
-        with Path(Path(self._file_storage) / f"{sub_path}_clustering_config.yaml"
-                  ).open('w') as config_save:
-            yaml.safe_dump(base_config, config_save)
+        self.config = base_config
 
     def set_file_storage_path(self, sub_path):
         self._file_storage = Path(self._file_storage / sub_path)

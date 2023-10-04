@@ -32,13 +32,9 @@ class GraphCreationUtil:
             except Exception as e:
                 self._app.logger.error(f"Couldn't read config file: {e}")
                 return jsonify("Encountered error. See log.")
-        self.config = base_config
         if process_name is not None:
             base_config["corpus_name"] = process_name
-        sub_path = base_config.get('corpus_name', 'default')
-        with Path(Path(self._file_storage) / f"{sub_path}_graph_config.yaml"
-                  ).open('w') as config_save:
-            yaml.safe_dump(base_config, config_save)
+        self.config = base_config
 
     def set_file_storage_path(self, sub_path):
         self._file_storage = Path(self._file_storage / sub_path)
@@ -102,5 +98,5 @@ def visualize_graph(graph: nx.Graph, height="800px", directed=False, store="inde
                 continue # skip edge visualization
             _edge_attrs.update({"title": str(round(_edge_weight, 2))})
         g.add_edge(_source_edge, _target_edge, **_edge_attrs)
-    g.write_html(name=store)
+    g.write_html(name=store, notebook=True)
     return store
