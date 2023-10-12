@@ -27,6 +27,7 @@ RUN apt-get update --yes && \
     apt-get install --yes --no-install-recommends \
     gcc \
     libgcc-9-dev \
+    g++ \
     ${PYTHON} \
     ${PYTHON}-dev \
     ${PYTHON}-distutils \

@@ -21,7 +21,18 @@ class GraphCreationUtil:
         self.config = None
 
     def read_config(self, config, process_name=None, language=None):
-        base_config = {}
+        base_config = {
+            "cluster_distance": 0.7,
+            "cluster_min_size": 4,
+            "graph_cosine_weight": .6,
+            "graph_merge_threshold": .95,
+            "graph_weight_cut_off": .5,
+            "graph_unroll": False,
+            "graph_simplify": .5,
+            "graph_simplify_alg": "significance",
+            "graph_sub_clustering": False,
+            "restrict_to_cluster": True,
+        }
         if config is None:
             self._app.logger.info("No config file provided; using default values")
         else:
