@@ -2,6 +2,7 @@ import io
 import itertools
 import pathlib
 import pickle
+from enum import IntEnum
 from typing import Callable, Any, Optional, Union
 from threading import Lock
 
@@ -29,6 +30,15 @@ class SingletonMeta(type):
                 cls._instances[cls] = instance
         return cls._instances[cls]
 
+
+class HTTPResponses(IntEnum):
+    BAD_REQUEST = 400
+    UNAUTHORIZED = 401
+    FORBIDDEN = 403
+    NOT_FOUND = 404
+    INTERNAL_SERVER_ERROR = 500
+    NOT_IMPLEMENTED = 501
+    SERVICE_UNAVAILABLE = 503
 
 def pairwise(iterable):
     a, b = itertools.tee(iterable)

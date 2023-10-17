@@ -1,4 +1,5 @@
 import logging
+import os
 import pathlib
 import pickle
 import sys
@@ -8,7 +9,7 @@ from typing import Union
 
 import networkx as nx
 import yaml
-from flask import Flask, jsonify, request, render_template, render_template_string
+from flask import Flask, jsonify, request, render_template, render_template_string, Response
 from flask.logging import default_handler
 from werkzeug.datastructures import FileStorage
 
@@ -23,6 +24,7 @@ import data_functions
 import embedding_functions
 import cluster_functions
 import util_functions
+from util_functions import HTTPResponses
 
 
 app = Flask(__name__)
@@ -201,13 +203,16 @@ def graph_creation_with_arg(path_arg):
             elif path_arg == "creation":
                 return graph_create()
         except FileNotFoundError:
-            return jsonify(f"There is no graph data present for '{process}'.")
+            return Response(f"There is no graph data present for '{process}'.\n",
+                            status=HTTPResponses.NOT_FOUND)
     elif path_arg.isdigit():
         graph_nr = int(path_arg)
         return graph_get_specific(process, graph_nr, draw=draw)
     else:
-        return jsonify(error=f"No such path argument '{path_arg}' for 'graph' endpoint.",
-                       possible_path_args=[f"/{p}" for p in _path_args]+["any integer"])
+        return Response(
+            f"No such path argument '{path_arg}' for 'graph' endpoint.\n"
+            f"Possible path arguments are: {', '.join([p for p in _path_args]+['#ANY_INTEGER'])}\n",
+            status=HTTPResponses.BAD_REQUEST)
 
 
 @app.route("/pipeline", methods=['POST'])
@@ -307,23 +312,48 @@ def clustering_get_concepts(cluster_gen):
 
 def graph_get_statistics(data: Union[str, list]):
     if isinstance(data, str):
-        graph_list = pickle.load(
-            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(data) / f"{data}_graphs.pickle").open('rb')
-        )
+        _path = pathlib.Path(os.getcwd() / pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(data) / f"{data}_graphs.pickle")
+        app.logger.info(f"Trying to open file '{_path}'")
+        graph_list = pickle.load(_path.open('rb'))
     elif isinstance(data, list):
         graph_list = data
     else:
         graph_list = []
 
-    return_dict = defaultdict(dict)
+    # return_dict = defaultdict(dict)
+    return_dict = dict()
+    cg_stats = list()
     for i, cg in enumerate(graph_list):
-        return_dict[f"concept_graph_{i}"]["edges"] = len(cg.edges)
-        return_dict[f"concept_graph_{i}"]["nodes"] = len(cg.nodes)
-    return_dict.update({"number_of_graphs": len(return_dict)})
-    response = ["To get a specific graph (its nodes (with labels) and edges (with weight) as an adjacency list)"
-                "use the endpoint '/graph/GRAPH-ID', where GRAPH-ID can be gleaned by 'concept_graph_GRAPH-ID",
-                return_dict]
-    return jsonify(response)
+        cg_stats.append({
+            "id": i,
+            "edges": len(cg.edges),
+            "nodes": len(cg.nodes)
+        })
+        # return_dict[f"concept_graph_{i}"]["edges"] = len(cg.edges)
+        # return_dict[f"concept_graph_{i}"]["nodes"] = len(cg.nodes)
+    return_dict["conceptGraphs"] = cg_stats
+    return_dict["numberOfGraphs"] = len(cg_stats)
+    # response = ["To get a specific graph (its nodes (with labels) and edges (with weight) as an adjacency list)"
+    #             "use the endpoint '/graph/GRAPH-ID', where GRAPH-ID can be gleaned by 'concept_graph_GRAPH-ID",
+    #             return_dict]
+    return jsonify(return_dict)
+
+
+def build_adjacency_obj(graph_obj: nx.Graph):
+    _adj = []
+    for node in graph_obj.nodes:
+        _neighbors = []
+        for _, neighbor, _data in graph_obj.edges(node, data=True):
+            _neighbors.append({
+                "id": neighbor,
+                "weight": _data.get("weight", None),
+                "significance": _data.get("significance", None)
+            })
+        _adj.append({
+            "id": node,
+            "neighbors": _neighbors
+        })
+    return _adj
 
 
 def graph_get_specific(process, graph_nr, draw=False):
@@ -335,8 +365,8 @@ def graph_get_specific(process, graph_nr, draw=False):
         if (len(graph_list) - 1) > graph_nr >= 0:
             if not draw:
                 return jsonify({
-                    "adjacency": nx.to_dict_of_dicts(graph_list[graph_nr]),
-                    "nodes": {n: v for n, v in graph_list[graph_nr].nodes(data=True)}
+                    "adjacency": build_adjacency_obj(graph_list[graph_nr]),
+                    "nodes": [dict(id=n, **v) for n, v in graph_list[graph_nr].nodes(data=True)]
                 })
             else:
                 templates_path = pathlib.Path(store_path)
