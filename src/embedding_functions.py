@@ -1,6 +1,5 @@
 import logging
 import pathlib
-from functools import cache
 from typing import Optional, Union, List, Iterable
 
 import numpy as np
@@ -12,6 +11,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.cluster import KMeans
 
 from data_functions import DataProcessingFactory
+from src.util_functions import NoneDownScaleObj
 from util_functions import load_pickle, save_pickle
 
 
@@ -25,14 +25,6 @@ def _set_extensions(
         Doc.set_extension("doc_name", default=None)
     if not Doc.has_extension("doc_topic"):
         Doc.set_extension("doc_topic", default=None)
-
-
-class NoneDownScaleObj:
-    def __init__(self, **kwargs):
-        pass
-
-    def __str__(self):
-        return "None"
 
 
 class SentenceEmbeddingsFactory:
@@ -65,7 +57,7 @@ class SentenceEmbeddingsFactory:
             model_name: str,
             n_process: int = 1,
             view_from_topics: Optional[Iterable[str]] = None,
-            down_scale_algorithm: Optional[str] = 'umap',
+            down_scale_algorithm: Optional[str] = None,
             head_only: bool = False,
             **kwargs
     ):

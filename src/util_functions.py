@@ -40,6 +40,7 @@ class HTTPResponses(IntEnum):
     NOT_IMPLEMENTED = 501
     SERVICE_UNAVAILABLE = 503
 
+
 def pairwise(iterable):
     a, b = itertools.tee(iterable)
     next(b, None)
@@ -275,5 +276,10 @@ def pick_color(cname=None):
         return cnames[cname]
     return cnames
 
-# class Logger(object):
-#     __metaclass__ = Singleton
+
+class NoneDownScaleObj:
+    def __init__(self, **kwargs):
+        pass
+
+    def __str__(self):
+        return "None"

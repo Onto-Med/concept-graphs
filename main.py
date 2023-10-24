@@ -26,7 +26,6 @@ import cluster_functions
 import util_functions
 from util_functions import HTTPResponses
 
-
 app = Flask(__name__)
 
 root = logging.getLogger()
@@ -34,6 +33,12 @@ root.addHandler(default_handler)
 
 FILE_STORAGE_TMP = "./tmp"  # ToDo: replace it with proper path in docker
 
+steps_relation_dict = {
+    "data-processed": 1,
+    "embeddings": 2,
+    "clustering": 3,
+    "graphs": 4
+}
 
 # ToDo: file with stopwords will be POSTed: #filter_stop: Optional[list] = None,
 
@@ -52,7 +57,7 @@ FILE_STORAGE_TMP = "./tmp"  # ToDo: replace it with proper path in docker
 
 @app.route("/")
 def index():
-    return jsonify(available_endpoints=['/preprocessing', '/embedding', '/clustering', '/graph', '/pipeline'])
+    return jsonify(available_endpoints=['/preprocessing', '/embedding', '/clustering', '/graph', '/pipeline', '/processes'])
 
 
 @app.route("/preprocessing", methods=['GET', 'POST'])
@@ -181,7 +186,8 @@ def clustering_with_arg(path_arg):
                        possible_path_args=[f"/{p}" for p in _path_args])
 
     if path_arg == "concepts":
-        emb_obj = util_functions.load_pickle(pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_embeddings.pickle"))
+        emb_obj = util_functions.load_pickle(
+            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_embeddings.pickle"))
         _cluster_gen = embedding_functions.show_top_k_for_concepts(
             cluster_obj=cluster_obj.concept_cluster, embedding_object=emb_obj, yield_concepts=True,
             top_k=top_k, distance=distance
@@ -211,7 +217,7 @@ def graph_creation_with_arg(path_arg):
     else:
         return Response(
             f"No such path argument '{path_arg}' for 'graph' endpoint.\n"
-            f"Possible path arguments are: {', '.join([p for p in _path_args]+['#ANY_INTEGER'])}\n",
+            f"Possible path arguments are: {', '.join([p for p in _path_args] + ['#ANY_INTEGER'])}\n",
             status=HTTPResponses.BAD_REQUEST)
 
 
@@ -233,10 +239,13 @@ def complete_pipeline():
     labels = request.files.get("labels", None)
 
     processes = [
-        ("data", PreprocessingUtil, request.files.get("data_config", None), data_functions.DataProcessingFactory, ),
-        ("embedding", PhraseEmbeddingUtil, request.files.get("embedding_config", None), embedding_functions.SentenceEmbeddingsFactory, ),
-        ("clustering", ClusteringUtil, request.files.get("clustering_config", None), cluster_functions.PhraseClusterFactory, ),
-        ("graph", GraphCreationUtil, request.files.get("graph_config", None), cluster_functions.WordEmbeddingClustering, )
+        ("data", PreprocessingUtil, request.files.get("data_config", None), data_functions.DataProcessingFactory,),
+        ("embedding", PhraseEmbeddingUtil, request.files.get("embedding_config", None),
+         embedding_functions.SentenceEmbeddingsFactory,),
+        ("clustering", ClusteringUtil, request.files.get("clustering_config", None),
+         cluster_functions.PhraseClusterFactory,),
+        (
+        "graph", GraphCreationUtil, request.files.get("graph_config", None), cluster_functions.WordEmbeddingClustering,)
     ]
 
     for _name, _proc, _conf, _fact in processes:
@@ -251,6 +260,25 @@ def complete_pipeline():
         process_obj.start_process(cache_name=process, process_factory=_fact)
 
     return graph_get_statistics(process)
+
+
+@app.route("/processes", methods=['GET'])
+def get_all_processes():
+    _process_detailed = list()
+    for _proc in pathlib.Path(FILE_STORAGE_TMP).glob("*"):
+        if _proc.is_dir():
+            _proc_name = _proc.stem.lower()
+            _steps_list = list()
+            for _pickle in pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / _proc_name).glob("*.pickle"):
+                _pickle_stem = _pickle.stem.lower()
+                _step = _pickle_stem.removeprefix(f"{_proc_name}_")
+                _steps_list.append({"rank": steps_relation_dict.get(_step),
+                                    "name": _step})
+            _process_detailed.append({"name": _proc_name, "finished_steps": sorted(_steps_list, key=lambda x: x.get("rank", -1))})
+    if len(_process_detailed) > 0:
+        return jsonify(processes=_process_detailed)
+    else:
+        return Response("No saved processes.", HTTPResponses.NOT_FOUND)
 
 
 def read_config(processor, process_type, process_name=None, config=None, language=None):
@@ -312,7 +340,8 @@ def clustering_get_concepts(cluster_gen):
 
 def graph_get_statistics(data: Union[str, list]):
     if isinstance(data, str):
-        _path = pathlib.Path(os.getcwd() / pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(data) / f"{data}_graphs.pickle")
+        _path = pathlib.Path(
+            os.getcwd() / pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(data) / f"{data}_graphs.pickle")
         app.logger.info(f"Trying to open file '{_path}'")
         graph_list = pickle.load(_path.open('rb'))
     elif isinstance(data, list):
@@ -397,7 +426,7 @@ def graph_create():
             concept_graphs = graph_create.start_process(process_name,
                                                         cluster_functions.WordEmbeddingClustering,
                                                         exclusion_ids_query)
-            return graph_get_statistics(concept_graphs)  #ToDo: if concept_graphs -> need to adapt method
+            return graph_get_statistics(concept_graphs)  # ToDo: if concept_graphs -> need to adapt method
         except FileNotFoundError:
             return jsonify(f"There is no processed data for the '{process_name}' process to be embedded.")
     return jsonify("Nothing to do.")

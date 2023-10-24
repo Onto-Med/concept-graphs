@@ -218,6 +218,9 @@ Content-Type: application/x-yaml
 --boundary--
 ```
 
+### `/processes`
+Gets the name of all stored processes.
+
 
 ## Example Config Files (YAML)
 ### `/preprocessing`

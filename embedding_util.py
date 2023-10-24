@@ -45,7 +45,7 @@ class PhraseEmbeddingUtil:
 
     def has_pickle(self, process):
         _step = "embeddings"
-        _pickle = Path(self._file_storage / f"{process}_{_step}.pickle")
+        _pickle = Path(self._file_storage / process / f"{process}_{_step}.pickle")
         return _pickle.exists()
 
     def start_process(self, cache_name, process_factory):
@@ -59,6 +59,5 @@ class PhraseEmbeddingUtil:
             cache_path=self._file_storage,
             cache_name=f"{cache_name}_embeddings",
             model_name=config.pop("model", DEFAULT_EMBEDDING_MODEL),
-            down_scale_algorithm=None,
             **config
         )

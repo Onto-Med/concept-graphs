@@ -32,7 +32,7 @@ class PreprocessingUtil:
 
     def has_pickle(self, process):
         _step = "data-processed"
-        _pickle = Path(self._file_storage / f"{process}_{_step}.pickle")
+        _pickle = Path(self._file_storage / process / f"{process}_{_step}.pickle")
         return _pickle.exists()
 
     def read_data(self, data):

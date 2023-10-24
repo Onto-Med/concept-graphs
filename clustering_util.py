@@ -46,7 +46,7 @@ class ClusteringUtil:
 
     def has_pickle(self, process):
         _step = "clustering"
-        _pickle = Path(self._file_storage / f"{process}_{_step}.pickle")
+        _pickle = Path(self._file_storage / process / f"{process}_{_step}.pickle")
         return _pickle.exists()
 
     def start_process(self, cache_name, process_factory):

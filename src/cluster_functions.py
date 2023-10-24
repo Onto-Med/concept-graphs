@@ -31,7 +31,7 @@ from pruning import unimodal
 
 from embedding_functions import SentenceEmbeddingsFactory, top_k_cosine
 from graph_functions import GraphCreator, unroll_graph, simplify_graph_naive, sub_clustering
-from util_functions import load_pickle, save_pickle, pairwise
+from util_functions import load_pickle, save_pickle, pairwise, NoneDownScaleObj
 
 logging.basicConfig()
 logging.root.setLevel(logging.INFO)
@@ -685,7 +685,7 @@ class PhraseClusterFactory:
                 _n_neighbors = self._down_scale_alg_kwargs["n_neighbors"] * self._sentence_emb.shape[0]
                 self._down_scale_alg_kwargs["n_neighbors"] = int(_n_neighbors)
 
-            self._down_scale_obj = {"umap": umap.UMAP}[down_scale_algorithm](**self._down_scale_alg_kwargs)
+            self._down_scale_obj = {"umap": umap.UMAP, None: NoneDownScaleObj}[down_scale_algorithm](**self._down_scale_alg_kwargs)
             self._concept_cluster = None
             self._kelbow = None
 
@@ -714,7 +714,7 @@ class PhraseClusterFactory:
             logging.info("Building Concept Cluster ...")
             _cluster_embeddings = self._sentence_emb
 
-            if cluster_by_down_scale:
+            if cluster_by_down_scale and not isinstance(self._down_scale_obj, NoneDownScaleObj):
                 logging.info(f"{self._down_scale_alg.upper()} arguments: {self._down_scale_obj.get_params()}")
                 _cluster_embeddings = self._down_scale_obj.fit_transform(self._sentence_emb)
 
