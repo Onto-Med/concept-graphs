@@ -174,6 +174,7 @@ It takes three query arguments
 * `process`: overrides the `corpus_name` given in the config
 * `lang` (`de` or `en`): if declared here and no model provided in `config`, will use default language specific models for `preprocessing` and `clustering` (default: en)
 * `skip_present`: true or false - whether to skip already saved steps for this particular process name (default: true)
+* `return_statistics`: true or false - whether to return statistics for the created graphs in the end or just silently start the pipeline
 
 ``data``, ``labels`` and ``configs`` need to be provided like in the base endpoints except for the configs need to be specified accordingly (if not provided, default values will be used):
 * ``preprocessing``: ``config`` -> ``data_config``

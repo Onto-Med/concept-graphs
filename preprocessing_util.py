@@ -1,11 +1,11 @@
 import inspect
 import zipfile
 from pathlib import Path
-from typing import List, Dict
+from typing import List, Dict, Union
 
 import spacy
 import yaml
-
+from werkzeug.datastructures import FileStorage
 
 DEFAULT_SPACY_MODEL = "en_core_web_trf"
 
@@ -35,10 +35,21 @@ class PreprocessingUtil:
         _pickle = Path(self._file_storage / process / f"{process}_{_step}.pickle")
         return _pickle.exists()
 
-    def read_data(self, data):
+    def read_data(self, data: Union[FileStorage, Path]):
         try:
-            archive_path = Path(self._file_storage / data.filename)
-            data.save(archive_path)
+            if isinstance(data, FileStorage):
+                archive_path = Path(self._file_storage / data.filename)
+                data.save(archive_path)
+            elif isinstance(data, Path):
+                archive_path = Path(self._file_storage / data.stem)
+                if archive_path.exists():
+                    archive_path.unlink()
+                with archive_path.open(mode='xb') as target:
+                    target.write(data.read_bytes())
+                data.unlink()
+            else:
+                self.data = None
+                return
             with zipfile.ZipFile(archive_path, mode='r') as archive:
                 self.data = self._read_zip_content(archive, self.labels)
         except Exception as e:

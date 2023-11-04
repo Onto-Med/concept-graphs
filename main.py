@@ -3,8 +3,10 @@ import os
 import pathlib
 import pickle
 import sys
+import threading
 
 from collections import defaultdict
+from enum import IntEnum
 from typing import Union
 
 import networkx as nx
@@ -24,7 +26,6 @@ import data_functions
 import embedding_functions
 import cluster_functions
 import util_functions
-from util_functions import HTTPResponses
 
 app = Flask(__name__)
 
@@ -53,6 +54,18 @@ steps_relation_dict = {
 # ToDo: implement socket.io (or similar) so that the requests can update on the progress of each process
 
 # ToDo: get info on each base endpoint, when providing no further args or params (if necessary)
+
+
+class HTTPResponses(IntEnum):
+    OK = 200
+    ACCEPTED = 202
+    BAD_REQUEST = 400
+    UNAUTHORIZED = 401
+    FORBIDDEN = 403
+    NOT_FOUND = 404
+    INTERNAL_SERVER_ERROR = 500
+    NOT_IMPLEMENTED = 501
+    SERVICE_UNAVAILABLE = 503
 
 
 @app.route("/")
@@ -223,43 +236,67 @@ def graph_creation_with_arg(path_arg):
 
 @app.route("/pipeline", methods=['POST'])
 def complete_pipeline():
-    process = request.args.get("process", "default")
-    app.logger.info(f"Using process name '{process}'")
+    corpus = request.args.get("process", "default")
+    app.logger.info(f"Using process name '{corpus}'")
     language = {"en": "en", "de": "de"}.get(request.args.get("lang", "en"), "en")
     app.logger.info(f"Using preset language settings for '{language}'")
+
     skip_present = request.args.get("skip_present", True)
     if isinstance(skip_present, str):
         skip_present = {"true": True, "false": False}.get(skip_present.lower(), True)
     if skip_present:
         app.logger.info("Skipping present saved steps")
 
+    return_statistics = request.args.get("return_statistics", False)
+    if isinstance(return_statistics, str):
+        return_statistics = {"true": True, "false": False}.get(return_statistics.lower(), True)
+
     data = request.files.get("data", False)
     if not data:
         return jsonify("No data provided with 'data' key")
+    else:
+        _tmp_data = pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(".tmp_streams") / data.filename)
+        _tmp_data.parent.mkdir(parents=True, exist_ok=True)
+        data.save(_tmp_data)
+        data = _tmp_data
+
     labels = request.files.get("labels", None)
+    if labels is not None:
+        _tmp_labels = pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(".tmp_streams") / labels.filename)
+        _tmp_labels.parent.mkdir(parents=True, exist_ok=True)
+        labels.save(_tmp_labels)
+        labels = _tmp_labels
 
     processes = [
-        ("data", PreprocessingUtil, request.files.get("data_config", None), data_functions.DataProcessingFactory,),
+        ("data", PreprocessingUtil, request.files.get("data_config", None),
+         data_functions.DataProcessingFactory,),
         ("embedding", PhraseEmbeddingUtil, request.files.get("embedding_config", None),
          embedding_functions.SentenceEmbeddingsFactory,),
         ("clustering", ClusteringUtil, request.files.get("clustering_config", None),
          cluster_functions.PhraseClusterFactory,),
-        (
-        "graph", GraphCreationUtil, request.files.get("graph_config", None), cluster_functions.WordEmbeddingClustering,)
+        ("graph", GraphCreationUtil, request.files.get("graph_config", None),
+         cluster_functions.WordEmbeddingClustering,)
     ]
+    processes_threading = []
 
     for _name, _proc, _conf, _fact in processes:
         process_obj = _proc(app=app, file_storage=FILE_STORAGE_TMP)
-        # process_obj.set_file_storage_path(process)
-        if process_obj.has_pickle(process) and skip_present:
+        if process_obj.has_pickle(corpus) and skip_present:
             continue
-        read_config(processor=process_obj, process_type=_name, process_name=process, config=_conf, language=language)
+        read_config(processor=process_obj, process_type=_name, process_name=corpus, config=_conf, language=language)
         if _name == "data":
             process_obj.read_labels(labels)
             process_obj.read_data(data)
-        process_obj.start_process(cache_name=process, process_factory=_fact)
+        processes_threading.append((process_obj, _fact, ))
 
-    return graph_get_statistics(process)
+    pipeline_thread = threading.Thread(group=None, target=start_processes, name=None,
+                                       args=(processes_threading, corpus, ))
+    pipeline_thread.start()
+
+    if return_statistics:
+        return graph_get_statistics(corpus)
+    else:
+        return Response({"name": corpus}, HTTPResponses.ACCEPTED)
 
 
 @app.route("/processes", methods=['GET'])
@@ -281,8 +318,13 @@ def get_all_processes():
         return Response("No saved processes.", HTTPResponses.NOT_FOUND)
 
 
+def start_processes(processes, process_name):
+    for process_obj, _fact in processes:
+        process_obj.start_process(cache_name=process_name, process_factory=_fact)
+
+
 def read_config(processor, process_type, process_name=None, config=None, language=None):
-    app.logger.info("Reading config ...")
+    app.logger.info(f"Reading config ({process_type}) ...")
     processor.read_config(config=config if config is not None else request.files.get("config", None),
                           process_name=process_name,
                           language=None if process_type not in ["data", "embedding"] else language)
