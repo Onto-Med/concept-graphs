@@ -41,7 +41,7 @@ class PreprocessingUtil:
                 archive_path = Path(self._file_storage / data.filename)
                 data.save(archive_path)
             elif isinstance(data, Path):
-                archive_path = Path(self._file_storage / data.stem)
+                archive_path = Path(self._file_storage / data.name)
                 if archive_path.exists():
                     archive_path.unlink()
                 with archive_path.open(mode='xb') as target:

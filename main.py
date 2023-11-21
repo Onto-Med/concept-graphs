@@ -7,6 +7,7 @@ import threading
 
 from collections import defaultdict
 from enum import IntEnum
+from time import sleep
 from typing import Union
 
 import networkx as nx
@@ -40,6 +41,8 @@ steps_relation_dict = {
     "clustering": 3,
     "graphs": 4
 }
+
+running_processes = {}
 
 # ToDo: file with stopwords will be POSTed: #filter_stop: Optional[list] = None,
 
@@ -223,7 +226,7 @@ def graph_creation_with_arg(path_arg):
                 return graph_create()
         except FileNotFoundError:
             return Response(f"There is no graph data present for '{process}'.\n",
-                            status=HTTPResponses.NOT_FOUND)
+                            status=int(HTTPResponses.NOT_FOUND))
     elif path_arg.isdigit():
         graph_nr = int(path_arg)
         return graph_get_specific(process, graph_nr, draw=draw)
@@ -231,12 +234,15 @@ def graph_creation_with_arg(path_arg):
         return Response(
             f"No such path argument '{path_arg}' for 'graph' endpoint.\n"
             f"Possible path arguments are: {', '.join([p for p in _path_args] + ['#ANY_INTEGER'])}\n",
-            status=HTTPResponses.BAD_REQUEST)
+            status=int(HTTPResponses.BAD_REQUEST))
 
 
 @app.route("/pipeline", methods=['POST'])
 def complete_pipeline():
     corpus = request.args.get("process", "default")
+
+    running_processes.
+
     app.logger.info(f"Using process name '{corpus}'")
     language = {"en": "en", "de": "de"}.get(request.args.get("lang", "en"), "en")
     app.logger.info(f"Using preset language settings for '{language}'")
@@ -292,14 +298,23 @@ def complete_pipeline():
     pipeline_thread = threading.Thread(group=None, target=start_processes, name=None,
                                        args=(processes_threading, corpus, ))
     pipeline_thread.start()
+    sleep(1)
 
     if return_statistics:
         return graph_get_statistics(corpus)
     else:
-        return Response({"name": corpus}, HTTPResponses.ACCEPTED)
+        return jsonify(name=corpus), int(HTTPResponses.ACCEPTED)
 
 
 @app.route("/processes", methods=['GET'])
+def get_all_processes_api():
+    _process_detailed = get_all_processes()
+    if len(_process_detailed) > 0:
+        return jsonify(processes=_process_detailed)
+    else:
+        return Response("No saved processes.", int(HTTPResponses.NOT_FOUND))
+
+
 def get_all_processes():
     _process_detailed = list()
     for _proc in pathlib.Path(FILE_STORAGE_TMP).glob("*"):
@@ -312,10 +327,7 @@ def get_all_processes():
                 _steps_list.append({"rank": steps_relation_dict.get(_step),
                                     "name": _step})
             _process_detailed.append({"name": _proc_name, "finished_steps": sorted(_steps_list, key=lambda x: x.get("rank", -1))})
-    if len(_process_detailed) > 0:
-        return jsonify(processes=_process_detailed)
-    else:
-        return Response("No saved processes.", HTTPResponses.NOT_FOUND)
+    return _process_detailed
 
 
 def start_processes(processes, process_name):
