@@ -59,6 +59,8 @@ running_processes = {}
 
 # ToDo: get info on each base endpoint, when providing no further args or params (if necessary)
 
+# ToDo: endpoint for checking status of a process
+
 
 class HTTPResponses(IntEnum):
     OK = 200
@@ -74,7 +76,8 @@ class HTTPResponses(IntEnum):
 
 @app.route("/")
 def index():
-    return jsonify(available_endpoints=['/preprocessing', '/embedding', '/clustering', '/graph', '/pipeline', '/processes'])
+    return jsonify(available_endpoints=['/preprocessing', '/embedding', '/clustering', '/graph',
+                                        '/pipeline', '/processes', '/status'])
 
 
 @app.route("/preprocessing", methods=['GET', 'POST'])
@@ -318,6 +321,14 @@ def get_all_processes_api():
         return jsonify(processes=_process_detailed)
     else:
         return Response("No saved processes.", int(HTTPResponses.NOT_FOUND))
+
+
+@app.route("/status", methods=['GET'])
+def get_status_of():
+    _process = request.args.get("process", None)
+    if _process is not None:
+        return jsonify(running_processes.get(_process, None)), int(HTTPResponses.OK)
+    return jsonify(f"No suche process: '{_process}'"), int(HTTPResponses.NOT_FOUND)
 
 
 def get_all_processes():

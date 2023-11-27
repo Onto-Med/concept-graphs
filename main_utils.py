@@ -1,11 +1,11 @@
-import enum
+from enum import Enum
 from abc import ABC, abstractmethod
 from pathlib import Path
 
 import yaml
 
 
-class ProcessStatus(enum.Enum):
+class ProcessStatus(str, Enum):
     STARTED = "started"
     RUNNING = "running"
     FINISHED = "finished"
