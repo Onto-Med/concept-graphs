@@ -17,6 +17,7 @@ from flask.logging import default_handler
 from werkzeug.datastructures import FileStorage
 
 import graph_creation_util
+from main_utils import ProcessStatus
 from preprocessing_util import PreprocessingUtil
 from embedding_util import PhraseEmbeddingUtil
 from clustering_util import ClusteringUtil
@@ -241,21 +242,19 @@ def graph_creation_with_arg(path_arg):
 def complete_pipeline():
     corpus = request.args.get("process", "default")
 
-    running_processes.
-
     app.logger.info(f"Using process name '{corpus}'")
     language = {"en": "en", "de": "de"}.get(request.args.get("lang", "en"), "en")
     app.logger.info(f"Using preset language settings for '{language}'")
 
     skip_present = request.args.get("skip_present", True)
     if isinstance(skip_present, str):
-        skip_present = {"true": True, "false": False}.get(skip_present.lower(), True)
+        skip_present = get_bool_expression(skip_present, True)
     if skip_present:
         app.logger.info("Skipping present saved steps")
 
     return_statistics = request.args.get("return_statistics", False)
     if isinstance(return_statistics, str):
-        return_statistics = {"true": True, "false": False}.get(return_statistics.lower(), True)
+        return_statistics = get_bool_expression(return_statistics, True)
 
     data = request.files.get("data", False)
     if not data:
@@ -284,11 +283,17 @@ def complete_pipeline():
          cluster_functions.WordEmbeddingClustering,)
     ]
     processes_threading = []
+    running_processes[corpus] = {"status": {}}
 
     for _name, _proc, _conf, _fact in processes:
         process_obj = _proc(app=app, file_storage=FILE_STORAGE_TMP)
-        if process_obj.has_pickle(corpus) and skip_present:
-            continue
+        running_processes[corpus]["status"][_name] = ProcessStatus.STARTED
+        if process_obj.has_pickle(corpus):
+            if skip_present:
+                running_processes[corpus]["status"][_name] = ProcessStatus.FINISHED
+                continue
+            else:
+                process_obj.delete_pickle(corpus)
         read_config(processor=process_obj, process_type=_name, process_name=corpus, config=_conf, language=language)
         if _name == "data":
             process_obj.read_labels(labels)
@@ -296,7 +301,7 @@ def complete_pipeline():
         processes_threading.append((process_obj, _fact, ))
 
     pipeline_thread = threading.Thread(group=None, target=start_processes, name=None,
-                                       args=(processes_threading, corpus, ))
+                                       args=(processes_threading, corpus, running_processes, ))
     pipeline_thread.start()
     sleep(1)
 
@@ -330,9 +335,9 @@ def get_all_processes():
     return _process_detailed
 
 
-def start_processes(processes, process_name):
+def start_processes(processes: tuple, process_name: str, process_tracker: dict):
     for process_obj, _fact in processes:
-        process_obj.start_process(cache_name=process_name, process_factory=_fact)
+        process_obj.start_process(cache_name=process_name, process_factory=_fact, process_tracker=process_tracker)
 
 
 def read_config(processor, process_type, process_name=None, config=None, language=None):
@@ -349,6 +354,7 @@ def read_config(processor, process_type, process_name=None, config=None, languag
     if process_name is None:
         process_name = process_name_conf
     processor.set_file_storage_path(process_name)
+    processor.process_name = process_name
 
     with pathlib.Path(
             pathlib.Path(processor._file_storage) /
@@ -484,6 +490,13 @@ def graph_create():
         except FileNotFoundError:
             return jsonify(f"There is no processed data for the '{process_name}' process to be embedded.")
     return jsonify("Nothing to do.")
+
+
+def get_bool_expression(str_bool: str, default: bool = False):
+    return {
+        'true': True, 'yes': True, 'y': True,
+        'false': False, 'no': False, 'n': False
+    }.get(str_bool.lower(), default)
 
 
 # ToDo: set debug=False

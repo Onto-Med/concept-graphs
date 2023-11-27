@@ -6,6 +6,8 @@ import sys
 
 from flask import jsonify
 
+from main_utils import ProcessStatus
+
 sys.path.insert(0, "src")
 import util_functions
 
@@ -18,7 +20,21 @@ class PhraseEmbeddingUtil:
     def __init__(self, app, file_storage):
         self._app = app
         self._file_storage = Path(file_storage)
+        self._process_name = None
+        self._process_step = "embedding"
         self.config = None
+
+    @property
+    def process_name(self):
+        return self._process_name
+
+    @process_name.setter
+    def process_name(self, name):
+        self._process_name = name
+
+    @property
+    def process_step(self):
+        return self._process_step
 
     def read_config(self, config, process_name=None, language=None):
         base_config = {'model': DEFAULT_EMBEDDING_MODEL, 'down_scale_algorithm': None}
@@ -48,16 +64,32 @@ class PhraseEmbeddingUtil:
         _pickle = Path(self._file_storage / process / f"{process}_{_step}.pickle")
         return _pickle.exists()
 
-    def start_process(self, cache_name, process_factory):
+    def delete_pickle(self, process):
+        if self.has_pickle(process):
+            _step = "embeddings"
+            _pickle = Path(self._file_storage / process / f"{process}_{_step}.pickle")
+            _pickle.unlink()
+
+    def start_process(self, cache_name, process_factory, process_tracker):
         config = self.config.copy()
         # default_args = inspect.getfullargspec(process_factory.create)[0]
         # _ = [config.pop(x, None) for x in list(config.keys()) if x not in default_args]
 
         data_obj = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_data-processed.pickle"))
-        return process_factory.create(
-            data_obj=data_obj,
-            cache_path=self._file_storage,
-            cache_name=f"{cache_name}_embeddings",
-            model_name=config.pop("model", DEFAULT_EMBEDDING_MODEL),
-            **config
-        )
+
+        process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.RUNNING
+        _process = None
+        try:
+            _process = process_factory.create(
+                data_obj=data_obj,
+                cache_path=self._file_storage,
+                cache_name=f"{cache_name}_embeddings",
+                model_name=config.pop("model", DEFAULT_EMBEDDING_MODEL),
+                **config
+            )
+            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.FINISHED
+        except Exception as e:
+            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.ABORTED
+            self._app.logger.error(e)
+
+        return _process

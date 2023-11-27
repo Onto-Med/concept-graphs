@@ -7,6 +7,8 @@ import spacy
 import yaml
 from werkzeug.datastructures import FileStorage
 
+from main_utils import ProcessStatus
+
 DEFAULT_SPACY_MODEL = "en_core_web_trf"
 
 
@@ -15,6 +17,8 @@ class PreprocessingUtil:
     def __init__(self, app, file_storage):
         self._app = app
         self._file_storage = Path(file_storage)
+        self._process_name = None
+        self._process_step = "data"
         self.config = None
         self.labels = None
         self.data = None
@@ -26,6 +30,18 @@ class PreprocessingUtil:
                  "label": labels.get(Path(f.filename).stem, None)}
                 for f in zip_archive.filelist if (not f.is_dir()) and (Path(f.filename).suffix.lstrip('.') == extension.lstrip('.'))]
 
+    @property
+    def process_name(self):
+        return self._process_name
+
+    @process_name.setter
+    def process_name(self, name):
+        self._process_name = name
+
+    @property
+    def process_step(self):
+        return self._process_step
+
     def set_file_storage_path(self, sub_path):
         self._file_storage = Path(self._file_storage / sub_path)
         self._file_storage.mkdir(exist_ok=True)  # ToDo: warning when folder exists
@@ -34,6 +50,12 @@ class PreprocessingUtil:
         _step = "data-processed"
         _pickle = Path(self._file_storage / process / f"{process}_{_step}.pickle")
         return _pickle.exists()
+
+    def delete_pickle(self, process):
+        if self.has_pickle(process):
+            _step = "data-processed"
+            _pickle = Path(self._file_storage / process / f"{process}_{_step}.pickle")
+            _pickle.unlink()
 
     def read_data(self, data: Union[FileStorage, Path]):
         try:
@@ -82,7 +104,7 @@ class PreprocessingUtil:
                 self._app.logger.error(f"Couldn't read labels file: {e}")
         self.labels = base_labels
 
-    def start_process(self, cache_name, process_factory):
+    def start_process(self, cache_name, process_factory, process_tracker):
         config = self.config.copy()
         default_args = inspect.getfullargspec(process_factory.create)[0]
         spacy_language = spacy.load(config.pop("spacy_model", DEFAULT_SPACY_MODEL))
@@ -91,11 +113,20 @@ class PreprocessingUtil:
             if x not in default_args:
                 config.pop(x)
 
-        return process_factory.create(
-            pipeline=spacy_language,
-            base_data=self.data,
-            cache_name=f"{cache_name}_data-processed",
-            cache_path=self._file_storage,
-            save_to_file=True,
-            **config
-        )
+        process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.RUNNING
+        _process = None
+        try:
+            _process = process_factory.create(
+                pipeline=spacy_language,
+                base_data=self.data,
+                cache_name=f"{cache_name}_data-processed",
+                cache_path=self._file_storage,
+                save_to_file=True,
+                **config
+            )
+            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.FINISHED
+        except Exception as e:
+            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.ABORTED
+            self._app.logger.error(e)
+
+        return _process

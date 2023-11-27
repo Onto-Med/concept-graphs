@@ -1,7 +1,15 @@
+import enum
 from abc import ABC, abstractmethod
 from pathlib import Path
 
 import yaml
+
+
+class ProcessStatus(enum.Enum):
+    STARTED = "started"
+    RUNNING = "running"
+    FINISHED = "finished"
+    ABORTED = "aborted"
 
 
 class BaseUtil(ABC):

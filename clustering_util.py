@@ -7,6 +7,8 @@ import sys
 
 from flask import jsonify
 
+from main_utils import ProcessStatus
+
 sys.path.insert(0, "src")
 import util_functions
 import embedding_functions
@@ -17,7 +19,21 @@ class ClusteringUtil:
     def __init__(self, app, file_storage):
         self._app = app
         self._file_storage = Path(file_storage)
+        self._process_name = None
+        self._process_step = "clustering"
         self.config = None
+
+    @property
+    def process_name(self):
+        return self._process_name
+
+    @process_name.setter
+    def process_name(self, name):
+        self._process_name = name
+
+    @property
+    def process_step(self):
+        return self._process_step
 
     def read_config(self, config, process_name=None, language=None):
         base_config = {"algorithm": "kmeans", "downscale": "umap", "scaling_n_neighbors": 10, "scaling_min_dist": 0.1,
@@ -49,7 +65,13 @@ class ClusteringUtil:
         _pickle = Path(self._file_storage / process / f"{process}_{_step}.pickle")
         return _pickle.exists()
 
-    def start_process(self, cache_name, process_factory):
+    def delete_pickle(self, process):
+        if self.has_pickle(process):
+            _step = "clustering"
+            _pickle = Path(self._file_storage / process / f"{process}_{_step}.pickle")
+            _pickle.unlink()
+
+    def start_process(self, cache_name, process_factory, process_tracker):
         config = self.config.copy()
         # default_args = inspect.getfullargspec(process_factory.create)[0]
         algorithm = config.pop("algorithm", "kmeans")
@@ -58,15 +80,25 @@ class ClusteringUtil:
 
         emb_obj = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_embeddings.pickle"))
 
-        cluster_obj = process_factory.create(
-            sentence_embeddings=emb_obj,
-            cache_path=self._file_storage,
-            cache_name=f"{cache_name}_clustering",
-            cluster_algorithm=algorithm,
-            down_scale_algorithm=downscale,
-            cluster_by_down_scale=True,  # ToDo: is this feasible to toggle via config?
-            ** config
-        )
+        process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.RUNNING
+        cluster_obj = None
+        try:
+            cluster_obj = process_factory.create(
+                sentence_embeddings=emb_obj,
+                cache_path=self._file_storage,
+                cache_name=f"{cache_name}_clustering",
+                cluster_algorithm=algorithm,
+                down_scale_algorithm=downscale,
+                cluster_by_down_scale=True,  # ToDo: is this feasible to toggle via config?
+                ** config
+            )
+            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.FINISHED
+        except Exception as e:
+            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.ABORTED
+            self._app.logger.error(e)
 
-        return embedding_functions.show_top_k_for_concepts(cluster_obj=cluster_obj.concept_cluster,
-                                                           embedding_object=emb_obj, yield_concepts=True)
+        if cluster_obj is not None:
+            return embedding_functions.show_top_k_for_concepts(cluster_obj=cluster_obj.concept_cluster,
+                                                               embedding_object=emb_obj, yield_concepts=True)
+        else:
+            return []

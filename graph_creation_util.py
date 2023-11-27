@@ -9,6 +9,8 @@ from pyvis import network as net
 
 from flask import jsonify
 
+from main_utils import ProcessStatus
+
 sys.path.insert(0, "src")
 import util_functions
 
@@ -18,7 +20,21 @@ class GraphCreationUtil:
     def __init__(self, app, file_storage):
         self._app = app
         self._file_storage = Path(file_storage)
+        self._process_name = None
+        self._process_step = "graph"
         self.config = None
+
+    @property
+    def process_name(self):
+        return self._process_name
+
+    @process_name.setter
+    def process_name(self, name):
+        self._process_name = name
+
+    @property
+    def process_step(self):
+        return self._process_step
 
     def read_config(self, config, process_name=None, language=None):
         base_config = {
@@ -56,24 +72,37 @@ class GraphCreationUtil:
         _pickle = Path(self._file_storage / process / f"{process}_{_step}.pickle")
         return _pickle.exists()
 
-    def start_process(self, cache_name, process_factory, exclusion_ids=None):
+    def delete_pickle(self, process):
+        if self.has_pickle(process):
+            _step = "graphs"
+            _pickle = Path(self._file_storage / process / f"{process}_{_step}.pickle")
+            _pickle.unlink()
+
+    def start_process(self, cache_name, process_factory, process_tracker, exclusion_ids=None):
         sent_emb = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_embeddings.pickle"))
         cluster_obj = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_clustering.pickle"))
 
         config = self.config.copy()
 
-        concept_graph_clustering = process_factory(
-            sentence_embedding_obj=sent_emb,
-            cluster_obj=cluster_obj.concept_cluster,
-            cluster_exclusion_ids=exclusion_ids
-        ).create_concept_graph_clustering()
+        process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.RUNNING
+        concept_graphs = []
+        try:
+            concept_graph_clustering = process_factory(
+                sentence_embedding_obj=sent_emb,
+                cluster_obj=cluster_obj.concept_cluster,
+                cluster_exclusion_ids=exclusion_ids
+            ).create_concept_graph_clustering()
 
-        concept_graphs = concept_graph_clustering.build_document_concept_matrix(
-            break_after_graph_creation=True,
-            **config
-        )
-        with pathlib.Path(self._file_storage / f"{cache_name}_graphs.pickle").open("wb") as graphs_out:
-            pickle.dump(concept_graphs, graphs_out)
+            concept_graphs = concept_graph_clustering.build_document_concept_matrix(
+                break_after_graph_creation=True,
+                **config
+            )
+            with pathlib.Path(self._file_storage / f"{cache_name}_graphs.pickle").open("wb") as graphs_out:
+                pickle.dump(concept_graphs, graphs_out)
+            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.FINISHED
+        except Exception as e:
+            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.ABORTED
+            self._app.logger.error(e)
 
         return concept_graphs
 
