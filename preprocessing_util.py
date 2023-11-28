@@ -47,14 +47,12 @@ class PreprocessingUtil:
         self._file_storage.mkdir(exist_ok=True)  # ToDo: warning when folder exists
 
     def has_pickle(self, process):
-        _step = "data-processed"
-        _pickle = Path(self._file_storage / process / f"{process}_{_step}.pickle")
+        _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
         return _pickle.exists()
 
     def delete_pickle(self, process):
         if self.has_pickle(process):
-            _step = "data-processed"
-            _pickle = Path(self._file_storage / process / f"{process}_{_step}.pickle")
+            _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
             _pickle.unlink()
 
     def read_data(self, data: Union[FileStorage, Path]):
@@ -119,7 +117,7 @@ class PreprocessingUtil:
             _process = process_factory.create(
                 pipeline=spacy_language,
                 base_data=self.data,
-                cache_name=f"{cache_name}_data-processed",
+                cache_name=f"{cache_name}_{self.process_step}",
                 cache_path=self._file_storage,
                 save_to_file=True,
                 **config

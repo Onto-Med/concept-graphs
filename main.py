@@ -5,14 +5,14 @@ import pickle
 import sys
 import threading
 
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 from enum import IntEnum
 from time import sleep
 from typing import Union
 
 import networkx as nx
 import yaml
-from flask import Flask, jsonify, request, render_template, render_template_string, Response
+from flask import Flask, jsonify, request, render_template_string, Response
 from flask.logging import default_handler
 from werkzeug.datastructures import FileStorage
 
@@ -37,10 +37,10 @@ root.addHandler(default_handler)
 FILE_STORAGE_TMP = "./tmp"  # ToDo: replace it with proper path in docker
 
 steps_relation_dict = {
-    "data-processed": 1,
-    "embeddings": 2,
+    "data": 1,
+    "embedding": 2,
     "clustering": 3,
-    "graphs": 4
+    "graph": 4
 }
 
 running_processes = {}
@@ -55,11 +55,7 @@ running_processes = {}
 
 # ToDo: endpoints with path arguments should throw a response/warning if there is no saved pickle
 
-# ToDo: implement socket.io (or similar) so that the requests can update on the progress of each process
-
 # ToDo: get info on each base endpoint, when providing no further args or params (if necessary)
-
-# ToDo: endpoint for checking status of a process
 
 
 class HTTPResponses(IntEnum):
@@ -105,7 +101,7 @@ def data_preprocessing():
 
     elif len(request.files) <= 0 or "data" not in request.files:
         app.logger.error("There were no files at all or no data files POSTed."
-                         " At least a zip folder with the data is necessary!\n"
+                         " At least a zip folder with the text data is necessary!\n"
                          " It is also necessary to conform to the naming convention!\n"
                          "\t\ti.e.: curl -X POST -F data=@\"#SOME/PATH/TO/FILE.zip\"")
     return jsonify("Nothing to do.")
@@ -119,7 +115,7 @@ def data_preprocessing_with_arg(path_arg):
     _path_args = ["statistics", "noun_chunks"]
     if path_arg in _path_args:
         data_obj = data_functions.DataProcessingFactory.load(
-            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process) / f"{process}_data-processed.pickle"))
+            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process) / f"{process}_data.pickle"))
     else:
         return jsonify(error=f"No such path argument '{path_arg}' for 'preprocessing' endpoint.",
                        possible_path_args=[f"/{p}" for p in _path_args])
@@ -157,8 +153,8 @@ def phrase_embedding_with_arg(path_arg):
     _path_args = ["statistics"]
     if path_arg in _path_args:
         emb_obj = embedding_functions.SentenceEmbeddingsFactory.load(
-            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process) / f"{process}_data-processed.pickle"),
-            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process) / f"{process}_embeddings.pickle"),
+            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process) / f"{process}_data.pickle"),
+            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process) / f"{process}_embedding.pickle"),
         )
     else:
         return jsonify(error=f"No such path argument '{path_arg}' for 'embedding' endpoint.",
@@ -207,7 +203,7 @@ def clustering_with_arg(path_arg):
 
     if path_arg == "concepts":
         emb_obj = util_functions.load_pickle(
-            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_embeddings.pickle"))
+            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}_embedding.pickle"))
         _cluster_gen = embedding_functions.show_top_k_for_concepts(
             cluster_obj=cluster_obj.concept_cluster, embedding_object=emb_obj, yield_concepts=True,
             top_k=top_k, distance=distance
@@ -334,7 +330,7 @@ def get_status_of():
 def get_all_processes():
     _process_detailed = list()
     for _proc in pathlib.Path(FILE_STORAGE_TMP).glob("*"):
-        if _proc.is_dir():
+        if _proc.is_dir() and not _proc.stem.startswith("."):
             _proc_name = _proc.stem.lower()
             _steps_list = list()
             for _pickle in pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / _proc_name).glob("*.pickle"):
@@ -342,13 +338,20 @@ def get_all_processes():
                 _step = _pickle_stem.removeprefix(f"{_proc_name}_")
                 _steps_list.append({"rank": steps_relation_dict.get(_step),
                                     "name": _step})
-            _process_detailed.append({"name": _proc_name, "finished_steps": sorted(_steps_list, key=lambda x: x.get("rank", -1))})
+            _ord_dict = OrderedDict()
+            _ord_dict["name"] = _proc_name
+            _ord_dict["finished_steps"] = sorted(_steps_list, key=lambda x: x.get("rank", -1))
+            _process_detailed.append(_ord_dict)
     return _process_detailed
 
 
 def start_processes(processes: tuple, process_name: str, process_tracker: dict):
     for process_obj, _fact in processes:
-        process_obj.start_process(cache_name=process_name, process_factory=_fact, process_tracker=process_tracker)
+        process_obj.start_process(
+            cache_name=process_name,
+            process_factory=_fact,
+            process_tracker=process_tracker
+        )
 
 
 def read_config(processor, process_type, process_name=None, config=None, language=None):
@@ -412,7 +415,7 @@ def clustering_get_concepts(cluster_gen):
 def graph_get_statistics(data: Union[str, list]):
     if isinstance(data, str):
         _path = pathlib.Path(
-            os.getcwd() / pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(data) / f"{data}_graphs.pickle")
+            os.getcwd() / pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(data) / f"{data}_graph.pickle")
         app.logger.info(f"Trying to open file '{_path}'")
         graph_list = pickle.load(_path.open('rb'))
     elif isinstance(data, list):
@@ -460,7 +463,7 @@ def graph_get_specific(process, graph_nr, draw=False):
     store_path = pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / f"{process}")
     try:
         graph_list = pickle.load(
-            pathlib.Path(store_path / f"{process}_graphs.pickle").open('rb')
+            pathlib.Path(store_path / f"{process}_graph.pickle").open('rb')
         )
         if (len(graph_list) - 1) > graph_nr >= 0:
             if not draw:
@@ -515,4 +518,4 @@ if __name__ == "__main__":
     f_storage = pathlib.Path(FILE_STORAGE_TMP)
     if not f_storage.exists():
         f_storage.mkdir()
-    app.run(debug=True, host='0.0.0.0', port=9007)
+    app.run()

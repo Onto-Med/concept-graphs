@@ -1,5 +1,6 @@
 import inspect
 from pathlib import Path
+from typing import Optional
 
 import yaml
 import sys
@@ -60,14 +61,12 @@ class PhraseEmbeddingUtil:
         self._file_storage.mkdir(exist_ok=True)  # ToDo: warning when folder exists
 
     def has_pickle(self, process):
-        _step = "embeddings"
-        _pickle = Path(self._file_storage / process / f"{process}_{_step}.pickle")
+        _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
         return _pickle.exists()
 
     def delete_pickle(self, process):
         if self.has_pickle(process):
-            _step = "embeddings"
-            _pickle = Path(self._file_storage / process / f"{process}_{_step}.pickle")
+            _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
             _pickle.unlink()
 
     def start_process(self, cache_name, process_factory, process_tracker):
@@ -75,7 +74,8 @@ class PhraseEmbeddingUtil:
         # default_args = inspect.getfullargspec(process_factory.create)[0]
         # _ = [config.pop(x, None) for x in list(config.keys()) if x not in default_args]
 
-        data_obj = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_data-processed.pickle"))
+        data_obj = util_functions.load_pickle(
+            Path(self._file_storage / f"{cache_name}_data.pickle"))
 
         process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.RUNNING
         _process = None
@@ -83,7 +83,7 @@ class PhraseEmbeddingUtil:
             _process = process_factory.create(
                 data_obj=data_obj,
                 cache_path=self._file_storage,
-                cache_name=f"{cache_name}_embeddings",
+                cache_name=f"{cache_name}_{self.process_step}",
                 model_name=config.pop("model", DEFAULT_EMBEDDING_MODEL),
                 **config
             )

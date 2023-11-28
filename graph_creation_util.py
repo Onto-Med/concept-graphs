@@ -68,18 +68,16 @@ class GraphCreationUtil:
         self._file_storage.mkdir(exist_ok=True)  # ToDo: warning when folder exists
 
     def has_pickle(self, process):
-        _step = "graphs"
-        _pickle = Path(self._file_storage / process / f"{process}_{_step}.pickle")
+        _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
         return _pickle.exists()
 
     def delete_pickle(self, process):
         if self.has_pickle(process):
-            _step = "graphs"
-            _pickle = Path(self._file_storage / process / f"{process}_{_step}.pickle")
+            _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
             _pickle.unlink()
 
     def start_process(self, cache_name, process_factory, process_tracker, exclusion_ids=None):
-        sent_emb = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_embeddings.pickle"))
+        sent_emb = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_embedding.pickle"))
         cluster_obj = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_clustering.pickle"))
 
         config = self.config.copy()
@@ -97,7 +95,7 @@ class GraphCreationUtil:
                 break_after_graph_creation=True,
                 **config
             )
-            with pathlib.Path(self._file_storage / f"{cache_name}_graphs.pickle").open("wb") as graphs_out:
+            with pathlib.Path(self._file_storage / f"{cache_name}_{self.process_step}.pickle").open("wb") as graphs_out:
                 pickle.dump(concept_graphs, graphs_out)
             process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.FINISHED
         except Exception as e:
