@@ -57,6 +57,8 @@ running_processes = {}
 
 # ToDo: get info on each base endpoint, when providing no further args or params (if necessary)
 
+# ToDo: adapt README
+
 
 class HTTPResponses(IntEnum):
     OK = 200

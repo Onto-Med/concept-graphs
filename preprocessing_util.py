@@ -3,6 +3,7 @@ import zipfile
 from pathlib import Path
 from typing import List, Dict, Union
 
+import flask.app
 import spacy
 import yaml
 from werkzeug.datastructures import FileStorage
@@ -14,11 +15,11 @@ DEFAULT_SPACY_MODEL = "en_core_web_trf"
 
 class PreprocessingUtil:
 
-    def __init__(self, app, file_storage):
+    def __init__(self, app: flask.app.Flask, file_storage: str, step_name: str = "data"):
         self._app = app
         self._file_storage = Path(file_storage)
+        self._process_step = step_name
         self._process_name = None
-        self._process_step = "data"
         self.config = None
         self.labels = None
         self.data = None

@@ -1,7 +1,9 @@
+import pathlib
 from enum import Enum
 from abc import ABC, abstractmethod
 from pathlib import Path
 
+import flask
 import yaml
 
 
@@ -13,11 +15,12 @@ class ProcessStatus(str, Enum):
 
 
 class BaseUtil(ABC):
-    def __init__(self):
-        self._app = None
-        self._file_storage = None
-        self._base_config = None
-        self._final_config = None
+    def __init__(self, app: flask.app.Flask, file_storage: str, process_name: str, step_name: str):
+        self._app = app
+        self._file_storage = pathlib.Path(file_storage)
+        self._process_step = step_name
+        self._process_name = process_name
+        self._config = None
 
     @property
     @abstractmethod

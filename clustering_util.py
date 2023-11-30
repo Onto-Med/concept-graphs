@@ -16,11 +16,11 @@ import embedding_functions
 
 class ClusteringUtil:
 
-    def __init__(self, app, file_storage):
+    def __init__(self, app: flask.app.Flask, file_storage: str, step_name: str = "clustering"):
         self._app = app
         self._file_storage = Path(file_storage)
+        self._process_step = step_name
         self._process_name = None
-        self._process_step = "clustering"
         self.config = None
 
     @property
