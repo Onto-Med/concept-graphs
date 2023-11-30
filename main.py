@@ -59,6 +59,8 @@ running_processes = {}
 
 # ToDo: adapt README
 
+# ToDo: when starting the server, read all processes and fill 'running_processes' accordingly
+
 
 class HTTPResponses(IntEnum):
     OK = 200
@@ -323,10 +325,12 @@ def get_all_processes_api():
 
 @app.route("/status", methods=['GET'])
 def get_status_of():
-    _process = request.args.get("process", None)
+    _process = request.args.get("process", "default")
     if _process is not None:
-        return jsonify(running_processes.get(_process, None)), int(HTTPResponses.OK)
-    return jsonify(f"No suche process: '{_process}'"), int(HTTPResponses.NOT_FOUND)
+        _response = running_processes.get(_process, None)
+        if _response is not None:
+            return jsonify(_response, int(HTTPResponses.OK))
+    return jsonify(f"No such (running) process: '{_process}'"), int(HTTPResponses.NOT_FOUND)
 
 
 def get_all_processes():

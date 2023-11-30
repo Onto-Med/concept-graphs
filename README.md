@@ -223,6 +223,13 @@ Content-Type: application/x-yaml
 Gets the name of all stored processes.
 
 
+### `/status`
+Gets status of a specific process
+
+####  Query Parameters
+* ``process``: name of the process (e.g. ``corpus_name`` in config); if not provided, uses 'default'
+
+
 ## Example Config Files (YAML)
 ### `/preprocessing`
 ```
