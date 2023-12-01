@@ -12,6 +12,7 @@ class ProcessStatus(str, Enum):
     RUNNING = "running"
     FINISHED = "finished"
     ABORTED = "aborted"
+    NOT_PRESENT = "not present"
 
 
 class BaseUtil(ABC):

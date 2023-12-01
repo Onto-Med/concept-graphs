@@ -21,18 +21,10 @@ import cluster_functions
 import util_functions
 
 app = Flask(__name__)
-
 root = logging.getLogger()
 root.addHandler(default_handler)
 
 FILE_STORAGE_TMP = "./tmp"  # ToDo: replace it with proper path in docker
-
-steps_relation_dict = {
-    "data": 1,
-    "embedding": 2,
-    "clustering": 3,
-    "graph": 4
-}
 
 running_processes = {}
 
@@ -49,8 +41,6 @@ running_processes = {}
 # ToDo: get info on each base endpoint, when providing no further args or params (if necessary)
 
 # ToDo: adapt README
-
-# ToDo: when starting the server, read all processes and fill 'running_processes' accordingly
 
 
 class HTTPResponses(IntEnum):
@@ -313,7 +303,7 @@ def complete_pipeline():
 
 @app.route("/processes", methods=['GET'])
 def get_all_processes_api():
-    _process_detailed = get_all_processes(FILE_STORAGE_TMP, steps_relation_dict)
+    _process_detailed = get_all_processes(FILE_STORAGE_TMP)
     if len(_process_detailed) > 0:
         return jsonify(processes=_process_detailed)
     else:
@@ -326,12 +316,15 @@ def get_status_of():
     if _process is not None:
         _response = running_processes.get(_process, None)
         if _response is not None:
-            return jsonify(_response, int(HTTPResponses.OK))
+            return jsonify(_response), int(HTTPResponses.OK)
     return jsonify(f"No such (running) process: '{_process}'"), int(HTTPResponses.NOT_FOUND)
 
 
-if __name__ == "__main__":
+if __name__ in ["__main__", "main"]:
     f_storage = pathlib.Path(FILE_STORAGE_TMP)
     if not f_storage.exists():
         f_storage.mkdir()
-    app.run()
+    populate_running_processes(app, FILE_STORAGE_TMP, running_processes)
+
+    if __name__ == "__main__":
+        app.run()

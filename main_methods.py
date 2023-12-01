@@ -11,12 +11,37 @@ import yaml
 from flask import request, jsonify, render_template_string
 from werkzeug.datastructures import FileStorage
 
+from main_utils import ProcessStatus
+
 sys.path.insert(0, "src")
 import graph_creation_util
 import cluster_functions
 
 
-def get_all_processes(path: str, steps_relation_dict: dict):
+steps_relation_dict = {
+    "data": 1,
+    "embedding": 2,
+    "clustering": 3,
+    "graph": 4
+}
+
+
+def populate_running_processes(app: flask.Flask, path: str, running_processes: dict):
+    for process in get_all_processes(path):
+        _finished = [_finished_step.get("name") for _finished_step in process.get("finished_steps", [])]
+        _name = process.get("name", None)
+        if _name is None:
+            app.logger.warning(f"Skipping process entry with no name and '{_finished}' steps.")
+            continue
+
+        running_processes[_name] = {"status": {}}
+        for _step in steps_relation_dict.keys():
+            running_processes[_name]["status"][_step] = ProcessStatus.NOT_PRESENT
+            if _step in _finished:
+                running_processes[_name]["status"][_step] = ProcessStatus.FINISHED
+
+
+def get_all_processes(path: str):
     _process_detailed = list()
     for _proc in pathlib.Path(path).glob("*"):
         if _proc.is_dir() and not _proc.stem.startswith("."):
