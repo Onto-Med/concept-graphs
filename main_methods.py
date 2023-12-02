@@ -60,13 +60,23 @@ def get_all_processes(path: str):
     return _process_detailed
 
 
-def start_processes(processes: tuple, process_name: str, process_tracker: dict):
-    for process_obj, _fact in processes:
-        process_obj.start_process(
-            cache_name=process_name,
-            process_factory=_fact,
-            process_tracker=process_tracker
-        )
+def start_processes(app: flask.Flask, processes: tuple, process_name: str, process_tracker: dict):
+    _name_marker = {
+        "data": "**data**, embedding, clustering, graph",
+        "embedding": "data, **embedding**, clustering, graph",
+        "clustering": "data, embedding, **clustering**, graph",
+        "graph": "data, embedding, clustering, **graph**",
+    }
+    for process_obj, _fact, _name in processes:
+        try:
+            process_obj.start_process(
+                cache_name=process_name,
+                process_factory=_fact,
+                process_tracker=process_tracker
+            )
+        except FileNotFoundError as e:
+            app.logger.warning(f"Something went wrong with one of the previous steps: {_name_marker[_name]}."
+                               f"\nThere is a pickle file missing: {e}")
 
 
 def read_config(app: flask.Flask, processor, process_type, process_name=None, config=None, language=None):

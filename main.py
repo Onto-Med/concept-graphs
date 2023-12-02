@@ -288,17 +288,19 @@ def complete_pipeline():
         if _name == "data":
             process_obj.read_labels(labels)
             process_obj.read_data(data)
-        processes_threading.append((process_obj, _fact, ))
+        processes_threading.append((process_obj, _fact, _name, ))
 
     pipeline_thread = threading.Thread(group=None, target=start_processes, name=None,
-                                       args=(processes_threading, corpus, running_processes, ))
+                                       args=(app, processes_threading, corpus, running_processes, ))
     pipeline_thread.start()
     sleep(1)
 
     if return_statistics:
         return graph_get_statistics(app, corpus, FILE_STORAGE_TMP)
     else:
-        return jsonify(name=corpus), int(HTTPResponses.ACCEPTED)
+        return (
+            jsonify(name=corpus, status=running_processes.get(corpus, {"status": {}}).get("status")),
+            int(HTTPResponses.ACCEPTED))
 
 
 @app.route("/processes", methods=['GET'])
