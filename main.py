@@ -296,11 +296,17 @@ def complete_pipeline():
     sleep(1)
 
     if return_statistics:
-        return graph_get_statistics(app, corpus, FILE_STORAGE_TMP)
+        pipeline_thread.join()
+        _graph_stats_dict = graph_get_statistics(app=app, data=corpus, path=FILE_STORAGE_TMP)
+        return (
+            jsonify(name=corpus, **_graph_stats_dict),
+            int(HTTPResponses.OK) if "error" not in _graph_stats_dict else int(HTTPResponses.INTERNAL_SERVER_ERROR)
+        )
     else:
         return (
             jsonify(name=corpus, status=running_processes.get(corpus, {"status": {}}).get("status")),
-            int(HTTPResponses.ACCEPTED))
+            int(HTTPResponses.ACCEPTED)
+        )
 
 
 @app.route("/processes", methods=['GET'])

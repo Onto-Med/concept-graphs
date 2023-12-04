@@ -137,12 +137,16 @@ def clustering_get_concepts(cluster_gen):
     return jsonify(**_cluster_dict)
 
 
-def graph_get_statistics(app: flask.Flask, data: Union[str, list], path: str):
+def graph_get_statistics(app: flask.Flask, data: Union[str, list], path: str) -> dict:
     if isinstance(data, str):
         _path = pathlib.Path(
             os.getcwd() / pathlib.Path(path) / pathlib.Path(data) / f"{data}_graph.pickle")
         app.logger.info(f"Trying to open file '{_path}'")
-        graph_list = pickle.load(_path.open('rb'))
+        try:
+            graph_list = pickle.load(_path.open('rb'))
+        except FileNotFoundError as e:
+            app.logger.info(e)
+            return {"error": f"Couldn't find graph pickle '{data}_graph.pickle'. Probably steps before failed; check the logs."}
     elif isinstance(data, list):
         graph_list = data
     else:
@@ -164,7 +168,7 @@ def graph_get_statistics(app: flask.Flask, data: Union[str, list], path: str):
     # response = ["To get a specific graph (its nodes (with labels) and edges (with weight) as an adjacency list)"
     #             "use the endpoint '/graph/GRAPH-ID', where GRAPH-ID can be gleaned by 'concept_graph_GRAPH-ID",
     #             return_dict]
-    return jsonify(return_dict)
+    return return_dict
 
 
 def build_adjacency_obj(graph_obj: nx.Graph):
