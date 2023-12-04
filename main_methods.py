@@ -34,7 +34,7 @@ def populate_running_processes(app: flask.Flask, path: str, running_processes: d
             app.logger.warning(f"Skipping process entry with no name and '{_finished}' steps.")
             continue
 
-        running_processes[_name] = {"status": {}}
+        running_processes[_name] = {"status": {}, "name": _name}
         for _step in steps_relation_dict.keys():
             running_processes[_name]["status"][_step] = ProcessStatus.NOT_PRESENT
             if _step in _finished:

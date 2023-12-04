@@ -272,7 +272,7 @@ def complete_pipeline():
          cluster_functions.WordEmbeddingClustering,)
     ]
     processes_threading = []
-    running_processes[corpus] = {"status": {}}
+    running_processes[corpus] = {"status": {}, "name": corpus}
 
     for _name, _proc, _conf, _fact in processes:
         process_obj = _proc(app=app, file_storage=FILE_STORAGE_TMP)
