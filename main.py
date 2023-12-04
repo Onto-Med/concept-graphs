@@ -272,7 +272,7 @@ def complete_pipeline():
          cluster_functions.WordEmbeddingClustering,)
     ]
     processes_threading = []
-    running_processes[corpus] = {"status": {}}
+    running_processes[corpus] = {"status": {}, "name": corpus}
 
     for _name, _proc, _conf, _fact in processes:
         process_obj = _proc(app=app, file_storage=FILE_STORAGE_TMP)
@@ -333,6 +333,4 @@ if __name__ in ["__main__", "main"]:
     if not f_storage.exists():
         f_storage.mkdir()
     populate_running_processes(app, FILE_STORAGE_TMP, running_processes)
-
-    if __name__ == "__main__":
-        app.run()
+    app.run(host="0.0.0.0", port=9007)
