@@ -170,11 +170,12 @@ GET http://SOME_IP:SOME_PORT/graph/GRAPH_ID
 
 ### `/pipeline`
 starts a complete pipeline with all 4 sub steps.
-It takes three query arguments
+
+####  Query Parameters
 * `process`: overrides the `corpus_name` given in the config
 * `lang` (`de` or `en`): if declared here and no model provided in `config`, will use default language specific models for `preprocessing` and `clustering` (default: en)
-* `skip_present`: true or false - whether to skip already saved steps for this particular process name (default: true)
-* `return_statistics`: true or false - whether to return statistics for the created graphs in the end or just silently start the pipeline
+* `skip_present`: (`true` or `false`) - whether to skip already saved steps for this particular process name (default: true)
+* `return_statistics`: (`true` or `false`) - whether to wait for pipeline to finish and return statistics for the created graphs in the end or just silently start the pipeline (default: false)
 
 ``data``, ``labels`` and ``configs`` need to be provided like in the base endpoints except for the configs need to be specified accordingly (if not provided, default values will be used):
 * ``preprocessing``: ``config`` -> ``data_config``
@@ -222,12 +223,21 @@ Content-Type: application/x-yaml
 ### `/processes`
 Gets the name of all stored processes.
 
+#### HTTP Requests
+```
+GET http://SOME_IP:SOME_PORT/processes
+```
 
 ### `/status`
 Gets status of a specific process
 
 ####  Query Parameters
 * ``process``: name of the process (e.g. ``corpus_name`` in config); if not provided, uses 'default'
+
+#### HTTP Requests
+```
+GET http://SOME_IP:SOME_PORT/status?process=PROCESS_NAME
+```
 
 
 ## Example Config Files (YAML)
@@ -321,6 +331,6 @@ filter_stop: None
 ```
 
 ## References
-**[1]** Matthies, F et al. *Concept Graphs: A Novel Approach for Textual Analysis of Medical Documents.* (accepted)  
+**[1]** Matthies, F et al. *Concept Graphs: A Novel Approach for Textual Analysis of Medical Documents.* In: Röhrig, R et al., editors. Studies in Health Technology and Informatics. IOS Press; 2023. Available from: https://ebooks.iospress.nl/doi/10.3233/SHTI230710  
 **[2]** https://networkx.org/  
-**[3]** Dianati N. *Unwinding the hairball graph: Pruning algorithms for weighted complex networks.* Phys Rev E [Internet]. 2016;93(1). Available from: https://link.aps.org/doi/10.1103/PhysRevE.93.012304  
+**[3]** Dianati N. *Unwinding the hairball graph: Pruning algorithms for weighted complex networks.* Phys Rev E. 2016;93(1). Available from: https://link.aps.org/doi/10.1103/PhysRevE.93.012304  
