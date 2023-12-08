@@ -235,8 +235,22 @@ def graph_create(app: flask.Flask, path: str):
     return jsonify("Nothing to do.")
 
 
-def get_bool_expression(str_bool: str, default: bool = False):
+def get_bool_expression(str_bool: str, default: bool = False) -> bool:
+    if isinstance(str_bool, bool):
+        return str_bool
+    elif isinstance(str_bool, str):
+        return {
+            'true': True, 'yes': True, 'y': True, 'ja': True, 'j': True,
+            'false': False, 'no': False, 'n': False, 'nein': False,
+        }.get(str_bool.lower(), default)
+    else:
+        return False
+
+
+def get_query_param_help_text(param: str):
     return {
-        'true': True, 'yes': True, 'y': True,
-        'false': False, 'no': False, 'n': False
-    }.get(str_bool.lower(), default)
+        "process": "process: name of the process (e.g. ``corpus_name`` in config); if not provided, uses 'default'",
+        "exclusion_ids": "exclusion_ids: list of concept ids (as returned by e.g. ``/clustering/concepts``), "
+                         "that shall be excluded from the final graphs in the form of ``[ID1, ID2, etc.]``",
+        "draw": "draw: `true` or `false` - whether the response shall be a rendered graph or plain json"
+    }.get(param, "No help text available.")

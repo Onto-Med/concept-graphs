@@ -42,6 +42,8 @@ running_processes = {}
 
 # ToDo: adapt README
 
+# ToDo: the graph draw physics behave weirdly; maybe switch to another (static) rendering
+
 
 class HTTPResponses(IntEnum):
     OK = 200
@@ -201,10 +203,41 @@ def clustering_with_arg(path_arg):
         return clustering_get_concepts(_cluster_gen)
 
 
+@app.route("/graph", methods=['GET'])
+def graph_base_endpoint():
+    return jsonify(
+        path_parameter=[
+            {
+                "statistics": {
+                     "query_parameters": [
+                         get_query_param_help_text("process"),
+                     ]
+                }
+            },
+            {
+                "creation": {
+                    "query_parameters": [
+                        get_query_param_help_text("process"),
+                        get_query_param_help_text("exclusion_ids")
+                    ]
+                }
+            },
+            {
+                "#GRAPH_ID": {
+                    "query_parameters": [
+                        get_query_param_help_text("process"),
+                        get_query_param_help_text("draw")
+                    ]
+                }
+            },
+        ],
+    ), HTTPResponses.NOT_FOUND
+
+
 @app.route("/graph/<path_arg>", methods=['POST', 'GET'])
 def graph_creation_with_arg(path_arg):
     process = request.args.get("process", "default")
-    draw = True if request.args.get("draw", "false").lower() == "true" else False
+    draw = get_bool_expression(request.args.get("draw", False))
     path_arg = path_arg.lower()
 
     _path_args = ["statistics", "creation"]

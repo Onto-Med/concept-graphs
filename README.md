@@ -127,7 +127,8 @@ Content-Type: application/x-yaml
 * ``distance`` (only for `../concepts`): how far away (cosine) a representative can be
 
 ### `/graph`
-**Attention**: the base endpoint has no funtion as such. To create the graphs you need to call the ``../creation`` path argument  
+**Attention**: the base endpoint has no funtion as such. To create the graphs you need to call the ``../creation`` path argument
+or call ``../statistics`` to get a simple overview of the graphs created for a specific ``process``.
 Creates graph representations for each phrase cluster that was found during the 'clustering' step.  
 You get a response with all graphs found and their respective edge/node count. To get a specific graph's adjacency matrix use its id as path argument (the id is just the number given in the formerly mentioned response). 
 
