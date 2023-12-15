@@ -25,8 +25,10 @@ from util_functions import load_pickle, save_pickle
 def _set_extensions(
 ) -> None:
     from spacy.tokens import Doc
-    if not Doc.has_extension("text_id"):
-        Doc.set_extension("text_id", default=None)
+    if not Doc.has_extension("doc_id"):
+        Doc.set_extension("doc_id", default=None)
+    if not Doc.has_extension("doc_index"):
+        Doc.set_extension("doc_index", default=None)
     if not Doc.has_extension("doc_name"):
         Doc.set_extension("doc_name", default=None)
     if not Doc.has_extension("doc_topic"):
@@ -266,7 +268,7 @@ class DataProcessingFactory:
                 for ch in doc.noun_chunks:
                     if not (re.match(r"\W", ch.text) and len(ch.text) == 1):
                         if self._view is None or doc._.doc_topic in self._view['labels']:
-                            yield {"spacy_chunk": ch, "text_id": doc._.text_id,
+                            yield {"spacy_chunk": ch, "doc_id": doc._.doc_id, "doc_index": doc._.doc_index,
                                    "doc_name": doc._.doc_name, "doc_topic": doc._.doc_topic}
 
         @property
@@ -324,10 +326,10 @@ class DataProcessingFactory:
                 doc_id: int
         ) -> List[Doc]:
             if self._view is None:
-                return [t for t in self._processed_docs if t._.text_id == doc_id]
+                return [t for t in self._processed_docs if t._.doc_id == doc_id]
             else:
                 return [t for t in self._processed_docs
-                        if (t._.text_id == doc_id and t._.doc_topic.lower() in self._view['labels'])]
+                        if (t._.doc_id == doc_id and t._.doc_topic.lower() in self._view['labels'])]
 
         @lru_cache()
         def get_document_by_name(
@@ -355,7 +357,7 @@ class DataProcessingFactory:
                 topic: str
         ) -> List[int]:
             self._check_view_elements(topic)
-            return sorted(set([d._.text_id for d in self._processed_docs
+            return sorted(set([d._.doc_id for d in self._processed_docs
                                if d._.doc_topic is not None and d._.doc_topic.lower() == topic.lower()]))
 
         def set_view_by_labels(
@@ -406,16 +408,17 @@ class DataProcessingFactory:
             if len(self._data_corpus_tuples) == 0:
                 _labels_count = 0
                 for i, d in enumerate(self._data_entries):
-                    _label = d["label"]
+                    _label = d.get("label", None)
                     if _label not in self._true_labels_dict:
                         self._true_labels_dict[_label] = _labels_count
                         _labels_count += 1
                     self._true_labels.append(_label)
-                    self._text_id_to_doc_name[i] = d["name"]
-                    for line in d["content"].split('\n'):
+                    self._text_id_to_doc_name[i] = d.get("name", "no_name")
+                    for line in d.get("content", "").split('\n'):
                         if not (line.isspace() or len(line) == 0):
                             self._data_corpus_tuples.append(
-                                (line, {"text_id": i, "doc_name": d["name"], "doc_topic": _label})
+                                (line, {"doc_id": d.get("id", i), "doc_index": i,
+                                        "doc_name": d.get("name", "no_name"), "doc_topic": _label})
                             )
 
         def _build_chunk_set_dicts(
@@ -438,15 +441,15 @@ class DataProcessingFactory:
                         continue
 
                     _text = get_actual_str(_chunk_dict, _key, case_sensitive=case_sensitive)
-                    self._document_chunk_matrix[ch["text_id"]] += f"{self._chunk_boundary}{_text}"
+                    self._document_chunk_matrix[ch["doc_index"]] += f"{self._chunk_boundary}{_text}"
 
                     if _csdt.get(_text, False):
                         _docs = set(_csdt[_text]["doc"])
-                        _docs.add(ch["text_id"])
+                        _docs.add(ch["doc_id"])
                         _csdt[_text]["doc"] = list(_docs)
                         _csdt[_text]["count"] += 1
                     else:
-                        _csdt[_text] = {"doc": [ch["text_id"]], "count": 1}
+                        _csdt[_text] = {"doc": [ch["doc_id"]], "count": 1}
 
                 self._chunk_set_dicts = [{"text": _t, "doc": _ch["doc"], "count": _ch["count"]}
                                          for _t, _ch in _csdt.items()]
@@ -467,7 +470,8 @@ class DataProcessingFactory:
                 data_corpus = pipeline.pipe(self._data_corpus_tuples, as_tuples=True, n_process=n_process,
                                             disable=disable)
                 for _doc, _ctx in tqdm(data_corpus, total=len(self._data_corpus_tuples)):
-                    _doc._.text_id = _ctx.get("text_id", None)
+                    _doc._.doc_id = _ctx.get("doc_id", None)
+                    _doc._.doc_index = _ctx.get("doc_index", None)
                     _doc._.doc_name = _ctx.get("doc_name", None)
                     _doc._.doc_topic = _ctx.get("doc_topic", None)
                     self._processed_docs.append(_doc)

@@ -1,7 +1,9 @@
 import inspect
+import sys
 import zipfile
 from pathlib import Path
-from typing import List, Dict, Union
+from types import GeneratorType
+from typing import List, Dict, Union, Generator, Optional
 
 import flask.app
 import spacy
@@ -56,7 +58,8 @@ class PreprocessingUtil:
             _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
             _pickle.unlink()
 
-    def read_data(self, data: Union[FileStorage, Path]):
+    def read_data(self, data: Union[FileStorage, Path, Generator], replace_keys: Optional[dict]):
+        print("")
         try:
             if isinstance(data, FileStorage):
                 archive_path = Path(self._file_storage / data.filename)
@@ -68,6 +71,19 @@ class PreprocessingUtil:
                 with archive_path.open(mode='xb') as target:
                     target.write(data.read_bytes())
                 data.unlink()
+            elif isinstance(data, GeneratorType):
+                if replace_keys is not None:
+                    def _replace_keys():
+                        for _data in data:
+                            _replaced_data = {}
+                            for key, repl in replace_keys.items():
+                                _replaced_data[repl] = _data.pop(key)
+                            _replaced_data.update(**_data)
+                            yield _replaced_data
+                    self.data = _replace_keys()
+                else:
+                    self.data = data
+                return
             else:
                 self.data = None
                 return
@@ -106,7 +122,16 @@ class PreprocessingUtil:
     def start_process(self, cache_name, process_factory, process_tracker):
         config = self.config.copy()
         default_args = inspect.getfullargspec(process_factory.create)[0]
-        spacy_language = spacy.load(config.pop("spacy_model", DEFAULT_SPACY_MODEL))
+        _model = config.pop("spacy_model", DEFAULT_SPACY_MODEL)
+        try:
+            spacy_language = spacy.load(_model)
+        except IOError as e:
+            if _model != DEFAULT_SPACY_MODEL:
+                self._app.logger.error(f"{e}\nUsing default model {DEFAULT_SPACY_MODEL}.")
+                spacy_language = spacy.load(DEFAULT_SPACY_MODEL)
+            else:
+                self._app.logger.error(e)
+                sys.exit(-1)
 
         for x in list(config.keys()):
             if x not in default_args:

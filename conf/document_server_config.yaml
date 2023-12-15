@@ -1,0 +1,7 @@
+url: http://localhost
+port: 8080
+endpoint: document
+is_paged: true
+page_str: page
+total_pages_str: totalPages
+content_str: content

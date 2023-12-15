@@ -19,8 +19,10 @@ from util_functions import load_pickle, save_pickle
 def _set_extensions(
 ) -> None:
     from spacy.tokens import Doc
-    if not Doc.has_extension("text_id"):
-        Doc.set_extension("text_id", default=None)
+    if not Doc.has_extension("doc_id"):
+        Doc.set_extension("doc_id", default=None)
+    if not Doc.has_extension("doc_index"):
+        Doc.set_extension("doc_index", default=None)
     if not Doc.has_extension("doc_name"):
         Doc.set_extension("doc_name", default=None)
     if not Doc.has_extension("doc_topic"):

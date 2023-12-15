@@ -279,13 +279,38 @@ def complete_pipeline():
         return_statistics = get_bool_expression(return_statistics, True)
 
     data = request.files.get("data", False)
-    if not data:
-        return jsonify("No data provided with 'data' key")
-    else:
+    document_server_config = request.files.get("document_server_config", False)
+    replace_keys = None
+
+    if not data and not document_server_config:
+        return jsonify("Neither data provided for upload with 'data' key nor a config file for documents on a server")
+    elif data and not document_server_config:
         _tmp_data = pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(".tmp_streams") / data.filename)
         _tmp_data.parent.mkdir(parents=True, exist_ok=True)
         data.save(_tmp_data)
         data = _tmp_data
+    else:
+        base_config = {"url": "http://localhost", "port": "8080", "endpoint": "document", "is_paged": True,
+                       "specific_pages": None,
+                       "page_str": "page", "total_pages_str": "totalPages", "content_str": "content"}
+        try:
+            _config = yaml.safe_load(document_server_config.stream)
+            for k, v in base_config.items():
+                if k not in _config:
+                    if v is None or (isinstance(v, str) and v.lower() == "none"):
+                        _config[k] = None
+                        continue
+                    _config[k] = get_bool_expression(v, v)
+            base_config = _config
+        except Exception as e:
+            app.logger.error(f"Couldn't read config file: {e}")
+            return jsonify("Encountered error. See log.")
+        data = get_documents_from_server(
+            url=base_config['url'], port=base_config['port'], endpoint=base_config['endpoint'],
+            is_paged=base_config['is_paged'], specific_pages=base_config['specific_pages'], page_str=base_config['page_str'],
+            total_pages_str=base_config['total_pages_str'], content_str=base_config['content_str']
+        )
+        replace_keys = {"highlightedText": "content"}
 
     labels = request.files.get("labels", None)
     if labels is not None:
@@ -320,7 +345,7 @@ def complete_pipeline():
                     process_name=corpus, config=_conf, language=language)
         if _name == "data":
             process_obj.read_labels(labels)
-            process_obj.read_data(data)
+            process_obj.read_data(data, replace_keys=replace_keys)
         processes_threading.append((process_obj, _fact, _name, ))
 
     pipeline_thread = threading.Thread(group=None, target=start_processes, name=None,

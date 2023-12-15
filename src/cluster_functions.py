@@ -53,7 +53,7 @@ class WordEmbeddingClustering:
             cluster_exclusion_ids: Optional[Iterable[int]] = None,
             text_field_value: str = 'text',
             lemma_field_value: str = 'lemma',
-            text_id_field_value: str = 'text_id'
+            text_id_field_value: str = 'doc_index'
     ):
         self._cluster_obj = cluster_obj
         self._exclusion_ids = [] if cluster_exclusion_ids is None else cluster_exclusion_ids

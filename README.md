@@ -172,13 +172,27 @@ GET http://SOME_IP:SOME_PORT/graph/GRAPH_ID
 ### `/pipeline`
 starts a complete pipeline with all 4 sub steps.
 
+* besides the configs for each subprocess (see further below) another `document_server_config` config might be provided
+to use documents from a server (e.g. elasticsearch instance) instead of uploading them.   
+If such a config is provided it overrides any uploaded documents.
+```
+url: BASE_URL to server (e.g.: 'http:\\localhost')
+port: PORT (e.g.: '8080')
+endpoint: ENDPOINT (e.g.: 'document')
+is_paged: TRUE_OR_FALSE (whether the server response is paged or not; default: true)
+specific_pages: None or array of page numbers
+page_str: the query param that denotes the page number (default: 'page')
+total_pages_str: the key that denotes the number of total pages in the response (default: 'totalPages')
+content_str: the key that denotes the actual content in the response (default: 'content', should be a list of json formatted elements)
+```
+
 ####  Query Parameters
 * `process`: overrides the `corpus_name` given in the config
 * `lang` (`de` or `en`): if declared here and no model provided in `config`, will use default language specific models for `preprocessing` and `clustering` (default: en)
 * `skip_present`: (`true` or `false`) - whether to skip already saved steps for this particular process name (default: true)
 * `return_statistics`: (`true` or `false`) - whether to wait for pipeline to finish and return statistics for the created graphs in the end or just silently start the pipeline (default: false)
 
-``data``, ``labels`` and ``configs`` need to be provided like in the base endpoints except for the configs need to be specified accordingly (if not provided, default values will be used):
+``data``, ``labels`` and ``configs`` need to be provided like in the respective base endpoints except for the configs need to be specified accordingly (if not provided, default values will be used):
 * ``preprocessing``: ``config`` -> ``data_config``
 * ``embedding``: ``config`` -> ``embedding_config``
 * ``clustering``: ``config`` -> ``clustering_config``

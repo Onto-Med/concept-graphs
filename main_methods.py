@@ -3,10 +3,11 @@ import sys
 import pathlib
 import pickle
 from collections import OrderedDict, defaultdict
-from typing import Union
+from typing import Union, Optional
 
 import flask
 import networkx as nx
+import requests
 import yaml
 from flask import request, jsonify, render_template_string
 from werkzeug.datastructures import FileStorage
@@ -24,6 +25,23 @@ steps_relation_dict = {
     "clustering": 3,
     "graph": 4
 }
+
+
+def get_documents_from_server(
+        url: str, port: Union[str, int], endpoint: str, is_paged: bool = True, specific_pages: Optional[list] = None,
+        page_str: str = "page", total_pages_str: str = "totalPages", content_str: str = "content"
+):
+    final_url = f"{url.rstrip('/')}:{port}/{endpoint.lstrip('/').rstrip('/')}"
+    if is_paged:
+        total_pages = requests.get(final_url, params={page_str: 1}).json().get(total_pages_str, 1)
+        _page_iter = range(1, total_pages + 1) if specific_pages is None else specific_pages
+        for page_number in _page_iter:
+            _page = requests.get(final_url, params={page_str: page_number}).json()
+            for content in _page.get(content_str, []):
+                yield content
+    else:
+        for content in requests.get(final_url).json().get(content_str, []):
+            yield content
 
 
 def populate_running_processes(app: flask.Flask, path: str, running_processes: dict):
@@ -235,7 +253,7 @@ def graph_create(app: flask.Flask, path: str):
     return jsonify("Nothing to do.")
 
 
-def get_bool_expression(str_bool: str, default: bool = False) -> bool:
+def get_bool_expression(str_bool: str, default: Union[bool, str] = False) -> bool:
     if isinstance(str_bool, bool):
         return str_bool
     elif isinstance(str_bool, str):
@@ -254,3 +272,11 @@ def get_query_param_help_text(param: str):
                          "that shall be excluded from the final graphs in the form of ``[ID1, ID2, etc.]``",
         "draw": "draw: `true` or `false` - whether the response shall be a rendered graph or plain json"
     }.get(param, "No help text available.")
+
+
+if __name__ == "__main__":
+    count = 0
+    for i in get_documents_from_server(url="http://localhost", port=8080, endpoint="document"):
+        count += 1
+        print(i.get('id'))
+    print(count)
