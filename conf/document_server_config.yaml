@@ -1,7 +1,4 @@
-url: http://localhost
-port: 8080
-endpoint: document
-is_paged: true
-page_str: page
-total_pages_str: totalPages
-content_str: content
+url: http://192.168.48.111
+port: 9008
+index: documents
+size: 30

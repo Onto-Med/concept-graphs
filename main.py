@@ -290,9 +290,7 @@ def complete_pipeline():
         data.save(_tmp_data)
         data = _tmp_data
     else:
-        base_config = {"url": "http://localhost", "port": "8080", "endpoint": "document", "is_paged": True,
-                       "specific_pages": None,
-                       "page_str": "page", "total_pages_str": "totalPages", "content_str": "content"}
+        base_config = {"url": "http://localhost", "port": "9008", "index": "documents", "size": "30"}
         try:
             _config = yaml.safe_load(document_server_config.stream)
             for k, v in base_config.items():
@@ -305,10 +303,8 @@ def complete_pipeline():
         except Exception as e:
             app.logger.error(f"Couldn't read config file: {e}")
             return jsonify("Encountered error. See log.")
-        data = get_documents_from_server(
-            url=base_config['url'], port=base_config['port'], endpoint=base_config['endpoint'],
-            is_paged=base_config['is_paged'], specific_pages=base_config['specific_pages'], page_str=base_config['page_str'],
-            total_pages_str=base_config['total_pages_str'], content_str=base_config['content_str']
+        data = get_documents_from_es_server(
+            url=base_config['url'], port=base_config['port'], index=base_config['index'], size=int(base_config['size'])
         )
         replace_keys = {"highlightedText": "content"}
 

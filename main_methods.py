@@ -27,21 +27,39 @@ steps_relation_dict = {
 }
 
 
-def get_documents_from_server(
-        url: str, port: Union[str, int], endpoint: str, is_paged: bool = True, specific_pages: Optional[list] = None,
-        page_str: str = "page", total_pages_str: str = "totalPages", content_str: str = "content"
+# def get_documents_from_server(
+#         url: str, port: Union[str, int], endpoint: str, is_paged: bool = True, specific_pages: Optional[list] = None,
+#         page_str: str = "page", total_pages_str: str = "totalPages", content_str: str = "content"
+# ):
+#     final_url = f"{url.rstrip('/')}:{port}/{endpoint.lstrip('/').rstrip('/')}"
+#     if is_paged:
+#         total_pages = requests.get(final_url, params={page_str: 1}).json().get(total_pages_str, 1)
+#         _page_iter = range(1, total_pages + 1) if specific_pages is None else specific_pages
+#         for page_number in _page_iter:
+#             _page = requests.get(final_url, params={page_str: page_number}).json()
+#             for content in _page.get(content_str, []):
+#                 yield content
+#     else:
+#         for content in requests.get(final_url).json().get(content_str, []):
+#             yield content
+def get_documents_from_es_server(
+        url: str, port: Union[str, int], index: str, size: int = 30
 ):
-    final_url = f"{url.rstrip('/')}:{port}/{endpoint.lstrip('/').rstrip('/')}"
-    if is_paged:
-        total_pages = requests.get(final_url, params={page_str: 1}).json().get(total_pages_str, 1)
-        _page_iter = range(1, total_pages + 1) if specific_pages is None else specific_pages
-        for page_number in _page_iter:
-            _page = requests.get(final_url, params={page_str: page_number}).json()
-            for content in _page.get(content_str, []):
-                yield content
-    else:
-        for content in requests.get(final_url).json().get(content_str, []):
-            yield content
+    final_url = f"{url.rstrip('/')}:{port}/{index.lstrip('/').rstrip('/')}/_search"
+    _first_page = requests.get(final_url, params={"size": f"{size}", "scroll": "1m"}).json()
+    _scroll_id = _first_page.get("_scroll_id")
+    _total_documents = _first_page.get("hits").get("total").get("value")
+
+    for _scroll_index in range(0, _total_documents, size):
+        if _scroll_index == 0:
+            for document in _first_page.get("hits").get("hits"):
+                yield document.get("_source")
+        else:
+            _response = requests.post(
+                url=f"{url.rstrip('/')}:{port}/_search/scroll",
+                json={"scroll_id": _scroll_id, "scroll": "1m"}).json()
+            for document in _response.get("hits").get("hits"):
+                yield document.get("_source")
 
 
 def populate_running_processes(app: flask.Flask, path: str, running_processes: dict):
@@ -276,7 +294,7 @@ def get_query_param_help_text(param: str):
 
 if __name__ == "__main__":
     count = 0
-    for i in get_documents_from_server(url="http://localhost", port=8080, endpoint="document"):
+    for i in get_documents_from_es_server(url="http://localhost", port=9008, index="documents"):
         count += 1
         print(i.get('id'))
     print(count)
