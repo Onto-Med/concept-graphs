@@ -177,13 +177,10 @@ to use documents from a server (e.g. elasticsearch instance) instead of uploadin
 If such a config is provided it overrides any uploaded documents.
 ```
 url: BASE_URL to server (e.g.: 'http:\\localhost')
-port: PORT (e.g.: '8080')
-endpoint: ENDPOINT (e.g.: 'document')
-is_paged: TRUE_OR_FALSE (whether the server response is paged or not; default: true)
-specific_pages: None or array of page numbers
-page_str: the query param that denotes the page number (default: 'page')
-total_pages_str: the key that denotes the number of total pages in the response (default: 'totalPages')
-content_str: the key that denotes the actual content in the response (default: 'content', should be a list of json formatted elements)
+port: PORT (e.g.: '9008')
+index: index in ES (e.g.: 'documents')
+size: size of the document batch that is requested from the server
+replace_keys: dictionary - key is the servers response key for the actual text, value is the concept-graphs-api internal name for the actual text content ('content')
 ```
 
 ####  Query Parameters

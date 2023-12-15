@@ -298,7 +298,7 @@ def complete_pipeline():
                     if v is None or (isinstance(v, str) and v.lower() == "none"):
                         _config[k] = None
                         continue
-                    _config[k] = get_bool_expression(v, v)
+                    _config[k] = get_bool_expression(v, v) if isinstance(v, str) else v
             base_config = _config
         except Exception as e:
             app.logger.error(f"Couldn't read config file: {e}")
@@ -306,7 +306,7 @@ def complete_pipeline():
         data = get_documents_from_es_server(
             url=base_config['url'], port=base_config['port'], index=base_config['index'], size=int(base_config['size'])
         )
-        replace_keys = {"highlightedText": "content"}
+        replace_keys = base_config.get("replace_keys", {"text": "content"})
 
     labels = request.files.get("labels", None)
     if labels is not None:
