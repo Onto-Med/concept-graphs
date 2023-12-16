@@ -230,7 +230,7 @@ def graph_get_specific(process, graph_nr, path: str, draw=False):
         graph_list = pickle.load(
             pathlib.Path(store_path / f"{process}_graph.pickle").open('rb')
         )
-        if (len(graph_list) - 1) > graph_nr >= 0:
+        if (len(graph_list)) > graph_nr >= 0:
             if not draw:
                 return jsonify({
                     "adjacency": build_adjacency_obj(graph_list[graph_nr]),
@@ -245,7 +245,7 @@ def graph_get_specific(process, graph_nr, path: str, draw=False):
                 )
                 return render_template_string(pathlib.Path(graph_path).resolve().read_text())
         else:
-            return jsonify(f"{graph_nr} is not in range [0, {len(graph_list)}]; no such graph present.")
+            return jsonify(f"{graph_nr} is not in range [0, {len(graph_list) - 1}]; no such graph present.")
     except FileNotFoundError:
         return jsonify(f"There is no graph data present for '{process}'.")
 
