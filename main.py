@@ -290,19 +290,9 @@ def complete_pipeline():
         data.save(_tmp_data)
         data = _tmp_data
     else:
-        base_config = {"url": "http://localhost", "port": "9008", "index": "documents", "size": "30"}
-        try:
-            _config = yaml.safe_load(document_server_config.stream)
-            for k, v in base_config.items():
-                if k not in _config:
-                    if v is None or (isinstance(v, str) and v.lower() == "none"):
-                        _config[k] = None
-                        continue
-                    _config[k] = get_bool_expression(v, v) if isinstance(v, str) else v
-            base_config = _config
-        except Exception as e:
-            app.logger.error(f"Couldn't read config file: {e}")
-            return jsonify("Encountered error. See log.")
+        base_config = get_data_server_config(document_server_config, app)
+        if not check_data_server(url=base_config["url"], port=base_config["port"], index=base_config["index"]):
+            return jsonify(f"There is no data server at the specified location ({base_config}) or it contains no data."), int(HTTPResponses.NOT_FOUND)
         data = get_documents_from_es_server(
             url=base_config['url'], port=base_config['port'], index=base_config['index'], size=int(base_config['size'])
         )
@@ -380,6 +370,17 @@ def get_status_of():
         if _response is not None:
             return jsonify(_response), int(HTTPResponses.OK)
     return jsonify(f"No such (running) process: '{_process}'"), int(HTTPResponses.NOT_FOUND)
+
+
+@app.route("/status/document-server", methods=['POST'])
+def get_data_server():
+    document_server_config = request.files.get("document_server_config", False)
+    if not document_server_config:
+        return jsonify(f"No document server config file provided"), int(HTTPResponses.BAD_REQUEST)
+    base_config = get_data_server_config(document_server_config, app)
+    if not check_data_server(url=base_config["url"], port=base_config["port"], index=base_config["index"]):
+        return jsonify(f"There is no data server at the specified location ({base_config}) or it contains no data."), int(HTTPResponses.NOT_FOUND)
+    return jsonify(f"Data server reachable under: '{base_config['url']}:{base_config['port']}/{base_config['index']}'"), int(HTTPResponses.OK)
 
 
 if __name__ in ["__main__", "main"]:

@@ -27,21 +27,33 @@ steps_relation_dict = {
 }
 
 
-# def get_documents_from_server(
-#         url: str, port: Union[str, int], endpoint: str, is_paged: bool = True, specific_pages: Optional[list] = None,
-#         page_str: str = "page", total_pages_str: str = "totalPages", content_str: str = "content"
-# ):
-#     final_url = f"{url.rstrip('/')}:{port}/{endpoint.lstrip('/').rstrip('/')}"
-#     if is_paged:
-#         total_pages = requests.get(final_url, params={page_str: 1}).json().get(total_pages_str, 1)
-#         _page_iter = range(1, total_pages + 1) if specific_pages is None else specific_pages
-#         for page_number in _page_iter:
-#             _page = requests.get(final_url, params={page_str: page_number}).json()
-#             for content in _page.get(content_str, []):
-#                 yield content
-#     else:
-#         for content in requests.get(final_url).json().get(content_str, []):
-#             yield content
+def get_data_server_config(document_server_config: FileStorage, app: flask.Flask):
+    base_config = {"url": "http://localhost", "port": "9008", "index": "documents", "size": "30"}
+    try:
+        _config = yaml.safe_load(document_server_config.stream)
+        for k, v in base_config.items():
+            if k not in _config:
+                if v is None or (isinstance(v, str) and v.lower() == "none"):
+                    _config[k] = None
+                    continue
+                _config[k] = get_bool_expression(v, v) if isinstance(v, str) else v
+        base_config = _config
+    except Exception as e:
+        app.logger.error(f"Couldn't read config file: {e}\n Using default values '{base_config}'.")
+    return base_config
+
+
+def check_data_server(
+        url: str, port: Union[int, str], index: str
+):
+    final_url = f"{url.rstrip('/')}:{port}/{index.lstrip('/').rstrip('/')}/_count"
+    _response = requests.get(final_url)
+    if _count := _response.json().get('count', False):
+        if int(_count) > 0:
+            return True
+    return False
+
+
 def get_documents_from_es_server(
         url: str, port: Union[str, int], index: str, size: int = 30
 ):

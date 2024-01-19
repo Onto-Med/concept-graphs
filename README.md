@@ -274,6 +274,23 @@ Gets status of a specific process
 GET http://SOME_IP:SOME_PORT/status?process=PROCESS_NAME
 ```
 
+### `/status/document-server`
+Checks if a data server (specified with a `document_server_config` file) is reachable
+
+#### HTTP Requests
+```
+POST http://SOME_IP:SOME_PORT/document-server
+Content-Type: multipart/form-data; boundary="boundary"
+
+--boundary
+Content-Disposition: form-data; name="document_server_config"; filename="DOCUMENT_SERVER_CONFIG.yaml"
+Content-Type: application/x-yaml
+
+< PATH/TO/DOCUMENT_SERVER/CONFIG.yaml
+
+--boundary--
+```
+
 
 ## Example Config Files (YAML)
 ### `/preprocessing`
