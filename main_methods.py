@@ -47,7 +47,10 @@ def check_data_server(
         url: str, port: Union[int, str], index: str
 ):
     final_url = f"{url.rstrip('/')}:{port}/{index.lstrip('/').rstrip('/')}/_count"
-    _response = requests.get(final_url)
+    try:
+        _response = requests.get(final_url)
+    except requests.exceptions.RequestException as e:
+        return False
     if _count := _response.json().get('count', False):
         if int(_count) > 0:
             return True
