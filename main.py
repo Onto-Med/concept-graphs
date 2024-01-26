@@ -263,7 +263,12 @@ def graph_creation_with_arg(path_arg):
 @app.route("/pipeline", methods=['POST'])
 def complete_pipeline():
     corpus = request.args.get("process", "default")
-
+    if corpus_status := running_processes.get(corpus, False):
+        if any([v == ProcessStatus.RUNNING for v in corpus_status["status"].values()]):
+            return jsonify(
+                name=corpus,
+                status="A process is currently running for this corpus."
+            ), int(HTTPResponses.FORBIDDEN)
     app.logger.info(f"Using process name '{corpus}'")
     language = {"en": "en", "de": "de"}.get(request.args.get("lang", "en"), "en")
     app.logger.info(f"Using preset language settings for '{language}'")
