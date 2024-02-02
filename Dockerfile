@@ -58,4 +58,4 @@ COPY . .
 
 USER $USERNAME
 
-CMD ${PYTHON} main.py
+CMD [ "waitress-serve", "--port=9007", "main:app" ]

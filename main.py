@@ -28,6 +28,11 @@ FILE_STORAGE_TMP = "./tmp"  # ToDo: replace it with proper path in docker
 
 running_processes = {}
 
+f_storage = pathlib.Path(FILE_STORAGE_TMP)
+if not f_storage.exists():
+    f_storage.mkdir()
+populate_running_processes(app, FILE_STORAGE_TMP, running_processes)
+
 # ToDo: file with stopwords will be POSTed: #filter_stop: Optional[list] = None,
 
 # ToDo: I downscale the embeddings twice... (that snuck in somehow); once in SentenceEmbeddings via create(down_scale_algorithm)
@@ -395,10 +400,5 @@ def get_data_server():
         return jsonify(f"There is no data server at the specified location ({base_config}) or it contains no data."), int(HTTPResponses.NOT_FOUND)
     return jsonify(f"Data server reachable under: '{base_config['url']}:{base_config['port']}/{base_config['index']}'"), int(HTTPResponses.OK)
 
-
-if __name__ in ["__main__", "main"]:
-    f_storage = pathlib.Path(FILE_STORAGE_TMP)
-    if not f_storage.exists():
-        f_storage.mkdir()
-    populate_running_processes(app, FILE_STORAGE_TMP, running_processes)
+if __name__ in ["__main__"]:
     app.run(host="0.0.0.0", port=9007)
