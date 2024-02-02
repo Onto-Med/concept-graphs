@@ -1,4 +1,7 @@
 # python 3.10
+-f https://download.pytorch.org/whl/cpu/torch_stable.html
+
+scipy < 1.12.0
 llvmlite
 numba >= 0.53.0
 yellowbrick
