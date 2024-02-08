@@ -59,7 +59,6 @@ class PreprocessingUtil:
             _pickle.unlink()
 
     def read_data(self, data: Union[FileStorage, Path, Generator], replace_keys: Optional[dict]):
-        print("")
         try:
             if isinstance(data, FileStorage):
                 archive_path = Path(self._file_storage / data.filename)

@@ -1,0 +1,8 @@
+PHRASE]Das Kopf-CT[PHRASE] zeigte [PREN]keinen Nachweis[PREN] [NEGATED]frischer intrakranieller Traumafolgen[NEGATED] bei [NEGATED]Zustand[NEGATED]
+ nach [NEGATED]osteoplastischer Trepanation[NEGATED] [NEGATED]der hinteren Schädelgrube[NEGATED] links sowie rechts frontotemporal und
+ nachweisbare [NEGATED]Gefa-Clips[NEGATED] links infratentoriell im [NEGATED][NEGATED]Bereich[NEGATED][NEGATED] der linken A. vertebralis
+ sowie im [NEGATED][NEGATED]Bereich[NEGATED][NEGATED] [NEGATED]der A[NEGATED] . cerebri media rechts.
+
+==> why does negex negates everything and not just the first phrase? -> didn't check but probably
+ because I provide every phrase for this sentence and negex expects some form of intelligent pre-filtering
+ ==> but why is negex then asking for a list of phrases?

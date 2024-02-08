@@ -4,6 +4,7 @@ import os
 import pathlib
 import re
 import itertools
+import zipfile
 from collections import defaultdict
 from random import sample
 
@@ -19,7 +20,9 @@ from spacy import Language
 from sklearn.feature_extraction.text import TfidfVectorizer as tfidfVec
 
 from util_functions import load_pickle, save_pickle
+from negex import negTagger, sortRules
 
+negex_rules = sortRules(pathlib.Path("./negex/negex_trigger_german_biotxtm_2016.txt").read_text().splitlines())
 
 # ToDo: this needs to be called whenever a data_proc object is used/loaded by another class
 def _set_extensions(
@@ -99,7 +102,7 @@ class DataProcessingFactory:
                     labels_dict[_label].append(_f)
 
             if sub is not None:
-                _doc_per_label = int(sub/len(labels_dict.keys()))
+                _doc_per_label = int(sub / len(labels_dict.keys()))
                 _iter = itertools.chain(*[sample(s, _doc_per_label) for s in labels_dict.values()])
             else:
                 _iter = itertools.chain(*list(labels_dict.values()))
@@ -264,7 +267,16 @@ class DataProcessingFactory:
         def noun_chunks_corpus(
                 self,
         ) -> Generator:
+            # ToDo: utilize blacklist for noun chunks that should not be included [sie, er, die, etc.] - or check if later on this is done and switch accordingly
+            #  because here every superfluous chunk will be run through negex and slows process down and probably  induces errors
+            # ToDo: add here negation detection as well
             for doc in self._processed_docs:
+                for sent in doc.sents:
+                    _chunks = [ch.text for ch in sent.noun_chunks]
+                    if _chunks is not None and len(_chunks) > 0:
+                        _tagger = negTagger(sentence=sent.text, phrases=_chunks, rules=negex_rules)
+                        _tagged_sent = _tagger.getNegTaggedSentence()
+                        print(_tagged_sent)
                 for ch in doc.noun_chunks:
                     if not (re.match(r"\W", ch.text) and len(ch.text) == 1):
                         if self._view is None or doc._.doc_topic in self._view['labels']:
@@ -434,7 +446,7 @@ class DataProcessingFactory:
                 _csdt = {}
                 self._document_chunk_matrix = ["" for i in range(self.documents_n)]
                 for i, ch in enumerate(self.noun_chunks_corpus):
-                    _chunk_dict = clean_span(ch["spacy_chunk"])
+                    _chunk_dict = clean_span(ch["spacy_chunk"])  # ToDo: pass on info whether chunk was negated here
                     # return value looks like this:
                     #   {'head_idx': _head_idx (int), 'lemma': _lemma (list), 'text': _text (list), 'pos': _pos (list)}
                     if _chunk_dict is None:
@@ -507,6 +519,7 @@ def clean_span(
     # _new_noun_phrase_lemma = " ".join([t for t in _lemma])
 
     try:
+        # ToDo: pass on info whether negation occurred here as well
         _head_idx = _text.index(_chunk_root_text)
         return {'head_idx': _head_idx, 'lemma': _lemma, 'text': _text, 'pos': _pos}
     except ValueError:
@@ -540,3 +553,18 @@ def get_actual_str(
         _text = " ".join(chunk_dict[_key_str])
 
     return _text if case_sensitive else _text.lower()
+
+
+if __name__ == "__main__":
+    _data = None
+    with zipfile.ZipFile("../tmp/grassco.zip", mode='r') as archive:
+        _data = [{"name": pathlib.Path(f.filename).stem,
+                  "content": archive.read(f.filename).decode('utf-8'),
+                  "label": None
+                  } for f in archive.filelist if
+                 (not f.is_dir()) and (pathlib.Path(f.filename).suffix.lstrip('.') == 'txt')]
+    data_proc = DataProcessingFactory.create(
+        pipeline=spacy.load("de_dep_news_trf"),
+        base_data=_data[:1],
+        save_to_file=False
+    )
