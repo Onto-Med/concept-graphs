@@ -180,7 +180,10 @@ url: BASE_URL to server (e.g.: 'http:\\localhost')
 port: PORT (e.g.: '9008')
 index: index in ES (e.g.: 'documents')
 size: size of the document batch that is requested from the server
-replace_keys: dictionary - key is the servers response key for the actual text, value is the concept-graphs-api internal name for the actual text content ('content')
+replace_keys: dictionary - 
+    'key' is the servers response key for the actual text
+    'value' is the concept-graphs-api internal name for the actual text content (as of now 'content')
+    (e.g.: '{text: content}')
 ```
 
 ####  Query Parameters
@@ -231,6 +234,26 @@ Content-Type: application/x-yaml
 < PATH/TO/GRAPH/CONFIG.yaml
 --boundary--
 ```
+or without data upload, but rather document server:
+```
+POST http://SOME_IP:SOME_PORT/pipeline?process=default&lang=en&skip_present=true
+Content-Type: multipart/form-data; boundary="boundary"
+
+--boundary
+Content-Disposition: form-data; name="document_server_config"; filename="DOCUMENT_SERVER_CONFIG.yaml"
+Content-Type: application/x-yaml
+
+< PATH/TO/DOCUMENT_SERVER/CONFIG.yaml
+
+[...]
+
+--boundary
+Content-Disposition: form-data; name="graph_config"; filename="GRAPH_CONFIG.yaml"
+Content-Type: application/x-yaml
+
+< PATH/TO/GRAPH/CONFIG.yaml
+--boundary--
+```
 
 ### `/processes`
 Gets the name of all stored processes.
@@ -249,6 +272,23 @@ Gets status of a specific process
 #### HTTP Requests
 ```
 GET http://SOME_IP:SOME_PORT/status?process=PROCESS_NAME
+```
+
+### `/status/document-server`
+Checks if a data server (specified with a `document_server_config` file) is reachable
+
+#### HTTP Requests
+```
+POST http://SOME_IP:SOME_PORT/document-server
+Content-Type: multipart/form-data; boundary="boundary"
+
+--boundary
+Content-Disposition: form-data; name="document_server_config"; filename="DOCUMENT_SERVER_CONFIG.yaml"
+Content-Type: application/x-yaml
+
+< PATH/TO/DOCUMENT_SERVER/CONFIG.yaml
+
+--boundary--
 ```
 
 

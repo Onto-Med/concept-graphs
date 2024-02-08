@@ -127,10 +127,16 @@ class PreprocessingUtil:
         except IOError as e:
             if _model != DEFAULT_SPACY_MODEL:
                 self._app.logger.error(f"{e}\nUsing default model {DEFAULT_SPACY_MODEL}.")
-                spacy_language = spacy.load(DEFAULT_SPACY_MODEL)
+                try:
+                    spacy_language = spacy.load(DEFAULT_SPACY_MODEL)
+                except IOError as e:
+                    self._app.logger.error(f"{e}\ntrying to download default model {DEFAULT_SPACY_MODEL}.")
+                    spacy.cli.download(DEFAULT_SPACY_MODEL)
+                    spacy_language = spacy.load(DEFAULT_SPACY_MODEL)
             else:
-                self._app.logger.error(e)
-                sys.exit(-1)
+                self._app.logger.error(f"{e}\ntrying to download default model {DEFAULT_SPACY_MODEL}.")
+                spacy.cli.download(DEFAULT_SPACY_MODEL)
+                spacy_language = spacy.load(DEFAULT_SPACY_MODEL)
 
         for x in list(config.keys()):
             if x not in default_args:

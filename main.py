@@ -263,7 +263,12 @@ def graph_creation_with_arg(path_arg):
 @app.route("/pipeline", methods=['POST'])
 def complete_pipeline():
     corpus = request.args.get("process", "default")
-
+    if corpus_status := running_processes.get(corpus, False):
+        if any([v == ProcessStatus.RUNNING for v in corpus_status["status"].values()]):
+            return jsonify(
+                name=corpus,
+                status="A process is currently running for this corpus."
+            ), int(HTTPResponses.FORBIDDEN)
     app.logger.info(f"Using process name '{corpus}'")
     language = {"en": "en", "de": "de"}.get(request.args.get("lang", "en"), "en")
     app.logger.info(f"Using preset language settings for '{language}'")
@@ -283,26 +288,22 @@ def complete_pipeline():
     replace_keys = None
 
     if not data and not document_server_config:
-        return jsonify("Neither data provided for upload with 'data' key nor a config file for documents on a server")
+        return jsonify(
+            name=corpus,
+            status="Neither data provided for upload with 'data' key nor a config file for documents on a server"
+        ), int(HTTPResponses.BAD_REQUEST)
     elif data and not document_server_config:
         _tmp_data = pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(".tmp_streams") / data.filename)
         _tmp_data.parent.mkdir(parents=True, exist_ok=True)
         data.save(_tmp_data)
         data = _tmp_data
     else:
-        base_config = {"url": "http://localhost", "port": "9008", "index": "documents", "size": "30"}
-        try:
-            _config = yaml.safe_load(document_server_config.stream)
-            for k, v in base_config.items():
-                if k not in _config:
-                    if v is None or (isinstance(v, str) and v.lower() == "none"):
-                        _config[k] = None
-                        continue
-                    _config[k] = get_bool_expression(v, v) if isinstance(v, str) else v
-            base_config = _config
-        except Exception as e:
-            app.logger.error(f"Couldn't read config file: {e}")
-            return jsonify("Encountered error. See log.")
+        base_config = get_data_server_config(document_server_config, app)
+        if not check_data_server(url=base_config["url"], port=base_config["port"], index=base_config["index"]):
+            return jsonify(
+                name=corpus,
+                status=f"There is no data server at the specified location ({base_config}) or it contains no data."
+            ), int(HTTPResponses.NOT_FOUND)
         data = get_documents_from_es_server(
             url=base_config['url'], port=base_config['port'], index=base_config['index'], size=int(base_config['size'])
         )
@@ -380,6 +381,19 @@ def get_status_of():
         if _response is not None:
             return jsonify(_response), int(HTTPResponses.OK)
     return jsonify(f"No such (running) process: '{_process}'"), int(HTTPResponses.NOT_FOUND)
+
+
+@app.route("/status/document-server", methods=['POST'])
+def get_data_server():
+    document_server_config = request.files.get("document_server_config", False)
+    if not document_server_config:
+        return jsonify(
+            name="document server check",
+            status=f"No document server config file provided"), int(HTTPResponses.BAD_REQUEST)
+    base_config = get_data_server_config(document_server_config, app)
+    if not check_data_server(url=base_config["url"], port=base_config["port"], index=base_config["index"]):
+        return jsonify(f"There is no data server at the specified location ({base_config}) or it contains no data."), int(HTTPResponses.NOT_FOUND)
+    return jsonify(f"Data server reachable under: '{base_config['url']}:{base_config['port']}/{base_config['index']}'"), int(HTTPResponses.OK)
 
 
 if __name__ in ["__main__", "main"]:
