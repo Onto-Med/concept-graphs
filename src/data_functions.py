@@ -14,6 +14,10 @@ from tqdm.autonotebook import tqdm
 from typing import Optional, Generator, Union, Iterable, Dict, List, Set, Callable
 
 import spacy
+import benepar
+#ToDo: conditional load
+benepar.download("benepar_en3")
+benepar.download("benepar_de2")
 from functools import lru_cache
 
 from spacy import Language
@@ -473,6 +477,9 @@ class DataProcessingFactory:
                 case_sensitive: bool = False,
                 disable: Optional[Iterable[str]] = None
         ) -> None:
+            # ToDo: optional constituency parsing; switch for language or source it out like the spacy.Language
+            pipeline.add_pipe("benepar", config={"model": "benepar_de2"})
+
             disable = [] if disable is None else disable
             if len(self._processed_docs) == 0:
                 _pipe_trf_type = True if "trf" in pipeline.meta["name"].split("_") else False
