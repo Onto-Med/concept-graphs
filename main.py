@@ -24,7 +24,7 @@ app = Flask(__name__)
 root = logging.getLogger()
 root.addHandler(default_handler)
 
-FILE_STORAGE_TMP = "./tmp"  # ToDo: replace it with proper path in docker
+FILE_STORAGE_TMP = "./tmp"
 
 running_processes = {}
 
