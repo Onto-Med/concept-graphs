@@ -407,5 +407,4 @@ def get_data_server():
 
 
 if __name__ in ["__main__"]:
-    waitress.serve(app, host="0.0.0.0", port=9007)
-    # app.run(host="0.0.0.0", port=9007)
+    app.run(host="0.0.0.0", port=9010)

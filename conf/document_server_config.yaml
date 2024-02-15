@@ -1,4 +1,4 @@
-url: http://192.168.48.111
+url: http://localhost
 port: 9008
 index: documents
 size: 30
