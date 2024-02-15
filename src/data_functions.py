@@ -14,19 +14,13 @@ from tqdm.autonotebook import tqdm
 from typing import Optional, Generator, Union, Iterable, Dict, List, Set, Callable
 
 import spacy
-import benepar
-#ToDo: conditional load
-benepar.download("benepar_en3")
-benepar.download("benepar_de2")
 from functools import lru_cache
 
 from spacy import Language
 from sklearn.feature_extraction.text import TfidfVectorizer as tfidfVec
 
 from util_functions import load_pickle, save_pickle
-from negex import negTagger, sortRules
 
-negex_rules = sortRules(pathlib.Path("./negex/negex_trigger_german_biotxtm_2016.txt").read_text().splitlines())
 
 # ToDo: this needs to be called whenever a data_proc object is used/loaded by another class
 def _set_extensions(
@@ -275,12 +269,6 @@ class DataProcessingFactory:
             #  because here every superfluous chunk will be run through negex and slows process down and probably  induces errors
             # ToDo: add here negation detection as well
             for doc in self._processed_docs:
-                for sent in doc.sents:
-                    _chunks = [ch.text for ch in sent.noun_chunks]
-                    if _chunks is not None and len(_chunks) > 0:
-                        _tagger = negTagger(sentence=sent.text, phrases=_chunks, rules=negex_rules)
-                        _tagged_sent = _tagger.getNegTaggedSentence()
-                        print(_tagged_sent)
                 for ch in doc.noun_chunks:
                     if not (re.match(r"\W", ch.text) and len(ch.text) == 1):
                         if self._view is None or doc._.doc_topic in self._view['labels']:
@@ -477,9 +465,7 @@ class DataProcessingFactory:
                 case_sensitive: bool = False,
                 disable: Optional[Iterable[str]] = None
         ) -> None:
-            # ToDo: optional constituency parsing; switch for language or source it out like the spacy.Language
-            pipeline.add_pipe("benepar", config={"model": "benepar_de2"})
-
+            # ToDo: add neg-spacy pipeline here
             disable = [] if disable is None else disable
             if len(self._processed_docs) == 0:
                 _pipe_trf_type = True if "trf" in pipeline.meta["name"].split("_") else False
