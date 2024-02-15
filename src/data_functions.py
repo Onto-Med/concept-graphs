@@ -19,6 +19,8 @@ from functools import lru_cache
 from spacy import Language
 from sklearn.feature_extraction.text import TfidfVectorizer as tfidfVec
 
+from src.negspacy.utils import FeaturesOfInterest
+from src.negspacy.negation import Negex
 from util_functions import load_pickle, save_pickle
 
 
@@ -267,13 +269,16 @@ class DataProcessingFactory:
         ) -> Generator:
             # ToDo: utilize blacklist for noun chunks that should not be included [sie, er, die, etc.] - or check if later on this is done and switch accordingly
             #  because here every superfluous chunk will be run through negex and slows process down and probably  induces errors
-            # ToDo: add here negation detection as well
             for doc in self._processed_docs:
                 for ch in doc.noun_chunks:
-                    if not (re.match(r"\W", ch.text) and len(ch.text) == 1):
-                        if self._view is None or doc._.doc_topic in self._view['labels']:
-                            yield {"spacy_chunk": ch, "doc_id": doc._.doc_id, "doc_index": doc._.doc_index,
-                                   "doc_name": doc._.doc_name, "doc_topic": doc._.doc_topic}
+                    #ToDo: should there be an option to include/exclude negated noun chunks
+                    # also, I omit all noun chunks that are (probably) negated. But I'd like all possible noun chunks
+                    # in the noun_chunks_corpus and only want to cut the connection to the documents they are negated in!
+                    if not hasattr(ch, "_") or (hasattr(ch, "_") and not getattr(getattr(ch, "_"), "negex", True)):
+                        if not (re.match(r"\W", ch.text) and len(ch.text) == 1):
+                            if self._view is None or doc._.doc_topic in self._view['labels']:
+                                yield {"spacy_chunk": ch, "doc_id": doc._.doc_id, "doc_index": doc._.doc_index,
+                                       "doc_name": doc._.doc_name, "doc_topic": doc._.doc_topic}
 
         @property
         def document_chunk_matrix(
@@ -438,7 +443,7 @@ class DataProcessingFactory:
                 _csdt = {}
                 self._document_chunk_matrix = ["" for i in range(self.documents_n)]
                 for i, ch in enumerate(self.noun_chunks_corpus):
-                    _chunk_dict = clean_span(ch["spacy_chunk"])  # ToDo: pass on info whether chunk was negated here
+                    _chunk_dict = clean_span(ch["spacy_chunk"])
                     # return value looks like this:
                     #   {'head_idx': _head_idx (int), 'lemma': _lemma (list), 'text': _text (list), 'pos': _pos (list)}
                     if _chunk_dict is None:
@@ -465,7 +470,15 @@ class DataProcessingFactory:
                 case_sensitive: bool = False,
                 disable: Optional[Iterable[str]] = None
         ) -> None:
-            # ToDo: add neg-spacy pipeline here
+            # ToDo: negspacy config into 'preprocessing_config'
+            _negspacy_config = {
+                "chunk_prefix": ["kein", "keine"],
+                "neg_termset_file": str(pathlib.Path("./conf/negex_files/negex_trigger_german_biotxtm_2016_extended.txt").resolve()),
+                "feat_of_interest": FeaturesOfInterest.NOUN_CHUNKS,
+                "scope": 1,
+                "language": "de"
+            }
+            pipeline.add_pipe("negex", last=True, config=_negspacy_config)
             disable = [] if disable is None else disable
             if len(self._processed_docs) == 0:
                 _pipe_trf_type = True if "trf" in pipeline.meta["name"].split("_") else False
@@ -512,7 +525,6 @@ def clean_span(
     # _new_noun_phrase_lemma = " ".join([t for t in _lemma])
 
     try:
-        # ToDo: pass on info whether negation occurred here as well
         _head_idx = _text.index(_chunk_root_text)
         return {'head_idx': _head_idx, 'lemma': _lemma, 'text': _text, 'pos': _pos}
     except ValueError:
