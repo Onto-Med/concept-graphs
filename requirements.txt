@@ -26,3 +26,4 @@ pyyaml
 scikit-network
 requests
 waitress
+benepar
