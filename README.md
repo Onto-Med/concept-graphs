@@ -3,13 +3,11 @@ This is the implementation as described in [1].
 WARNING: doesn't work for small number of phrases. You need a document corpus with at least 100 (?) different phrases  
 
 ## Docker Image
-1. `docker image build -t concept-graphs-api .` (the resulting image is appr. 12GB)
-2. `docker run -p 9007:9007 concept-graphs-api`  
-(there were instances where the container exited immediately after starting. If this is the case, declare `entrypoint` and `cmd` directly:)
-3. `docker run -p 9007:9007 --entrypoint python3.10 concept-graphs-api main.py`
+1. `docker compose build` (the resulting image is appr. 5GB)
+2. `docker compose up -d`
 
-If you start the container as described, the address for the `curl` command would be `http://0.0.0.0:9007`.  
-Right now, the path where all results (the processed documents, the embeddings, etc.) are stored is under `/rest_api/concept-graphs/tmp` (if you want to access them via `docker volumes`).
+If you start the container as described, the address for the `curl` command would be `http://localhost:9007`.
+All results (processed documents, the embeddings, etc.) are stored in the Docker volume `results` (mounted to `/rest_api/tmp` in the container).
 However, they are serialized as Python Objects and need to be loaded with:
 1. processed documents: `src/data_functions/DataProcessingFactory.load(PATH/TO/DOCUMENT_OBJECT)`
 2. phrase embeddings: `src/embedding_functions/SentenceEmbeddingsFactory.load(PATH/TO/DOCUMENT_OBJECT, PATH/TO/EMBEDDING_OBJECT)`

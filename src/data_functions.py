@@ -26,7 +26,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer as tfidfVec
 from util_functions import load_pickle, save_pickle
 from negex import negTagger, sortRules
 
-negex_rules = sortRules(pathlib.Path("./negex/negex_trigger_german_biotxtm_2016.txt").read_text().splitlines())
+negex_rules = sortRules(pathlib.Path("src/negex/negex_trigger_german_biotxtm_2016.txt").read_text().splitlines())
 
 # ToDo: this needs to be called whenever a data_proc object is used/loaded by another class
 def _set_extensions(
