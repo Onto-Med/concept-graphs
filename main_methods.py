@@ -57,6 +57,11 @@ def check_data_server(
     return False
 
 
+def check_es_source_for_id(document_hit: dict):
+    _source = document_hit.get("_source")
+    return _source if _source.get("id", False) else {"id": document_hit.get("_id", "")} | _source
+
+
 def get_documents_from_es_server(
         url: str, port: Union[str, int], index: str, size: int = 30
 ):
@@ -68,13 +73,13 @@ def get_documents_from_es_server(
     for _scroll_index in range(0, _total_documents, size):
         if _scroll_index == 0:
             for document in _first_page.get("hits").get("hits"):
-                yield document.get("_source")
+                yield check_es_source_for_id(document)
         else:
             _response = requests.post(
                 url=f"{url.rstrip('/')}:{port}/_search/scroll",
                 json={"scroll_id": _scroll_id, "scroll": "1m"}).json()
             for document in _response.get("hits").get("hits"):
-                yield document.get("_source")
+                yield check_es_source_for_id(document)
 
 
 def populate_running_processes(app: flask.Flask, path: str, running_processes: dict):

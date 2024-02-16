@@ -1,5 +1,5 @@
 url: http://localhost
-port: 9008
+port: 9200
 index: documents
 size: 30
 replace_keys: {text: content}
