@@ -3,7 +3,7 @@ This is the implementation as described in [1].
 WARNING: doesn't work for small number of phrases. You need a document corpus with at least 100 (?) different phrases  
 
 ## Docker Image
-1. `docker compose build` (the resulting image is appr. 12GB)
+1. `docker compose build` (the resulting image is appr. 5GB)
 2. `docker compose up -d`
 
 If you start the container as described, the address for the `curl` command would be `http://localhost:9007`.
