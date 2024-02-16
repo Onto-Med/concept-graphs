@@ -68,7 +68,8 @@ class DataProcessingFactory:
             filter_max_df: Union[int, float] = 1.,
             filter_stop: Optional[list] = None,
             disable: Optional[Iterable[str]] = None,
-            categories: Optional[list] = None
+            categories: Optional[list] = None,
+            omit_negated_chunks: bool = True
     ):
         def _get_label_from_file(
                 fi: pathlib.Path
@@ -135,7 +136,8 @@ class DataProcessingFactory:
             filter_min_df=filter_min_df,
             filter_max_df=filter_max_df,
             filter_stop=filter_stop,
-            disable=disable
+            disable=disable,
+            omit_negated_chunks=omit_negated_chunks
         )
 
         if save_to_file:
@@ -158,7 +160,8 @@ class DataProcessingFactory:
                 filter_min_df: Union[int, float] = 1,
                 filter_max_df: Union[int, float] = 1.,
                 filter_stop: Optional[list] = None,
-                disable: Optional[Iterable[str]] = None
+                disable: Optional[Iterable[str]] = None,
+                omit_negated_chunks: bool = True
         ) -> None:
             self._data_entries = [d for d in data_entries]
             self._file_encoding = file_encoding
@@ -187,7 +190,8 @@ class DataProcessingFactory:
                 pipeline=pipeline,
                 n_process=n_process,
                 case_sensitive=case_sensitive,
-                disable=disable
+                disable=disable,
+                omit_negated_chunks=omit_negated_chunks
             )
 
         # ToDo: some method to set 'doc_topic' outside init?
@@ -271,14 +275,12 @@ class DataProcessingFactory:
             #  because here every superfluous chunk will be run through negex and slows process down and probably  induces errors
             for doc in self._processed_docs:
                 for ch in doc.noun_chunks:
-                    #ToDo: should there be an option to include/exclude negated noun chunks
-                    # also, I omit all noun chunks that are (probably) negated. But I'd like all possible noun chunks
-                    # in the noun_chunks_corpus and only want to cut the connection to the documents they are negated in!
-                    if not hasattr(ch, "_") or (hasattr(ch, "_") and not getattr(getattr(ch, "_"), "negex", True)):
-                        if not (re.match(r"\W", ch.text) and len(ch.text) == 1):
-                            if self._view is None or doc._.doc_topic in self._view['labels']:
-                                yield {"spacy_chunk": ch, "doc_id": doc._.doc_id, "doc_index": doc._.doc_index,
-                                       "doc_name": doc._.doc_name, "doc_topic": doc._.doc_topic}
+                    _negated = not (not hasattr(ch, "_") or
+                                    (hasattr(ch, "_") and not getattr(getattr(ch, "_"), "negex", True)))
+                    if not (re.match(r"\W", ch.text) and len(ch.text) == 1):
+                        if self._view is None or doc._.doc_topic in self._view['labels']:
+                            yield {"spacy_chunk": ch, "doc_id": doc._.doc_id, "doc_index": doc._.doc_index,
+                                   "doc_name": doc._.doc_name, "doc_topic": doc._.doc_topic, "negated": _negated}
 
         @property
         def document_chunk_matrix(
@@ -387,11 +389,12 @@ class DataProcessingFactory:
                 use_lemma: bool = False,
                 prepend_head: bool = False,
                 head_only: bool = False,
-                case_sensitive: bool = False
+                case_sensitive: bool = False,
+                omit_negated_chunks: bool = True
         ) -> None:
             self._chunk_set_dicts.clear()
             self._build_chunk_set_dicts(use_lemma=use_lemma, prepend_head=prepend_head, head_only=head_only,
-                                        case_sensitive=case_sensitive)
+                                        case_sensitive=case_sensitive, omit_negated_chunks=omit_negated_chunks)
 
         def _check_view_elements(
                 self,
@@ -435,7 +438,8 @@ class DataProcessingFactory:
                 prepend_head: bool,
                 use_lemma: bool,
                 head_only: bool,
-                case_sensitive: bool = False
+                case_sensitive: bool = False,
+                omit_negated_chunks: bool = True
         ) -> None:
             _key = (prepend_head, use_lemma, head_only,)
             if len(self._chunk_set_dicts) == 0 and (_key != self._options_key):
@@ -444,21 +448,24 @@ class DataProcessingFactory:
                 self._document_chunk_matrix = ["" for i in range(self.documents_n)]
                 for i, ch in enumerate(self.noun_chunks_corpus):
                     _chunk_dict = clean_span(ch["spacy_chunk"])
+                    _negated_chunk = ch["negated"]
                     # return value looks like this:
                     #   {'head_idx': _head_idx (int), 'lemma': _lemma (list), 'text': _text (list), 'pos': _pos (list)}
                     if _chunk_dict is None:
                         continue
 
                     _text = get_actual_str(_chunk_dict, _key, case_sensitive=case_sensitive)
-                    self._document_chunk_matrix[ch["doc_index"]] += f"{self._chunk_boundary}{_text}"
+                    if not (_negated_chunk and omit_negated_chunks):
+                        self._document_chunk_matrix[ch["doc_index"]] += f"{self._chunk_boundary}{_text}"
 
-                    if _csdt.get(_text, False):
+                    if _csdt.get(_text, False) and not (_negated_chunk and omit_negated_chunks):
                         _docs = set(_csdt[_text]["doc"])
                         _docs.add(ch["doc_id"])
                         _csdt[_text]["doc"] = list(_docs)
                         _csdt[_text]["count"] += 1
                     else:
-                        _csdt[_text] = {"doc": [ch["doc_id"]], "count": 1}
+                        _csdt[_text] = ({"doc": [ch["doc_id"]], "count": 1}
+                                        if not (_negated_chunk and omit_negated_chunks) else {"doc": [], "count": 0})
 
                 self._chunk_set_dicts = [{"text": _t, "doc": _ch["doc"], "count": _ch["count"]}
                                          for _t, _ch in _csdt.items()]
@@ -468,7 +475,8 @@ class DataProcessingFactory:
                 pipeline: spacy.Language,
                 n_process: int = 1,
                 case_sensitive: bool = False,
-                disable: Optional[Iterable[str]] = None
+                disable: Optional[Iterable[str]] = None,
+                omit_negated_chunks: bool = True
         ) -> None:
             # ToDo: negspacy config into 'preprocessing_config'
             _negspacy_config = {
@@ -497,7 +505,8 @@ class DataProcessingFactory:
                         _doc._.trf_data = None  # clears cache and saves ram when using trf_pipelines
 
                 self._build_chunk_set_dicts(prepend_head=self._prepend_head, head_only=self._head_only,
-                                            use_lemma=self._use_lemma, case_sensitive=case_sensitive)
+                                            use_lemma=self._use_lemma, case_sensitive=case_sensitive,
+                                            omit_negated_chunks=omit_negated_chunks)
 
 
 def clean_span(
@@ -562,7 +571,7 @@ def get_actual_str(
 
 if __name__ == "__main__":
     _data = None
-    with zipfile.ZipFile("../tmp/grassco.zip", mode='r') as archive:
+    with zipfile.ZipFile("C:/Users/fra3066mat/Documents/Corpora/grassco.zip", mode='r') as archive:
         _data = [{"name": pathlib.Path(f.filename).stem,
                   "content": archive.read(f.filename).decode('utf-8'),
                   "label": None
@@ -570,6 +579,6 @@ if __name__ == "__main__":
                  (not f.is_dir()) and (pathlib.Path(f.filename).suffix.lstrip('.') == 'txt')]
     data_proc = DataProcessingFactory.create(
         pipeline=spacy.load("de_dep_news_trf"),
-        base_data=_data[:1],
+        base_data=_data[1:3],
         save_to_file=False
     )
