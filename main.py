@@ -4,6 +4,7 @@ import threading
 from enum import IntEnum
 from time import sleep
 
+import waitress
 from flask import Flask, Response
 from flask.logging import default_handler
 
@@ -388,17 +389,22 @@ def get_status_of():
     return jsonify(f"No such (running) process: '{_process}'"), int(HTTPResponses.NOT_FOUND)
 
 
-@app.route("/status/document-server", methods=['POST'])
+@app.route("/status/document-server", methods=['POST', 'GET'])
 def get_data_server():
-    document_server_config = request.files.get("document_server_config", False)
-    if not document_server_config:
-        return jsonify(
-            name="document server check",
-            status=f"No document server config file provided"), int(HTTPResponses.BAD_REQUEST)
-    base_config = get_data_server_config(document_server_config, app)
-    if not check_data_server(url=base_config["url"], port=base_config["port"], index=base_config["index"]):
-        return jsonify(f"There is no data server at the specified location ({base_config}) or it contains no data."), int(HTTPResponses.NOT_FOUND)
-    return jsonify(f"Data server reachable under: '{base_config['url']}:{base_config['port']}/{base_config['index']}'"), int(HTTPResponses.OK)
+    # if request.method == "GET" and request.args.get("port", False):
+    #
+    #     return jsonify()
+    if request.method == "POST":
+        document_server_config = request.files.get("document_server_config", False)
+        if not document_server_config:
+            return jsonify(
+                name="document server check",
+                status=f"No document server config file provided"), int(HTTPResponses.BAD_REQUEST)
+        base_config = get_data_server_config(document_server_config, app)
+        if not check_data_server(url=base_config["url"], port=base_config["port"], index=base_config["index"]):
+            return jsonify(f"There is no data server at the specified location ({base_config}) or it contains no data."), int(HTTPResponses.NOT_FOUND)
+        return jsonify(f"Data server reachable under: '{base_config['url']}:{base_config['port']}/{base_config['index']}'"), int(HTTPResponses.OK)
+
 
 if __name__ in ["__main__"]:
-    app.run(host="0.0.0.0", port=9007)
+    app.run(host="0.0.0.0", port=9010)
