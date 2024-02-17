@@ -1,0 +1,155 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        
+            <script src="lib/bindings/utils.js"></script>
+            <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css" integrity="sha512-WgxfT5LWjfszlPHXRmBWHkV2eceiWTOBvrKCNbdgDYTHrT2AeLCGbF4sZlZw3UMN3WtL0tGUoIAKsu8mllg/XA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+            <script src="https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js" integrity="sha512-LnvoEWDFrqGHlHmDD2101OrLcbsfkrzoSpvtSQtxK3RMnRV0eOkhhBN2dXHKRrUU8p2DGRTk35n4O8nWSVe1mQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+            
+        
+<center>
+<h1></h1>
+</center>
+
+<!-- <link rel="stylesheet" href="../node_modules/vis/dist/vis.min.css" type="text/css" />
+<script type="text/javascript" src="../node_modules/vis/dist/vis.js"> </script>-->
+        <link
+          href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/css/bootstrap.min.css"
+          rel="stylesheet"
+          integrity="sha384-eOJMYsd53ii+scO/bJGFsiCZc+5NDVN2yr8+0RDqr0Ql0h+rP48ckxlpbzKgwra6"
+          crossorigin="anonymous"
+        />
+        <script
+          src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta3/dist/js/bootstrap.bundle.min.js"
+          integrity="sha384-JEW9xMcG8R+pH31jmWH6WWP0WintQrMb4s7ZOdauHnUtxwoG2vI5DkLtS3qm9Ekf"
+          crossorigin="anonymous"
+        ></script>
+
+
+        <center>
+          <h1></h1>
+        </center>
+        <style type="text/css">
+
+             #mynetwork {
+                 width: 100%;
+                 height: 800px;
+                 background-color: #ffffff;
+                 border: 1px solid lightgray;
+                 position: relative;
+                 float: left;
+             }
+
+             
+
+             
+
+             
+        </style>
+    </head>
+
+
+    <body>
+        <div class="card" style="width: 100%">
+            
+            
+            <div id="mynetwork" class="card-body"></div>
+        </div>
+
+        
+        
+
+        <script type="text/javascript">
+
+              // initialize global variables.
+              var edges;
+              var nodes;
+              var allNodes;
+              var allEdges;
+              var nodeColors;
+              var originalNodes;
+              var network;
+              var container;
+              var options, data;
+              var filter = {
+                  item : '',
+                  property : '',
+                  value : []
+              };
+
+              
+
+              
+
+              // This method is responsible for drawing the graph, returns the drawn network
+              function drawGraph() {
+                  var container = document.getElementById('mynetwork');
+
+                  
+
+                  // parsing and collecting nodes and edges from the python
+                  nodes = new vis.DataSet([{"color": "#97c2fc", "documents": [66], "id": 5844, "label": "anfallssemiologie", "shape": "dot", "size": 10, "title": "5844"}, {"color": "#97c2fc", "documents": [31], "id": 3522, "label": "organisches psychosyndrom", "shape": "dot", "size": 10, "title": "3522"}, {"color": "#97c2fc", "documents": [22], "id": 2503, "label": "psychotischen erkrankung", "shape": "dot", "size": 10, "title": "2503"}, {"color": "#97c2fc", "documents": [53], "id": 4963, "label": "gef\u00fchlsst\u00f6rungen", "shape": "dot", "size": 10, "title": "4963"}, {"color": "#97c2fc", "documents": [52], "id": 4809, "label": "vermehrter dehiszenz clavicula", "shape": "dot", "size": 10, "title": "4809"}, {"color": "#97c2fc", "documents": [35], "id": 3786, "label": "psychische aufnahme", "shape": "dot", "size": 10, "title": "3786"}, {"color": "#97c2fc", "documents": [35], "id": 3722, "label": "verhaltensst\u00f6rungen", "shape": "dot", "size": 10, "title": "3722"}, {"color": "#97c2fc", "documents": [59, 22], "id": 2442, "label": "psychischer befund", "shape": "dot", "size": 10, "title": "2442"}, {"color": "#97c2fc", "documents": [22], "id": 2434, "label": "prodromalstadium", "shape": "dot", "size": 10, "title": "2434"}, {"color": "#97c2fc", "documents": [21], "id": 2333, "label": "2d zunehmender dyspnoe", "shape": "dot", "size": 10, "title": "2333"}, {"color": "#97c2fc", "documents": [49, 58, 20], "id": 2273, "label": "psychose", "shape": "dot", "size": 10, "title": "2273"}, {"color": "#97c2fc", "documents": [12, 15], "id": 1298, "label": "psychosyndrom", "shape": "dot", "size": 10, "title": "1298"}, {"color": "#97c2fc", "documents": [0], "id": 196, "label": "psychotischem erleben", "shape": "dot", "size": 10, "title": "196"}, {"color": "#97c2fc", "documents": [0], "id": 181, "label": "erhebliche denkst\u00f6rungen", "shape": "dot", "size": 10, "title": "181"}, {"color": "#97c2fc", "documents": [0], "id": 122, "label": "intermittierende psychotische symptomatik", "shape": "dot", "size": 10, "title": "122"}, {"color": "#97c2fc", "documents": [0], "id": 17, "label": "symptomatisches anfallsleiden", "shape": "dot", "size": 10, "title": "17"}, {"color": "#97c2fc", "documents": [0], "id": 12, "label": "schizophrenen formenkreis", "shape": "dot", "size": 10, "title": "12"}, {"color": "#97c2fc", "documents": [0], "id": 11, "label": "\u2022 akute psychose", "shape": "dot", "size": 10, "title": "11"}]);
+                  edges = new vis.DataSet([{"color": "blue", "from": 5844, "significance": 143.34069261619126, "title": "0.72", "to": 17, "weight": 0.7175441651344299, "width": 2}, {"color": "blue", "dashes": true, "from": 3522, "physics": true, "significance": 4.501398714026112, "title": "0.63", "to": 2442, "weight": 0.6296245341300964}, {"color": "blue", "dashes": true, "from": 3522, "physics": true, "significance": 42.369643228230856, "title": "0.55", "to": 2434, "weight": 0.5455737099647522}, {"color": "green", "from": 3522, "significance": 7.183958923340872, "title": "0.82", "to": 1298, "weight": 0.8165577573776245, "width": 3}, {"color": "blue", "dashes": true, "from": 3522, "physics": true, "significance": 4.443477207289072, "title": "0.52", "to": 17, "weight": 0.5150900058746338}, {"color": "blue", "dashes": true, "from": 2503, "physics": true, "significance": 12.872688564388376, "title": "0.53", "to": 3722, "weight": 0.534633318901062}, {"color": "blue", "dashes": true, "from": 2503, "physics": true, "significance": 6.383438816272235, "title": "0.54", "to": 181, "weight": 0.542524193763733}, {"color": "blue", "from": 4963, "significance": 61.21876272335958, "title": "0.71", "to": 3722, "weight": 0.7079995584487915, "width": 2}, {"color": "blue", "dashes": true, "from": 4963, "physics": true, "significance": 7.44159179762402, "title": "0.54", "to": 2273, "weight": 0.5360346584320068}, {"color": "blue", "dashes": true, "from": 4963, "physics": true, "significance": 4.680972638822378, "title": "0.53", "to": 1298, "weight": 0.5263113098144532}, {"color": "blue", "dashes": true, "from": 4963, "physics": true, "significance": 33.65163368555795, "title": "0.62", "to": 181, "weight": 0.6199843440055848}, {"color": "blue", "dashes": true, "from": 4963, "physics": true, "significance": 7.279241428586325, "title": "0.53", "to": 12, "weight": 0.5308099284172058}, {"color": "blue", "dashes": true, "from": 4963, "physics": true, "significance": 4.851572877726945, "title": "0.5", "to": 11, "weight": 0.5001735315322876}, {"color": "blue", "dashes": true, "from": 4809, "physics": true, "significance": 114.01159282826231, "title": "0.56", "to": 2333, "weight": 0.5618131251335144}, {"color": "blue", "dashes": true, "from": 4809, "physics": true, "significance": 81.16176282697135, "title": "0.52", "to": 181, "weight": 0.5169558053016663}, {"color": "blue", "from": 3786, "significance": 12.829563833987303, "title": "0.76", "to": 2442, "weight": 0.7578553676605224, "width": 2}, {"color": "blue", "dashes": true, "from": 3786, "physics": true, "significance": 5.119761919707919, "title": "0.64", "to": 2273, "weight": 0.6410020380020142}, {"color": "blue", "dashes": true, "from": 3786, "physics": true, "significance": 4.656022768281735, "title": "0.58", "to": 122, "weight": 0.57965367603302}, {"color": "blue", "dashes": true, "from": 3786, "physics": true, "significance": 5.841013569513841, "title": "0.51", "to": 17, "weight": 0.5112724316120147}, {"color": "blue", "from": 3786, "significance": 5.36329839528683, "title": "0.68", "to": 11, "weight": 0.6817191367149353, "width": 2}, {"color": "blue", "dashes": true, "from": 3722, "physics": true, "significance": 10.649939283649905, "title": "0.51", "to": 196, "weight": 0.508249529838562}, {"color": "blue", "dashes": true, "from": 3722, "physics": true, "significance": 47.8106179961996, "title": "0.58", "to": 181, "weight": 0.5771918091773987}, {"color": "blue", "dashes": true, "from": 3722, "physics": true, "significance": 19.508528902635273, "title": "0.53", "to": 12, "weight": 0.5317013387680054}, {"color": "blue", "dashes": true, "from": 2442, "physics": true, "significance": 22.637867616947627, "title": "0.5", "to": 2333, "weight": 0.5031982636451721}, {"color": "blue", "dashes": true, "from": 2442, "physics": true, "significance": 4.715329411135012, "title": "0.64", "to": 2273, "weight": 0.6391190633773804}, {"color": "blue", "dashes": true, "from": 2442, "physics": true, "significance": 5.807403936635769, "title": "0.51", "to": 17, "weight": 0.5129787368774414}, {"color": "blue", "dashes": true, "from": 2434, "physics": true, "significance": 44.45419648849099, "title": "0.59", "to": 1298, "weight": 0.5910453882217407}, {"color": "blue", "dashes": true, "from": 2434, "physics": true, "significance": 48.504116855822296, "title": "0.51", "to": 17, "weight": 0.5064404158592224}, {"color": "blue", "dashes": true, "from": 2333, "physics": true, "significance": 16.34661606168736, "title": "0.5", "to": 1298, "weight": 0.5021432385444641}, {"color": "blue", "dashes": true, "from": 2333, "physics": true, "significance": 42.37218446591837, "title": "0.52", "to": 181, "weight": 0.5175354766845703}, {"color": "blue", "dashes": true, "from": 2333, "physics": true, "significance": 20.68768190924769, "title": "0.51", "to": 12, "weight": 0.5130067405700685}, {"color": "blue", "from": 2273, "significance": 6.194648393328199, "title": "0.79", "to": 1298, "weight": 0.7948064689636231, "width": 2}, {"color": "green", "from": 2273, "significance": 9.066164484377119, "title": "0.82", "to": 11, "weight": 0.823818552017212, "width": 3}, {"color": "blue", "dashes": true, "from": 196, "physics": true, "significance": 5.3976507284893716, "title": "0.53", "to": 181, "weight": 0.5287477016448975}, {"color": "blue", "dashes": true, "from": 181, "physics": true, "significance": 10.27887853513776, "title": "0.52", "to": 12, "weight": 0.5211018567085266}, {"color": "blue", "dashes": true, "from": 122, "physics": true, "significance": 7.921148998928567, "title": "0.55", "to": 17, "weight": 0.5486166515350341}, {"color": "blue", "dashes": true, "from": 122, "physics": true, "significance": 4.475296995776481, "title": "0.65", "to": 11, "weight": 0.6451095271110535}, {"color": "blue", "dashes": true, "from": 17, "physics": true, "significance": 4.442891776898148, "title": "0.54", "to": 11, "weight": 0.5426128678321839}]);
+
+                  nodeColors = {};
+                  allNodes = nodes.get({ returnType: "Object" });
+                  for (nodeId in allNodes) {
+                    nodeColors[nodeId] = allNodes[nodeId].color;
+                  }
+                  allEdges = edges.get({ returnType: "Object" });
+                  // adding nodes and edges to the graph
+                  data = {nodes: nodes, edges: edges};
+
+                  var options = {
+    "configure": {
+        "enabled": false
+    },
+    "edges": {
+        "color": {
+            "inherit": true
+        },
+        "smooth": {
+            "enabled": true,
+            "type": "dynamic"
+        }
+    },
+    "interaction": {
+        "dragNodes": true,
+        "hideEdgesOnDrag": false,
+        "hideNodesOnDrag": false
+    },
+    "physics": {
+        "enabled": true,
+        "stabilization": {
+            "enabled": true,
+            "fit": true,
+            "iterations": 1000,
+            "onlyDynamicEdges": false,
+            "updateInterval": 50
+        }
+    }
+};
+
+                  
+
+
+                  
+
+                  network = new vis.Network(container, data, options);
+
+                  
+
+                  
+
+                  
+
+
+                  
+
+                  return network;
+
+              }
+              drawGraph();
+        </script>
+    </body>
+</html>

@@ -92,7 +92,7 @@ def data_preprocessing():
         )
 
     elif request.method == "GET":
-        pass
+        jsonify("'/preprocessing' endpoint needs some form of data. Please consult the README/manuals on how to provide it.")
 
     elif len(request.files) <= 0 or "data" not in request.files:
         app.logger.error("There were no files at all or no data files POSTed."
