@@ -93,15 +93,19 @@ class PreprocessingUtil:
 
     def read_config(self, config, process_name=None, language=None):
         base_config = {'spacy_model': DEFAULT_SPACY_MODEL, 'file_encoding': 'utf-8'}
+        _language_model_map = {"en": DEFAULT_SPACY_MODEL, "de": "de_dep_news_trf"}
         if config is None:
             self._app.logger.info("No config file provided; using default values")
+            if language is not None:
+                base_config["spacy_model"] = _language_model_map.get(language, DEFAULT_SPACY_MODEL)
         else:
             try:
                 base_config = yaml.safe_load(config.stream)
             except Exception as e:
                 self._app.logger.error(f"Couldn't read config file: {e}")
+
         if language is not None and not base_config.get("spacy_model", False):
-            base_config["spacy_model"] = {"en": DEFAULT_SPACY_MODEL, "de": "de_dep_news_trf"}.get(language, DEFAULT_SPACY_MODEL)
+            base_config["spacy_model"] = _language_model_map.get(language, DEFAULT_SPACY_MODEL)
 
         if process_name is not None:
             base_config["corpus_name"] = process_name

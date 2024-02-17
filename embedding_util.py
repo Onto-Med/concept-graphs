@@ -39,9 +39,12 @@ class PhraseEmbeddingUtil:
         return self._process_step
 
     def read_config(self, config, process_name=None, language=None):
+        _language_model_map = {"en": DEFAULT_EMBEDDING_MODEL, "de": "Sahajtomar/German-semantic"}
         base_config = {'model': DEFAULT_EMBEDDING_MODEL, 'down_scale_algorithm': None}
         if config is None:
             self._app.logger.info("No config file provided; using default values")
+            if language is not None:
+                base_config["model"] = _language_model_map.get(language, DEFAULT_EMBEDDING_MODEL)
         else:
             try:
                 base_config = yaml.safe_load(config.stream)
@@ -51,7 +54,7 @@ class PhraseEmbeddingUtil:
                 self._app.logger.error(f"Couldn't read config file: {e}")
                 return jsonify("Encountered error. See log.")
         if language is not None and not base_config.get("model", False):
-            base_config["model"] = {"en": DEFAULT_EMBEDDING_MODEL, "de": "Sahajtomar/German-semantic"}.get(language, DEFAULT_EMBEDDING_MODEL)
+            base_config["model"] = _language_model_map.get(language, DEFAULT_EMBEDDING_MODEL)
 
         if process_name is not None:
             base_config["corpus_name"] = process_name

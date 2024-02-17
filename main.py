@@ -276,7 +276,7 @@ def complete_pipeline():
                 status="A process is currently running for this corpus."
             ), int(HTTPResponses.FORBIDDEN)
     app.logger.info(f"Using process name '{corpus}'")
-    language = {"en": "en", "de": "de"}.get(request.args.get("lang", "en"), "en")
+    language = {"en": "en", "de": "de"}.get(str(request.args.get("lang", "en")).lower(), "en")
     app.logger.info(f"Using preset language settings for '{language}'")
 
     skip_present = request.args.get("skip_present", True)
