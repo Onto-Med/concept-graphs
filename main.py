@@ -344,9 +344,7 @@ def complete_pipeline():
         process_obj = _proc(app=app, file_storage=FILE_STORAGE_TMP)
         running_processes[corpus]["status"][_name] = ProcessStatus.STARTED
         if process_obj.has_pickle(corpus):
-            if _name in omit_pipeline_steps:
-                continue
-            if skip_present:
+            if _name in omit_pipeline_steps or skip_present:
                 running_processes[corpus]["status"][_name] = ProcessStatus.FINISHED
                 continue
             else:
