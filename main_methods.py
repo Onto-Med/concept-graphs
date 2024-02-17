@@ -20,7 +20,7 @@ import graph_creation_util
 import cluster_functions
 
 
-class StepsName(enum.Enum):
+class StepsName:
     DATA = "data"
     EMBEDDING = "embedding"
     CLUSTERING = "clustering"

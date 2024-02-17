@@ -341,18 +341,19 @@ def complete_pipeline():
     running_processes[corpus] = {"status": {}, "name": corpus}
 
     for _name, _proc, _conf, _fact in processes:
-        _name = str(_name)
         process_obj = _proc(app=app, file_storage=FILE_STORAGE_TMP)
         running_processes[corpus]["status"][_name] = ProcessStatus.STARTED
         if process_obj.has_pickle(corpus):
             if _name in omit_pipeline_steps or skip_present:
+                logging.info(f"Skipping {_name} because "
+                             f"{'omitted' if _name in omit_pipeline_steps else 'skip_present'}.")
                 running_processes[corpus]["status"][_name] = ProcessStatus.FINISHED
                 continue
             else:
                 process_obj.delete_pickle(corpus)
         read_config(app=app, processor=process_obj, process_type=_name,
                     process_name=corpus, config=_conf, language=language)
-        if _name == str(StepsName.DATA):
+        if _name == StepsName.DATA:
             process_obj.read_labels(labels)
             process_obj.read_data(data, replace_keys=replace_keys)
         processes_threading.append((process_obj, _fact, _name, ))
