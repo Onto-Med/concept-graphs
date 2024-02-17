@@ -75,7 +75,7 @@ def data_preprocessing():
     if request.method == "POST" and len(request.files) > 0 and "data" in request.files:
         pre_proc = PreprocessingUtil(app, FILE_STORAGE_TMP)
 
-        process_name = read_config(app, pre_proc, "data")
+        process_name = read_config(app, pre_proc, StepsName.DATA)
 
         app.logger.info("Reading labels ...")
         pre_proc.read_labels(request.files.get("labels", None))
@@ -129,7 +129,7 @@ def phrase_embedding():
     if request.method in ["POST", "GET"]:
         phra_emb = PhraseEmbeddingUtil(app, FILE_STORAGE_TMP)
 
-        process_name = read_config(app, phra_emb, "embedding")
+        process_name = read_config(app, phra_emb, StepsName.EMBEDDING)
 
         app.logger.info(f"Start phrase embedding '{process_name}' ...")
         try:
@@ -168,7 +168,7 @@ def phrase_clustering():
         if not saved_config:
             phra_clus = ClusteringUtil(app, FILE_STORAGE_TMP)
 
-            process_name = read_config(app, phra_clus, "clustering")
+            process_name = read_config(app, phra_clus, StepsName.CLUSTERING)
 
             app.logger.info(f"Start phrase clustering '{process_name}' ...")
             try:
@@ -285,6 +285,11 @@ def complete_pipeline():
     if skip_present:
         app.logger.info("Skipping present saved steps")
 
+    skip_steps = request.args.get("skip_steps", False)
+    omit_pipeline_steps = []
+    if skip_steps:
+        omit_pipeline_steps = get_omit_pipeline_steps(skip_steps)
+
     return_statistics = request.args.get("return_statistics", False)
     if isinstance(return_statistics, str):
         return_statistics = get_bool_expression(return_statistics, True)
@@ -323,13 +328,13 @@ def complete_pipeline():
         labels = _tmp_labels
 
     processes = [
-        ("data", PreprocessingUtil, request.files.get("data_config", None),
+        (StepsName.DATA, PreprocessingUtil, request.files.get(f"{StepsName.DATA}_config", None),
          data_functions.DataProcessingFactory,),
-        ("embedding", PhraseEmbeddingUtil, request.files.get("embedding_config", None),
+        (StepsName.EMBEDDING, PhraseEmbeddingUtil, request.files.get(f"{StepsName.EMBEDDING}_config", None),
          embedding_functions.SentenceEmbeddingsFactory,),
-        ("clustering", ClusteringUtil, request.files.get("clustering_config", None),
+        (StepsName.CLUSTERING, ClusteringUtil, request.files.get(f"{StepsName.CLUSTERING}_config", None),
          cluster_functions.PhraseClusterFactory,),
-        ("graph", GraphCreationUtil, request.files.get("graph_config", None),
+        (StepsName.GRAPH, GraphCreationUtil, request.files.get(f"{StepsName.GRAPH}_config", None),
          cluster_functions.WordEmbeddingClustering,)
     ]
     processes_threading = []
@@ -339,6 +344,8 @@ def complete_pipeline():
         process_obj = _proc(app=app, file_storage=FILE_STORAGE_TMP)
         running_processes[corpus]["status"][_name] = ProcessStatus.STARTED
         if process_obj.has_pickle(corpus):
+            if _name in omit_pipeline_steps:
+                continue
             if skip_present:
                 running_processes[corpus]["status"][_name] = ProcessStatus.FINISHED
                 continue
@@ -346,7 +353,7 @@ def complete_pipeline():
                 process_obj.delete_pickle(corpus)
         read_config(app=app, processor=process_obj, process_type=_name,
                     process_name=corpus, config=_conf, language=language)
-        if _name == "data":
+        if _name == StepsName.DATA:
             process_obj.read_labels(labels)
             process_obj.read_data(data, replace_keys=replace_keys)
         processes_threading.append((process_obj, _fact, _name, ))

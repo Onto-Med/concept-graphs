@@ -188,6 +188,7 @@ replace_keys: dictionary -
 * `process`: overrides the `corpus_name` given in the config
 * `lang` (`de` or `en`): if declared here and no model provided in `config`, will use default language specific models for `preprocessing` and `clustering` (default: en)
 * `skip_present`: (`true` or `false`) - whether to skip already saved steps for this particular process name (default: true)
+* `skip_steps`: (comma separated list of either one or multiple of ``[data, embedding, clustering, graph]``) - pipeline steps that should be omitted if prerequisites are fulfilled; overrules ``skip_present``
 * `return_statistics`: (`true` or `false`) - whether to wait for pipeline to finish and return statistics for the created graphs in the end or just silently start the pipeline (default: false)
 
 ``data``, ``labels`` and ``configs`` need to be provided like in the respective base endpoints except for the configs need to be specified accordingly (if not provided, default values will be used):

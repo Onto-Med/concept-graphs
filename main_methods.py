@@ -1,9 +1,10 @@
+import enum
 import os
 import sys
 import pathlib
 import pickle
 from collections import OrderedDict, defaultdict
-from typing import Union, Optional
+from typing import Union, Optional, List
 
 import flask
 import networkx as nx
@@ -19,11 +20,18 @@ import graph_creation_util
 import cluster_functions
 
 
+class StepsName(enum.Enum):
+    DATA = "data"
+    EMBEDDING = "embedding"
+    CLUSTERING = "clustering"
+    GRAPH = "graph"
+
+
 steps_relation_dict = {
-    "data": 1,
-    "embedding": 2,
-    "clustering": 3,
-    "graph": 4
+    StepsName.DATA: 1,
+    StepsName.EMBEDDING: 2,
+    StepsName.CLUSTERING: 3,
+    StepsName.GRAPH: 4
 }
 
 
@@ -118,10 +126,10 @@ def get_all_processes(path: str):
 
 def start_processes(app: flask.Flask, processes: tuple, process_name: str, process_tracker: dict):
     _name_marker = {
-        "data": "**data**, embedding, clustering, graph",
-        "embedding": "data, **embedding**, clustering, graph",
-        "clustering": "data, embedding, **clustering**, graph",
-        "graph": "data, embedding, clustering, **graph**",
+        StepsName.DATA: "**data**, embedding, clustering, graph",
+        StepsName.EMBEDDING: "data, **embedding**, clustering, graph",
+        StepsName.CLUSTERING: "data, embedding, **clustering**, graph",
+        StepsName.GRAPH: "data, embedding, clustering, **graph**",
     }
     for process_obj, _fact, _name in processes:
         try:
@@ -139,7 +147,7 @@ def read_config(app: flask.Flask, processor, process_type, process_name=None, co
     app.logger.info(f"Reading config ({process_type}) ...")
     processor.read_config(config=config if config is not None else request.files.get("config", None),
                           process_name=process_name,
-                          language=None if process_type not in ["data", "embedding"] else language)
+                          language=None if process_type not in [StepsName.DATA, StepsName.EMBEDDING] else language)
     # pyyaml doesn't handle 'None' so we need to convert them
     for k, v in processor.config.items():
         if isinstance(v, str) and v.lower() == "none":
@@ -278,7 +286,7 @@ def graph_create(app: flask.Flask, path: str):
     if request.method in ["POST", "GET"]:
         graph_create = graph_creation_util.GraphCreationUtil(app, path)
 
-        process_name = read_config(graph_create, "graph")
+        process_name = read_config(graph_create, StepsName.GRAPH)
 
         app.logger.info(f"Start Graph Creation '{process_name}' ...")
         try:
@@ -310,6 +318,14 @@ def get_query_param_help_text(param: str):
                          "that shall be excluded from the final graphs in the form of ``[ID1, ID2, etc.]``",
         "draw": "draw: `true` or `false` - whether the response shall be a rendered graph or plain json"
     }.get(param, "No help text available.")
+
+
+def get_omit_pipeline_steps(steps: object) -> list[str]:
+    step_set = {"data", "embedding", "clustering", "graph"}
+    if isinstance(steps, str):
+        steps = steps.strip('([{}])')
+        return [s.lower() for s in steps.split(',') if s.lower() in step_set]
+    return []
 
 
 if __name__ == "__main__":
