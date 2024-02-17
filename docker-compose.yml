@@ -7,6 +7,7 @@ services:
       - 9007:9007
     volumes:
       - results:/rest_api/tmp
+      - .:/rest_api
 
 volumes:
   results:
