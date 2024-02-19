@@ -4,12 +4,6 @@ ARG ROOT_CONTAINER=nvidia/cuda:11.0.3-base-ubuntu20.04
 FROM $ROOT_CONTAINER
 
 ARG REST_API_WORKDIR=/rest_api
-ARG USERNAME=concept-graph-user
-ARG USER_UID=1000
-ARG USER_GID=$USER_UID
-
-RUN groupadd --gid $USER_GID $USERNAME \
-    && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME
 
 WORKDIR $REST_API_WORKDIR
 
@@ -47,7 +41,6 @@ RUN apt-get update --yes && \
 # Install current pip version for python version
 RUN curl -sS https://bootstrap.pypa.io/get-pip.py | ${PYTHON}
 
-WORKDIR ${REST_API_WORKDIR}
 COPY requirements.txt ${REST_API_WORKDIR}
 RUN --mount=type=cache,target=/root/.cache/pip ${PYTHON} -m pip install -r requirements.txt
 
@@ -55,7 +48,5 @@ RUN ${PYTHON} -m spacy download de_core_news_sm && \
     ${PYTHON} -m spacy download de_dep_news_trf
 
 COPY . .
-
-USER $USERNAME
 
 CMD [ "waitress-serve", "--port=9007", "main:app" ]
