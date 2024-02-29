@@ -109,6 +109,10 @@ class PreprocessingUtil:
 
         if process_name is not None:
             base_config["corpus_name"] = process_name
+        # ToDo: Since n_process > 1 would induce Multiprocessing and this doesn't work with the Threading approach
+        #  to keep the server able to respond, the value will be popped here.
+        #  Maybe I can find a solution to this problem
+        base_config.pop("n_process", None)
         self.config = base_config
 
     def read_labels(self, labels):

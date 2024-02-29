@@ -4,7 +4,6 @@ import threading
 from enum import IntEnum
 from time import sleep
 
-import waitress
 from flask import Flask, Response
 from flask.logging import default_handler
 
