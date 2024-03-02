@@ -1,9 +1,11 @@
+import dataclasses
 import enum
 import os
 import sys
 import pathlib
 import pickle
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict, defaultdict, namedtuple
+from enum import IntEnum
 from typing import Union, Optional, List
 
 import flask
@@ -20,11 +22,27 @@ import graph_creation_util
 import cluster_functions
 
 
+class HTTPResponses(IntEnum):
+    OK = 200
+    ACCEPTED = 202
+    BAD_REQUEST = 400
+    UNAUTHORIZED = 401
+    FORBIDDEN = 403
+    NOT_FOUND = 404
+    INTERNAL_SERVER_ERROR = 500
+    NOT_IMPLEMENTED = 501
+    SERVICE_UNAVAILABLE = 503
+
+
 class StepsName:
     DATA = "data"
     EMBEDDING = "embedding"
     CLUSTERING = "clustering"
     GRAPH = "graph"
+
+
+pipeline_query_params = namedtuple(
+    "PipelineQueryParams", ["process_name", "language", "skip_present", "omitted_pipeline_steps", "return_statistics"])
 
 
 steps_relation_dict = {
@@ -33,6 +51,43 @@ steps_relation_dict = {
     StepsName.CLUSTERING: 3,
     StepsName.GRAPH: 4
 }
+
+
+def parse_config_json(response_json) -> dict:
+    return {}
+
+
+def get_pipeline_query_params(
+        app: flask.Flask,
+        flask_request: flask.Request,
+        running_processes: dict) -> Union[pipeline_query_params, tuple]:
+    corpus = flask_request.args.get("process", "default")
+    if corpus_status := running_processes.get(corpus, False):
+        if any([v == ProcessStatus.RUNNING for v in corpus_status["status"].values()]):
+            return jsonify(
+                name=corpus,
+                status="A process is currently running for this corpus."
+            ), int(HTTPResponses.FORBIDDEN)
+    app.logger.info(f"Using process name '{corpus}'")
+    language = {"en": "en", "de": "de"}.get(str(flask_request.args.get("lang", "en")).lower(), "en")
+    app.logger.info(f"Using preset language settings for '{language}'")
+
+    skip_present = flask_request.args.get("skip_present", True)
+    if isinstance(skip_present, str):
+        skip_present = get_bool_expression(skip_present, True)
+    if skip_present:
+        app.logger.info("Skipping present saved steps")
+
+    skip_steps = flask_request.args.get("skip_steps", False)
+    omit_pipeline_steps = []
+    if skip_steps:
+        omit_pipeline_steps = get_omit_pipeline_steps(skip_steps)
+
+    return_statistics = flask_request.args.get("return_statistics", False)
+    if isinstance(return_statistics, str):
+        return_statistics = get_bool_expression(return_statistics, True)
+
+    return pipeline_query_params(corpus, language, skip_present, omit_pipeline_steps, return_statistics)
 
 
 def get_data_server_config(document_server_config: FileStorage, app: flask.Flask):
