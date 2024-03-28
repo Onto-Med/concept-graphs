@@ -10,14 +10,14 @@ import spacy
 import yaml
 from werkzeug.datastructures import FileStorage
 
-from main_utils import ProcessStatus
+from main_utils import ProcessStatus, StepsName, add_status_to_running_process
 
 DEFAULT_SPACY_MODEL = "en_core_web_trf"
 
 
 class PreprocessingUtil:
 
-    def __init__(self, app: flask.app.Flask, file_storage: str, step_name: str = "data"):
+    def __init__(self, app: flask.app.Flask, file_storage: str, step_name: StepsName = StepsName.DATA):
         self._app = app
         self._file_storage = Path(file_storage)
         self._process_step = step_name
@@ -150,7 +150,7 @@ class PreprocessingUtil:
             if x not in default_args:
                 config.pop(x)
 
-        process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.RUNNING
+        add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.RUNNING, process_tracker)
         _process = None
         try:
             _process = process_factory.create(
@@ -161,9 +161,9 @@ class PreprocessingUtil:
                 save_to_file=True,
                 **config
             )
-            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.FINISHED
+            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.FINISHED, process_tracker)
         except Exception as e:
-            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.ABORTED
+            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.ABORTED, process_tracker)
             self._app.logger.error(e)
 
         return _process

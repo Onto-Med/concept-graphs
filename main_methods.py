@@ -1,12 +1,9 @@
-import dataclasses
-import enum
 import os
 import sys
 import pathlib
 import pickle
-from collections import OrderedDict, defaultdict, namedtuple
-from enum import IntEnum
-from typing import Union, Optional, List
+from collections import OrderedDict, defaultdict
+from typing import Union
 
 import flask
 import networkx as nx
@@ -15,42 +12,12 @@ import yaml
 from flask import request, jsonify, render_template_string
 from werkzeug.datastructures import FileStorage
 
-from main_utils import ProcessStatus
+from main_utils import ProcessStatus, HTTPResponses, StepsName, pipeline_query_params, steps_relation_dict, \
+    add_status_to_running_process
 
 sys.path.insert(0, "src")
 import graph_creation_util
 import cluster_functions
-
-
-class HTTPResponses(IntEnum):
-    OK = 200
-    ACCEPTED = 202
-    BAD_REQUEST = 400
-    UNAUTHORIZED = 401
-    FORBIDDEN = 403
-    NOT_FOUND = 404
-    INTERNAL_SERVER_ERROR = 500
-    NOT_IMPLEMENTED = 501
-    SERVICE_UNAVAILABLE = 503
-
-
-class StepsName:
-    DATA = "data"
-    EMBEDDING = "embedding"
-    CLUSTERING = "clustering"
-    GRAPH = "graph"
-
-
-pipeline_query_params = namedtuple(
-    "PipelineQueryParams", ["process_name", "language", "skip_present", "omitted_pipeline_steps", "return_statistics"])
-
-
-steps_relation_dict = {
-    StepsName.DATA: 1,
-    StepsName.EMBEDDING: 2,
-    StepsName.CLUSTERING: 3,
-    StepsName.GRAPH: 4
-}
 
 
 def parse_config_json(response_json) -> dict:
@@ -63,10 +30,10 @@ def get_pipeline_query_params(
         running_processes: dict) -> Union[pipeline_query_params, tuple]:
     corpus = flask_request.args.get("process", "default")
     if corpus_status := running_processes.get(corpus, False):
-        if any([v == ProcessStatus.RUNNING for v in corpus_status["status"].values()]):
+        if any([v.get("status", None) == ProcessStatus.RUNNING for v in corpus_status.get("status", [])]):
             return jsonify(
                 name=corpus,
-                status="A process is currently running for this corpus."
+                error=f"A process is currently running for this corpus. Use '/status?process={corpus}' for specifics."
             ), int(HTTPResponses.FORBIDDEN)
     app.logger.info(f"Using process name '{corpus}'")
     language = {"en": "en", "de": "de"}.get(str(flask_request.args.get("lang", "en")).lower(), "en")
@@ -147,17 +114,18 @@ def get_documents_from_es_server(
 
 def populate_running_processes(app: flask.Flask, path: str, running_processes: dict):
     for process in get_all_processes(path):
-        _finished = [_finished_step.get("name") for _finished_step in process.get("finished_steps", [])]
-        _name = process.get("name", None)
-        if _name is None:
+        _finished = [_finished_step.get("name") for _finished_step in process.get("status", [])]
+        _process_name = process.get("name", None)
+        if _process_name is None:
             app.logger.warning(f"Skipping process entry with no name and '{_finished}' steps.")
             continue
 
-        running_processes[_name] = {"status": {}, "name": _name}
-        for _step in steps_relation_dict.keys():
-            running_processes[_name]["status"][_step] = ProcessStatus.NOT_PRESENT
-            if _step in _finished:
-                running_processes[_name]["status"][_step] = ProcessStatus.FINISHED
+        for _step, _rank in steps_relation_dict.items():
+            if _step not in _finished:
+                add_status_to_running_process(_process_name, _step, ProcessStatus.NOT_PRESENT, running_processes)
+            else:
+                add_status_to_running_process(_process_name, _step, ProcessStatus.FINISHED, running_processes)
+    return running_processes
 
 
 def get_all_processes(path: str):
@@ -171,10 +139,11 @@ def get_all_processes(path: str):
                 _step = _pickle_stem.removeprefix(f"{_proc_name}_")
                 if steps_relation_dict.get(_step, False):
                     _steps_list.append({"rank": steps_relation_dict.get(_step),
-                                        "name": _step})
+                                        "name": _step,
+                                        "status": ProcessStatus.FINISHED})
             _ord_dict = OrderedDict()
             _ord_dict["name"] = _proc_name
-            _ord_dict["finished_steps"] = sorted(_steps_list, key=lambda x: x.get("rank", -1))
+            _ord_dict["status"] = sorted(_steps_list, key=lambda x: x.get("rank", -1))
             _process_detailed.append(_ord_dict)
     return _process_detailed
 

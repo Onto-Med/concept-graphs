@@ -1,18 +1,11 @@
 import pathlib
-from enum import Enum
+from collections import namedtuple
+from enum import Enum, IntEnum
 from abc import ABC, abstractmethod
 from pathlib import Path
 
 import flask
 import yaml
-
-
-class ProcessStatus(str, Enum):
-    STARTED = "started"
-    RUNNING = "running"
-    FINISHED = "finished"
-    ABORTED = "aborted"
-    NOT_PRESENT = "not present"
 
 
 class BaseUtil(ABC):
@@ -64,3 +57,73 @@ class BaseUtil(ABC):
             except Exception as e:
                 self.app.logger.error(f"Couldn't read config file: {e}")
             self._final_config = loaded_config
+
+
+class ProcessStatus(str, Enum):
+    STARTED = "started"
+    RUNNING = "running"
+    FINISHED = "finished"
+    ABORTED = "aborted"
+    NOT_PRESENT = "not present"
+
+
+class HTTPResponses(IntEnum):
+    OK = 200
+    ACCEPTED = 202
+    BAD_REQUEST = 400
+    UNAUTHORIZED = 401
+    FORBIDDEN = 403
+    NOT_FOUND = 404
+    INTERNAL_SERVER_ERROR = 500
+    NOT_IMPLEMENTED = 501
+    SERVICE_UNAVAILABLE = 503
+
+
+class StepsName:
+    DATA = "data"
+    EMBEDDING = "embedding"
+    CLUSTERING = "clustering"
+    GRAPH = "graph"
+
+
+pipeline_query_params = namedtuple(
+    "PipelineQueryParams", ["process_name", "language", "skip_present", "omitted_pipeline_steps", "return_statistics"])
+
+steps_relation_dict = {
+    StepsName.DATA: 1,
+    StepsName.EMBEDDING: 2,
+    StepsName.CLUSTERING: 3,
+    StepsName.GRAPH: 4
+}
+
+
+def add_status_to_running_process(
+        process_name: str,
+        step_name: StepsName,
+        step_status: ProcessStatus,
+        running_processes: dict
+):
+    _step = {
+        "name": step_name,
+        "rank": steps_relation_dict[step_name],
+        "status": step_status
+    }
+    _remove = -1
+    if not running_processes.get(process_name, False):
+        running_processes[process_name] = {
+            "name": process_name,
+            "status": [],
+        }
+    else:
+        for _i, _status in enumerate(running_processes[process_name]["status"]):
+            if _status.get("name", False) == step_name:
+                _remove = _i
+                break
+        if _remove >= 0:
+            running_processes[process_name]["status"].pop(_remove)
+
+    if _remove >= 0:
+        running_processes[process_name]["status"].insert(_remove, _step)
+    else:
+        running_processes[process_name]["status"].append(_step)
+    return running_processes

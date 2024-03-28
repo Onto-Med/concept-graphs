@@ -3,13 +3,11 @@ import threading
 
 from time import sleep
 
-import flask
 from flask import Flask, Response
 from flask.logging import default_handler
 
 from main_methods import *
-from main_methods import HTTPResponses
-from main_utils import ProcessStatus
+from main_utils import ProcessStatus, HTTPResponses, StepsName, add_status_to_running_process
 from preprocessing_util import PreprocessingUtil
 from embedding_util import PhraseEmbeddingUtil
 from clustering_util import ClusteringUtil
@@ -272,7 +270,7 @@ def complete_pipeline():
     if not data and not document_server_config:
         return jsonify(
             name=query_params.process_name,
-            status="Neither data provided for upload with 'data' key nor a config file for documents on a server"
+            error="Neither data provided for upload with 'data' key nor a config file for documents on a server"
         ), int(HTTPResponses.BAD_REQUEST)
     elif data and not document_server_config:
         _tmp_data = pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(".tmp_streams") / data.filename)
@@ -284,7 +282,7 @@ def complete_pipeline():
         if not check_data_server(url=base_config["url"], port=base_config["port"], index=base_config["index"]):
             return jsonify(
                 name=query_params.process_name,
-                status=f"There is no data server at the specified location ({base_config}) or it contains no data."
+                error=f"There is no data server at the specified location ({base_config}) or it contains no data."
             ), int(HTTPResponses.NOT_FOUND)
         data = get_documents_from_es_server(
             url=base_config['url'], port=base_config['port'], index=base_config['index'], size=int(base_config['size'])
@@ -309,16 +307,15 @@ def complete_pipeline():
          cluster_functions.WordEmbeddingClustering,)
     ]
     processes_threading = []
-    running_processes[query_params.process_name] = {"status": {}, "name": query_params.process_name}
 
     for _name, _proc, _conf, _fact in processes:
         process_obj = _proc(app=app, file_storage=FILE_STORAGE_TMP)
-        running_processes[query_params.process_name]["status"][_name] = ProcessStatus.STARTED
+        add_status_to_running_process(query_params.process_name, _name, ProcessStatus.STARTED, running_processes)
         if process_obj.has_pickle(query_params.process_name):
             if _name in query_params.omitted_pipeline_steps or query_params.skip_present:
                 logging.info(f"Skipping {_name} because "
                              f"{'omitted' if _name in query_params.omitted_pipeline_steps else 'skip_present'}.")
-                running_processes[query_params.process_name]["status"][_name] = ProcessStatus.FINISHED
+                add_status_to_running_process(query_params.process_name, _name, ProcessStatus.FINISHED, running_processes)
                 continue
             else:
                 process_obj.delete_pickle(query_params.process_name)
@@ -343,18 +340,20 @@ def complete_pipeline():
         )
     else:
         return (
-            jsonify(name=query_params.process_name, status=running_processes.get(query_params.process_name, {"status": {}}).get("status")),
+            jsonify(
+                name=query_params.process_name,
+                status=running_processes.get(query_params.process_name, {"status": []}).get("status")
+            ),
             int(HTTPResponses.ACCEPTED)
         )
 
 
 @app.route("/processes", methods=['GET'])
 def get_all_processes_api():
-    _process_detailed = get_all_processes(FILE_STORAGE_TMP)
-    if len(_process_detailed) > 0:
-        return jsonify(processes=_process_detailed)
+    if len(running_processes) > 0:
+        return jsonify(processes=[p for p in running_processes.values()])
     else:
-        return Response("No saved processes.", int(HTTPResponses.NOT_FOUND))
+        return jsonify("No saved processes."), int(HTTPResponses.NOT_FOUND)
 
 
 @app.route("/status", methods=['GET'])
@@ -380,10 +379,16 @@ def get_data_server():
                 status=f"No document server config file provided"), int(HTTPResponses.BAD_REQUEST)
         base_config = get_data_server_config(document_server_config, app)
         if not check_data_server(url=base_config["url"], port=base_config["port"], index=base_config["index"]):
-            return jsonify(f"There is no data server at the specified location ({base_config}) or it contains no data."), int(
-                HTTPResponses.NOT_FOUND)
-        return jsonify(f"Data server reachable under: '{base_config['url']}:{base_config['port']}/{base_config['index']}'"), int(
-            HTTPResponses.OK)
+            return (
+                jsonify(
+                    f"There is no data server at the specified location ({base_config}) or it contains no data."),
+                int(HTTPResponses.NOT_FOUND)
+            )
+        return (
+            jsonify(
+                f"Data server reachable under: '{base_config['url']}:{base_config['port']}/{base_config['index']}'"),
+            int(HTTPResponses.OK)
+        )
 
 
 if __name__ in ["__main__"]:

@@ -10,7 +10,7 @@ from pyvis import network as net
 
 from flask import jsonify
 
-from main_utils import ProcessStatus
+from main_utils import ProcessStatus, StepsName, add_status_to_running_process
 
 sys.path.insert(0, "src")
 import util_functions
@@ -18,7 +18,7 @@ import util_functions
 
 class GraphCreationUtil:
 
-    def __init__(self, app: flask.app.Flask, file_storage: str, step_name: str = "graph"):
+    def __init__(self, app: flask.app.Flask, file_storage: str, step_name: StepsName = StepsName.GRAPH):
         self._app = app
         self._file_storage = Path(file_storage)
         self._process_step = step_name
@@ -83,7 +83,7 @@ class GraphCreationUtil:
 
         config = self.config.copy()
 
-        process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.RUNNING
+        add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.RUNNING, process_tracker)
         concept_graphs = []
         try:
             concept_graph_clustering = process_factory(
@@ -98,9 +98,9 @@ class GraphCreationUtil:
             )
             with pathlib.Path(self._file_storage / f"{cache_name}_{self.process_step}.pickle").open("wb") as graphs_out:
                 pickle.dump(concept_graphs, graphs_out)
-            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.FINISHED
+            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.FINISHED, process_tracker)
         except Exception as e:
-            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.ABORTED
+            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.ABORTED, process_tracker)
             self._app.logger.error(e)
 
         return concept_graphs

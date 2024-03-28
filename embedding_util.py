@@ -8,7 +8,7 @@ import sys
 
 from flask import jsonify
 
-from main_utils import ProcessStatus
+from main_utils import ProcessStatus, StepsName, add_status_to_running_process
 
 sys.path.insert(0, "src")
 import util_functions
@@ -19,7 +19,7 @@ DEFAULT_EMBEDDING_MODEL = 'sentence-transformers/paraphrase-albert-small-v2'
 
 class PhraseEmbeddingUtil:
 
-    def __init__(self, app: flask.app.Flask, file_storage: str, step_name: str = "embedding"):
+    def __init__(self, app: flask.app.Flask, file_storage: str, step_name: StepsName = StepsName.EMBEDDING):
         self._app = app
         self._file_storage = Path(file_storage)
         self._process_step = step_name
@@ -85,7 +85,7 @@ class PhraseEmbeddingUtil:
         data_obj = util_functions.load_pickle(
             Path(self._file_storage / f"{cache_name}_data.pickle"))
 
-        process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.RUNNING
+        add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.RUNNING, process_tracker)
         _process = None
         try:
             _process = process_factory.create(
@@ -95,9 +95,9 @@ class PhraseEmbeddingUtil:
                 model_name=config.pop("model", DEFAULT_EMBEDDING_MODEL),
                 **config
             )
-            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.FINISHED
+            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.FINISHED, process_tracker)
         except Exception as e:
-            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.ABORTED
+            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.ABORTED, process_tracker)
             self._app.logger.error(e)
 
         return _process
