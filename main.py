@@ -236,7 +236,11 @@ def graph_creation_with_arg(path_arg):
     if path_arg in _path_args:
         try:
             if path_arg == "statistics":
-                return graph_get_statistics(app, process, FILE_STORAGE_TMP)
+                _result = graph_get_statistics(app, process, FILE_STORAGE_TMP)
+                _http_response = HTTPResponses.OK
+                if "error" in _result:
+                    _http_response = HTTPResponses.INTERNAL_SERVER_ERROR
+                return jsonify(name=process, **_result), _http_response
             elif path_arg == "creation":
                 return graph_create(app, FILE_STORAGE_TMP)
         except FileNotFoundError:
@@ -363,7 +367,10 @@ def get_status_of():
         _response = running_processes.get(_process, None)
         if _response is not None:
             return jsonify(_response), int(HTTPResponses.OK)
-    return jsonify(f"No such (running) process: '{_process}'"), int(HTTPResponses.NOT_FOUND)
+    return jsonify(
+        name=_process,
+        error=f"No such (running) process: '{_process}'"
+    ), int(HTTPResponses.NOT_FOUND)
 
 
 @app.route("/status/document-server", methods=['POST', 'GET'])
