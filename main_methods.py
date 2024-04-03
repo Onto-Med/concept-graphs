@@ -68,6 +68,7 @@ def get_data_server_config(document_server_config: FileStorage, app: flask.Flask
                     continue
                 _config[k] = get_bool_expression(v, v) if isinstance(v, str) else v
         base_config = _config
+        base_config["replace_keys"] = get_dict_expression(_config.pop("replace_keys", {"text": "content"}))
     except Exception as e:
         app.logger.error(f"Couldn't read config file: {e}\n Using default values '{base_config}'.")
     return base_config
@@ -333,6 +334,20 @@ def get_bool_expression(str_bool: str, default: Union[bool, str] = False) -> boo
         }.get(str_bool.lower(), default)
     else:
         return False
+
+
+def get_dict_expression(dict_str: str):
+    # e.g. "{'text': 'content'}"
+    if not dict_str.startswith("{") and not dict_str.endswith("}"):
+        return dict_str
+    _str = dict_str[1:-1].split(",")
+    _return_dict = dict()
+    for _s in _str:
+        _split_s = _s.split(":")
+        if len(_split_s) != 2:
+            break
+        _return_dict[_split_s[0].strip().strip("'").strip('"')] = _split_s[1].strip().strip("'").strip('"')
+    return _return_dict
 
 
 def get_query_param_help_text(param: str):
