@@ -1,4 +1,6 @@
 import logging
+import pathlib
+import shutil
 import threading
 
 from time import sleep
@@ -261,6 +263,7 @@ def complete_pipeline():
     data = request.files.get("data", False)
     document_server_config = request.files.get("document_server_config", False)
     replace_keys = None
+    label_getter = None
 
     query_params = get_pipeline_query_params(app, request, running_processes)
     if isinstance(query_params, tuple) and isinstance(query_params[0], flask.Response):
@@ -292,6 +295,7 @@ def complete_pipeline():
             url=base_config['url'], port=base_config['port'], index=base_config['index'], size=int(base_config['size'])
         )
         replace_keys = base_config.get("replace_keys", {"text": "content"})
+        label_getter = base_config.get("label_key", None)
 
     labels = request.files.get("labels", None)
     if labels is not None:
@@ -326,8 +330,8 @@ def complete_pipeline():
         read_config(app=app, processor=process_obj, process_type=_name,
                     process_name=query_params.process_name, config=_conf, language=query_params.language)
         if _name == StepsName.DATA:
-            process_obj.read_labels(labels)
-            process_obj.read_data(data, replace_keys=replace_keys)
+            process_obj.read_labels(labels if label_getter is None else label_getter)
+            process_obj.read_data(data, replace_keys=replace_keys, label_getter=label_getter)
         processes_threading.append((process_obj, _fact, _name, ))
 
     pipeline_thread = threading.Thread(group=None, target=start_processes, name=None,
@@ -350,6 +354,22 @@ def complete_pipeline():
             ),
             int(HTTPResponses.ACCEPTED)
         )
+
+
+@app.route("/process/<process_id>/delete", methods=["DELETE"])
+def delete_process(process_id):
+    if process_id not in running_processes:
+        return Response(f"There is no such process '{process_id}'.\n",
+                        status=int(HTTPResponses.NOT_FOUND))
+    if any([step.get('status') == ProcessStatus.RUNNING
+            for step in running_processes.get(process_id).get("status", [])]):
+        # ToDo: threading could be made so, that we're able to stop a running thread. Right now, this is not implemented
+        return Response(f"The process '{process_id}' is currently running and it can't be stopped in the current implementation.",
+                        status=int(HTTPResponses.NOT_IMPLEMENTED))
+
+    _process_stats = running_processes.pop(process_id)
+    shutil.rmtree(pathlib.Path(f_storage / process_id))
+    return jsonify(message="Process deleted.", **_process_stats), HTTPResponses.OK
 
 
 @app.route("/processes", methods=['GET'])

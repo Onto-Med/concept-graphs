@@ -58,7 +58,7 @@ class PreprocessingUtil:
             _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
             _pickle.unlink()
 
-    def read_data(self, data: Union[FileStorage, Path, Generator], replace_keys: Optional[dict]):
+    def read_data(self, data: Union[FileStorage, Path, Generator], replace_keys: Optional[dict], label_getter: Optional[str]):
         try:
             if isinstance(data, FileStorage):
                 archive_path = Path(self._file_storage / data.filename)
@@ -78,6 +78,8 @@ class PreprocessingUtil:
                             for key, repl in replace_keys.items():
                                 _replaced_data[repl] = _data.pop(key)
                             _replaced_data.update(**_data)
+                            if (label_getter is not None) and (label_getter in _data):
+                                _replaced_data['label'] = _data.pop(label_getter)
                             yield _replaced_data
                     self.data = _replace_keys()
                 else:
@@ -120,6 +122,9 @@ class PreprocessingUtil:
         if labels is None:
             self._app.logger.info("No labels file provided; no labels will be added to text data")
         else:
+            if isinstance(labels, str):
+                self._app.logger.info(f"Labels will be extracted from the document server if the field '{labels}' is present.")
+                return
             try:
                 base_labels = yaml.safe_load(labels.stream)
             except Exception as e:

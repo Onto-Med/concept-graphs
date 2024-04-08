@@ -58,7 +58,7 @@ def get_pipeline_query_params(
 
 
 def get_data_server_config(document_server_config: FileStorage, app: flask.Flask):
-    base_config = {"url": "http://localhost", "port": "9008", "index": "documents", "size": "30"}
+    base_config = {"url": "http://localhost", "port": "9008", "index": "documents", "size": "30", "label_key": "label"}
     try:
         _config = yaml.safe_load(document_server_config.stream)
         for k, v in base_config.items():
