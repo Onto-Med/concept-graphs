@@ -56,8 +56,7 @@ class PhraseEmbeddingUtil:
         if language is not None and not base_config.get("model", False):
             base_config["model"] = _language_model_map.get(language, DEFAULT_EMBEDDING_MODEL)
 
-        if process_name is not None:
-            base_config["corpus_name"] = process_name
+        base_config["corpus_name"] = process_name.lower() if process_name is not None else base_config["corpus_name"].lower()
         # ToDo: Since n_process > 1 would induce Multiprocessing and this doesn't work with the Threading approach
         #  to keep the server able to respond, the value will be popped here.
         #  Maybe I can find a solution to this problem

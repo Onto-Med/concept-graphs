@@ -28,7 +28,7 @@ def get_pipeline_query_params(
         app: flask.Flask,
         flask_request: flask.Request,
         running_processes: dict) -> Union[pipeline_query_params, tuple]:
-    corpus = flask_request.args.get("process", "default")
+    corpus = flask_request.args.get("process", "default").lower()
     if corpus_status := running_processes.get(corpus, False):
         if any([v.get("status", None) == ProcessStatus.RUNNING for v in corpus_status.get("status", [])]):
             return jsonify(

@@ -60,8 +60,7 @@ class GraphCreationUtil:
             except Exception as e:
                 self._app.logger.error(f"Couldn't read config file: {e}")
                 return jsonify("Encountered error. See log.")
-        if process_name is not None:
-            base_config["corpus_name"] = process_name
+        base_config["corpus_name"] = process_name.lower() if process_name is not None else base_config["corpus_name"].lower()
         self.config = base_config
 
     def set_file_storage_path(self, sub_path):

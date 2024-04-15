@@ -92,7 +92,7 @@ def data_preprocessing():
 
 @app.route("/preprocessing/<path_arg>", methods=['GET'])
 def data_preprocessing_with_arg(path_arg):
-    process = request.args.get("process", "default")
+    process = request.args.get("process", "default").lower()
     path_arg = path_arg.lower()
 
     _path_args = ["statistics", "noun_chunks"]
@@ -131,7 +131,7 @@ def phrase_embedding():
 
 @app.route("/embedding/<path_arg>", methods=['GET'])
 def phrase_embedding_with_arg(path_arg):
-    process = request.args.get("process", "default")
+    process = request.args.get("process", "default").lower()
     path_arg = path_arg.lower()
 
     _path_args = ["statistics"]
@@ -173,7 +173,7 @@ def phrase_clustering():
 
 @app.route("/clustering/<path_arg>", methods=['GET'])
 def clustering_with_arg(path_arg):
-    process = request.args.get("process", "default")
+    process = request.args.get("process", "default").lower()
     top_k = int(request.args.get("top_k", 15))
     distance = float(request.args.get("distance", .6))
     path_arg = path_arg.lower()
@@ -230,7 +230,7 @@ def graph_base_endpoint():
 
 @app.route("/graph/<path_arg>", methods=['POST', 'GET'])
 def graph_creation_with_arg(path_arg):
-    process = request.args.get("process", "default")
+    process = request.args.get("process", "default").lower()
     draw = get_bool_expression(request.args.get("draw", False))
     path_arg = path_arg.lower()
 
@@ -358,6 +358,7 @@ def complete_pipeline():
 
 @app.route("/processes/<process_id>/delete", methods=["DELETE"])
 def delete_process(process_id):
+    process_id = process_id.lower()
     if process_id not in running_processes:
         return Response(f"There is no such process '{process_id}'.\n",
                         status=int(HTTPResponses.NOT_FOUND))
@@ -382,7 +383,7 @@ def get_all_processes_api():
 
 @app.route("/status", methods=['GET'])
 def get_status_of():
-    _process = request.args.get("process", "default")
+    _process = request.args.get("process", "default").lower()
     if _process is not None:
         _response = running_processes.get(_process, None)
         if _response is not None:
