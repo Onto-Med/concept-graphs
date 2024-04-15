@@ -356,7 +356,7 @@ def complete_pipeline():
         )
 
 
-@app.route("/process/<process_id>/delete", methods=["DELETE"])
+@app.route("/processes/<process_id>/delete", methods=["DELETE"])
 def delete_process(process_id):
     if process_id not in running_processes:
         return Response(f"There is no such process '{process_id}'.\n",
@@ -369,7 +369,7 @@ def delete_process(process_id):
 
     _process_stats = running_processes.pop(process_id)
     shutil.rmtree(pathlib.Path(f_storage / process_id))
-    return jsonify(message="Process deleted.", **_process_stats), HTTPResponses.OK
+    return Response(f"Process '{process_id}' deleted."), HTTPResponses.OK
 
 
 @app.route("/processes", methods=['GET'])
