@@ -14,7 +14,8 @@ class BaseUtil(ABC):
         self._file_storage = pathlib.Path(file_storage)
         self._process_step = step_name
         self._process_name = process_name
-        self._config = None
+        self._base_config = None
+        self._final_config = None
 
     @property
     @abstractmethod

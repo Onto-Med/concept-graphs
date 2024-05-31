@@ -98,7 +98,7 @@ def create_clusterings(
         # graph_weight_cut_off: 0.5 + graph_unroll:True + graph_simplify: 0.5 + use_exclusion_ids:True
         # graph_simplify_alg: significance + graph_sub_clustering:False + restrict_to_cluster: True + graph_distance_cutoff:0.5
 
-        # grassco
+        # grascco
         # cluster_distance:0.4+cluster_min_size:4+graph_cosine_weight:0.95+graph_merge_threshold:0.95
         # graph_weight_cut_off:0.6+graph_unroll:True+graph_simplify:0.5+use_exclusion_ids:True
         # graph_simplify_alg:significance+graph_sub_clustering:False+restrict_to_cluster:True+graph_distance_cutoff:0.5
