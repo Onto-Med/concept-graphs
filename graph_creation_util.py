@@ -106,16 +106,19 @@ class GraphCreationUtil:
 
 
 def visualize_graph(graph: nx.Graph, height="800px", directed=False, store="index.html"):
-    g = net.Network(height=height, select_menu=False, filter_menu=False, notebook=True, width='100%', directed=directed)
+    g = net.Network(height=height, select_menu=False, filter_menu=False, notebook=True, width='100%',
+                    directed=directed, cdn_resources="remote")
+    g.barnes_hut(gravity=-5000)
+
     # if directed:
     #     g.from_nx(transform2directed(graph))
     #     return g
     for _node, _node_attrs in graph.nodes(data=True):
-        _node_attrs.update({"size": 10, "title": str(_node)})
+        _node_attrs.update({"size": 25, "title": str(_node), "font": {"size": 50}})
         if _node_attrs.get("parent", False):
             _node_attrs.update({"color": "red"})
         if _node_attrs.get("root", False):
-            _node_attrs.update({"size": 18})
+            _node_attrs.update({"size": 50})
         g.add_node(_node, **_node_attrs)
     for _source_edge, _target_edge, _edge_attrs in graph.edges(data=True):
         if not directed:

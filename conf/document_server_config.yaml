@@ -4,3 +4,4 @@ index: documents
 size: 30
 label_key: label
 replace_keys: {text: content}
+other_id: id

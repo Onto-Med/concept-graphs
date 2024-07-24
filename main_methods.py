@@ -9,6 +9,7 @@ import flask
 import networkx as nx
 import requests
 import yaml
+from jaal import Jaal
 from flask import request, jsonify, render_template_string
 from werkzeug.datastructures import FileStorage
 
@@ -58,7 +59,7 @@ def get_pipeline_query_params(
 
 
 def get_data_server_config(document_server_config: FileStorage, app: flask.Flask):
-    base_config = {"url": "http://localhost", "port": "9008", "index": "documents", "size": "30", "label_key": "label"}
+    base_config = {"url": "http://localhost", "port": "9008", "index": "documents", "size": "30", "label_key": "label", "other_id": "id"}
     try:
         _config = yaml.safe_load(document_server_config.stream)
         for k, v in base_config.items():
@@ -88,13 +89,25 @@ def check_data_server(
     return False
 
 
-def check_es_source_for_id(document_hit: dict):
+def check_es_source_for_id(document_hit: dict, other_id: str):
     _source = document_hit.get("_source")
+    _other_id = False
+    if isinstance(other_id, bool):
+        _other_id = False
+    else:
+        _other_id = not other_id.lower() == "id"
+
+    if _other_id:
+        if _source.get(other_id, False):
+            _id = _source.pop(other_id)
+            return _source | {"id": _id}
+        else:
+            return {"id": document_hit.get("_id", "")} | _source
     return _source if _source.get("id", False) else {"id": document_hit.get("_id", "")} | _source
 
 
 def get_documents_from_es_server(
-        url: str, port: Union[str, int], index: str, size: int = 30
+        url: str, port: Union[str, int], index: str, size: int = 30, other_id: str = "id"
 ):
     final_url = f"{url.rstrip('/')}:{port}/{index.lstrip('/').rstrip('/')}/_search"
     _first_page = requests.get(final_url, params={"size": f"{size}", "scroll": "1m"}).json()
@@ -104,13 +117,13 @@ def get_documents_from_es_server(
     for _scroll_index in range(0, _total_documents, size):
         if _scroll_index == 0:
             for document in _first_page.get("hits").get("hits"):
-                yield check_es_source_for_id(document)
+                yield check_es_source_for_id(document, other_id)
         else:
             _response = requests.post(
                 url=f"{url.rstrip('/')}:{port}/_search/scroll",
                 json={"scroll_id": _scroll_id, "scroll": "1m"}).json()
             for document in _response.get("hits").get("hits"):
-                yield check_es_source_for_id(document)
+                yield check_es_source_for_id(document, other_id)
 
 
 def populate_running_processes(app: flask.Flask, path: str, running_processes: dict):

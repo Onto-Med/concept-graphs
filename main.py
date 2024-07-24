@@ -48,8 +48,6 @@ populate_running_processes(app, FILE_STORAGE_TMP, running_processes)
 
 # ToDo: adapt README
 
-# ToDo: the graph draw physics behave weirdly; maybe switch to another (static) rendering
-
 
 @app.route("/")
 def index():
@@ -292,7 +290,8 @@ def complete_pipeline():
                 error=f"There is no data server at the specified location ({base_config}) or it contains no data."
             ), int(HTTPResponses.NOT_FOUND)
         data = get_documents_from_es_server(
-            url=base_config['url'], port=base_config['port'], index=base_config['index'], size=int(base_config['size'])
+            url=base_config['url'], port=base_config['port'], index=base_config['index'], size=int(base_config['size']),
+            other_id=base_config['other_id']
         )
         replace_keys = base_config.get("replace_keys", {"text": "content"})
         label_getter = base_config.get("label_key", None)
