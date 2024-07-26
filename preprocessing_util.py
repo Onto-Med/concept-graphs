@@ -10,6 +10,7 @@ import spacy
 import yaml
 from werkzeug.datastructures import FileStorage
 
+from main_methods import get_bool_expression, NegspacyConfig
 from main_utils import ProcessStatus, StepsName, add_status_to_running_process
 
 DEFAULT_SPACY_MODEL = "en_core_web_trf"
@@ -23,6 +24,7 @@ class PreprocessingUtil:
         self._process_step = step_name
         self._process_name = None
         self.config = None
+        self.serializable_config = None
         self.labels = None
         self.data = None
 
@@ -94,7 +96,7 @@ class PreprocessingUtil:
             self._app.logger.error(f"Something went wrong with data file reading: {e}")
 
     def read_config(self, config, process_name=None, language=None):
-        base_config = {'spacy_model': DEFAULT_SPACY_MODEL, 'file_encoding': 'utf-8'}
+        base_config = {'spacy_model': DEFAULT_SPACY_MODEL, 'file_encoding': 'utf-8', "omit_negated_chunks": False}
         _language_model_map = {"en": DEFAULT_SPACY_MODEL, "de": "de_dep_news_trf"}
         if config is None:
             self._app.logger.info("No config file provided; using default values")
@@ -114,6 +116,20 @@ class PreprocessingUtil:
         #  to keep the server able to respond, the value will be popped here.
         #  Maybe I can find a solution to this problem
         base_config.pop("n_process", None)
+
+        self.serializable_config = base_config.copy()
+        if base_config.get("negspacy", False):
+            _enabled = False
+            _neg_config = NegspacyConfig()
+            for _c in base_config["negspacy"]:
+                if get_bool_expression(_c.get("enabled", "False")):
+                    _enabled = True
+                elif _c.get("configuration", False):
+                    _neg_config = NegspacyConfig.from_dict(_c.get("configuration")[0])
+            base_config.pop("negspacy", None)
+            base_config["negspacy_config"] = _neg_config
+            base_config["omit_negated_chunks"] = _enabled
+
         self.config = base_config
 
     def read_labels(self, labels):

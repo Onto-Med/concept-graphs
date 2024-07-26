@@ -3,15 +3,17 @@ import sys
 import pathlib
 import pickle
 from collections import OrderedDict, defaultdict
-from typing import Union
+from dataclasses import dataclass
+from typing import Union, Optional, Any, Dict, Iterable
 
 import flask
 import networkx as nx
 import requests
 import yaml
-from jaal import Jaal
+from dataclass_wizard import JSONWizard
 from flask import request, jsonify, render_template_string
 from werkzeug.datastructures import FileStorage
+from yaml.representer import RepresenterError
 
 from main_utils import ProcessStatus, HTTPResponses, StepsName, pipeline_query_params, steps_relation_dict, \
     add_status_to_running_process
@@ -19,6 +21,15 @@ from main_utils import ProcessStatus, HTTPResponses, StepsName, pipeline_query_p
 sys.path.insert(0, "src")
 import graph_creation_util
 import cluster_functions
+
+
+@dataclass
+class NegspacyConfig(JSONWizard):
+    chunk_prefix: str | list[str] | None = None
+    neg_termset_file: str | None = None
+    scope: int | None = None
+    language: str | None = None
+    feat_of_interest: str | None = None
 
 
 def parse_config_json(response_json) -> dict:
@@ -59,7 +70,8 @@ def get_pipeline_query_params(
 
 
 def get_data_server_config(document_server_config: FileStorage, app: flask.Flask):
-    base_config = {"url": "http://localhost", "port": "9008", "index": "documents", "size": "30", "label_key": "label", "other_id": "id"}
+    base_config = {"url": "http://localhost", "port": "9008", "index": "documents", "size": "30", "label_key": "label",
+                   "other_id": "id"}
     try:
         _config = yaml.safe_load(document_server_config.stream)
         for k, v in base_config.items():
@@ -92,9 +104,7 @@ def check_data_server(
 def check_es_source_for_id(document_hit: dict, other_id: str):
     _source = document_hit.get("_source")
     _other_id = False
-    if isinstance(other_id, bool):
-        _other_id = False
-    else:
+    if isinstance(other_id, str):
         _other_id = not other_id.lower() == "id"
 
     if _other_id:
@@ -106,23 +116,53 @@ def check_es_source_for_id(document_hit: dict, other_id: str):
     return _source if _source.get("id", False) else {"id": document_hit.get("_id", "")} | _source
 
 
+def is_skip_doc(document_hit: dict, doc_filter: Iterable, inverse_filter: bool = False) -> bool:
+    _source = document_hit.get("_source")
+    _name = _source.get("name", False)
+    if _name:
+        _skip = any((f.lower() in _name.lower()) for f in doc_filter)
+        if inverse_filter:
+            return not _skip
+        return _skip
+    return False
+
+
 def get_documents_from_es_server(
-        url: str, port: Union[str, int], index: str, size: int = 30, other_id: str = "id"
+        url: str, port: Union[str, int], index: str, size: int = 30, other_id: str = "id", doc_name_filter: list = None, inverse_filter: bool = False,
 ):
+    """Gets documents from a specified Elasticsearch server and index.
+
+    Keyword arguments:
+    url -- the base url of the Elasticsearch server
+    port -- the port of the Elasticsearch server
+    index -- the name of the Elasticsearch index
+    size -- the size of each batch for the scroll
+    other_id -- the field in the document source that should be used as id
+    doc_name_filter -- list of name parts that should be filtered (i.e. not returned) works only on a 'name' field
+    inverse_filter -- boolean indicating whether or not the doc_name_filter works as a positive filter (i.e. only those are returned)
+    """
+    _params = {"size": f"{size}", "scroll": "1m"}
+    _filter = False
+    if isinstance(doc_name_filter, Iterable) and not isinstance(doc_name_filter, (str, bytes)) and len(doc_name_filter) > 0:
+        _filter = True
     final_url = f"{url.rstrip('/')}:{port}/{index.lstrip('/').rstrip('/')}/_search"
-    _first_page = requests.get(final_url, params={"size": f"{size}", "scroll": "1m"}).json()
+    _first_page = requests.get(final_url, params=_params).json()
     _scroll_id = _first_page.get("_scroll_id")
     _total_documents = _first_page.get("hits").get("total").get("value")
 
     for _scroll_index in range(0, _total_documents, size):
         if _scroll_index == 0:
             for document in _first_page.get("hits").get("hits"):
+                if _filter and is_skip_doc(document, doc_name_filter, inverse_filter):
+                    continue
                 yield check_es_source_for_id(document, other_id)
         else:
             _response = requests.post(
                 url=f"{url.rstrip('/')}:{port}/_search/scroll",
                 json={"scroll_id": _scroll_id, "scroll": "1m"}).json()
             for document in _response.get("hits").get("hits"):
+                if _filter and is_skip_doc(document, doc_name_filter, inverse_filter):
+                    continue
                 yield check_es_source_for_id(document, other_id)
 
 
@@ -201,7 +241,10 @@ def read_config(app: flask.Flask, processor, process_type, process_name=None, co
             pathlib.Path(processor._file_storage) /
             pathlib.Path(f"{process_name}_{process_type}_config.yaml")
     ).open('w') as config_save:
-        yaml.safe_dump(processor.config, config_save)
+        try:
+            yaml.safe_dump(processor.config, config_save)
+        except RepresenterError:
+            yaml.safe_dump(processor.serializable_config, config_save)
     return process_name
 
 
@@ -248,7 +291,8 @@ def graph_get_statistics(app: flask.Flask, data: Union[str, list], path: str) ->
             graph_list = pickle.load(_path.open('rb'))
         except FileNotFoundError as e:
             app.logger.info(e)
-            return {"error": f"Couldn't find graph pickle '{data}_graph.pickle'. Probably steps before failed; check the logs."}
+            return {
+                "error": f"Couldn't find graph pickle '{data}_graph.pickle'. Probably steps before failed; check the logs."}
     elif isinstance(data, list):
         graph_list = data
     else:
