@@ -10,7 +10,7 @@ from pyvis import network as net
 
 from flask import jsonify
 
-from main_utils import ProcessStatus
+from main_utils import ProcessStatus, StepsName, add_status_to_running_process
 
 sys.path.insert(0, "src")
 import util_functions
@@ -18,7 +18,7 @@ import util_functions
 
 class GraphCreationUtil:
 
-    def __init__(self, app: flask.app.Flask, file_storage: str, step_name: str = "graph"):
+    def __init__(self, app: flask.app.Flask, file_storage: str, step_name: StepsName = StepsName.GRAPH):
         self._app = app
         self._file_storage = Path(file_storage)
         self._process_step = step_name
@@ -60,8 +60,7 @@ class GraphCreationUtil:
             except Exception as e:
                 self._app.logger.error(f"Couldn't read config file: {e}")
                 return jsonify("Encountered error. See log.")
-        if process_name is not None:
-            base_config["corpus_name"] = process_name
+        base_config["corpus_name"] = process_name.lower() if process_name is not None else base_config["corpus_name"].lower()
         self.config = base_config
 
     def set_file_storage_path(self, sub_path):
@@ -83,7 +82,7 @@ class GraphCreationUtil:
 
         config = self.config.copy()
 
-        process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.RUNNING
+        add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.RUNNING, process_tracker)
         concept_graphs = []
         try:
             concept_graph_clustering = process_factory(
@@ -98,25 +97,28 @@ class GraphCreationUtil:
             )
             with pathlib.Path(self._file_storage / f"{cache_name}_{self.process_step}.pickle").open("wb") as graphs_out:
                 pickle.dump(concept_graphs, graphs_out)
-            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.FINISHED
+            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.FINISHED, process_tracker)
         except Exception as e:
-            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.ABORTED
+            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.ABORTED, process_tracker)
             self._app.logger.error(e)
 
         return concept_graphs
 
 
 def visualize_graph(graph: nx.Graph, height="800px", directed=False, store="index.html"):
-    g = net.Network(height=height, select_menu=False, filter_menu=False, notebook=True, width='100%', directed=directed)
+    g = net.Network(height=height, select_menu=False, filter_menu=False, notebook=True, width='100%',
+                    directed=directed, cdn_resources="remote")
+    g.barnes_hut(gravity=-5000)
+
     # if directed:
     #     g.from_nx(transform2directed(graph))
     #     return g
     for _node, _node_attrs in graph.nodes(data=True):
-        _node_attrs.update({"size": 10, "title": str(_node)})
+        _node_attrs.update({"size": 25, "title": str(_node), "font": {"size": 50}})
         if _node_attrs.get("parent", False):
             _node_attrs.update({"color": "red"})
         if _node_attrs.get("root", False):
-            _node_attrs.update({"size": 18})
+            _node_attrs.update({"size": 50})
         g.add_node(_node, **_node_attrs)
     for _source_edge, _target_edge, _edge_attrs in graph.edges(data=True):
         if not directed:

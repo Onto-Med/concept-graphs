@@ -1,42 +1,77 @@
-import enum
 import os
 import sys
 import pathlib
 import pickle
 from collections import OrderedDict, defaultdict
-from typing import Union, Optional, List
+from dataclasses import dataclass
+from typing import Union, Optional, Any, Dict, Iterable
 
 import flask
 import networkx as nx
 import requests
 import yaml
+from dataclass_wizard import JSONWizard
 from flask import request, jsonify, render_template_string
 from werkzeug.datastructures import FileStorage
+from yaml.representer import RepresenterError
 
-from main_utils import ProcessStatus
+from main_utils import ProcessStatus, HTTPResponses, StepsName, pipeline_query_params, steps_relation_dict, \
+    add_status_to_running_process
 
 sys.path.insert(0, "src")
 import graph_creation_util
 import cluster_functions
 
 
-class StepsName:
-    DATA = "data"
-    EMBEDDING = "embedding"
-    CLUSTERING = "clustering"
-    GRAPH = "graph"
+@dataclass
+class NegspacyConfig(JSONWizard):
+    chunk_prefix: str | list[str] | None = None
+    neg_termset_file: str | None = None
+    scope: int | None = None
+    language: str | None = None
+    feat_of_interest: str | None = None
 
 
-steps_relation_dict = {
-    StepsName.DATA: 1,
-    StepsName.EMBEDDING: 2,
-    StepsName.CLUSTERING: 3,
-    StepsName.GRAPH: 4
-}
+def parse_config_json(response_json) -> dict:
+    return {}
+
+
+def get_pipeline_query_params(
+        app: flask.Flask,
+        flask_request: flask.Request,
+        running_processes: dict) -> Union[pipeline_query_params, tuple]:
+    corpus = flask_request.args.get("process", "default").lower()
+    if corpus_status := running_processes.get(corpus, False):
+        if any([v.get("status", None) == ProcessStatus.RUNNING for v in corpus_status.get("status", [])]):
+            return jsonify(
+                name=corpus,
+                error=f"A process is currently running for this corpus. Use '/status?process={corpus}' for specifics."
+            ), int(HTTPResponses.FORBIDDEN)
+    app.logger.info(f"Using process name '{corpus}'")
+    language = {"en": "en", "de": "de"}.get(str(flask_request.args.get("lang", "en")).lower(), "en")
+    app.logger.info(f"Using preset language settings for '{language}'")
+
+    skip_present = flask_request.args.get("skip_present", True)
+    if isinstance(skip_present, str):
+        skip_present = get_bool_expression(skip_present, True)
+    if skip_present:
+        app.logger.info("Skipping present saved steps")
+
+    skip_steps = flask_request.args.get("skip_steps", False)
+    omit_pipeline_steps = []
+    if skip_steps:
+        omit_pipeline_steps = get_omit_pipeline_steps(skip_steps)
+
+    return_statistics = flask_request.args.get("return_statistics", False)
+    if isinstance(return_statistics, str):
+        return_statistics = get_bool_expression(return_statistics, True)
+
+    return pipeline_query_params(corpus, language, skip_present, omit_pipeline_steps, return_statistics)
 
 
 def get_data_server_config(document_server_config: FileStorage, app: flask.Flask):
-    base_config = {"url": "http://localhost", "port": "9008", "index": "documents", "size": "30"}
+    base_config = {"url": "http://localhost", "port": "9008", "index": "documents", "size": "30", "label_key": "label",
+                   "other_id": "id"}
     try:
         _config = yaml.safe_load(document_server_config.stream)
         for k, v in base_config.items():
@@ -46,6 +81,7 @@ def get_data_server_config(document_server_config: FileStorage, app: flask.Flask
                     continue
                 _config[k] = get_bool_expression(v, v) if isinstance(v, str) else v
         base_config = _config
+        base_config["replace_keys"] = get_dict_expression(_config.pop("replace_keys", {"text": "content"}))
     except Exception as e:
         app.logger.error(f"Couldn't read config file: {e}\n Using default values '{base_config}'.")
     return base_config
@@ -65,44 +101,85 @@ def check_data_server(
     return False
 
 
-def check_es_source_for_id(document_hit: dict):
+def check_es_source_for_id(document_hit: dict, other_id: str):
     _source = document_hit.get("_source")
+    _other_id = False
+    if isinstance(other_id, str):
+        _other_id = not other_id.lower() == "id"
+
+    if _other_id:
+        if _source.get(other_id, False):
+            _id = _source.pop(other_id)
+            return _source | {"id": _id}
+        else:
+            return {"id": document_hit.get("_id", "")} | _source
     return _source if _source.get("id", False) else {"id": document_hit.get("_id", "")} | _source
 
 
+def is_skip_doc(document_hit: dict, doc_filter: Iterable, inverse_filter: bool = False) -> bool:
+    _source = document_hit.get("_source")
+    _name = _source.get("name", False)
+    if _name:
+        _skip = any((f.lower() in _name.lower()) for f in doc_filter)
+        if inverse_filter:
+            return not _skip
+        return _skip
+    return False
+
+
 def get_documents_from_es_server(
-        url: str, port: Union[str, int], index: str, size: int = 30
+        url: str, port: Union[str, int], index: str, size: int = 30, other_id: str = "id", doc_name_filter: list = None, inverse_filter: bool = False,
 ):
+    """Gets documents from a specified Elasticsearch server and index.
+
+    Keyword arguments:
+    url -- the base url of the Elasticsearch server
+    port -- the port of the Elasticsearch server
+    index -- the name of the Elasticsearch index
+    size -- the size of each batch for the scroll
+    other_id -- the field in the document source that should be used as id
+    doc_name_filter -- list of name parts that should be filtered (i.e. not returned) works only on a 'name' field
+    inverse_filter -- boolean indicating whether or not the doc_name_filter works as a positive filter (i.e. only those are returned)
+    """
+    _params = {"size": f"{size}", "scroll": "1m"}
+    _filter = False
+    if isinstance(doc_name_filter, Iterable) and not isinstance(doc_name_filter, (str, bytes)) and len(doc_name_filter) > 0:
+        _filter = True
     final_url = f"{url.rstrip('/')}:{port}/{index.lstrip('/').rstrip('/')}/_search"
-    _first_page = requests.get(final_url, params={"size": f"{size}", "scroll": "1m"}).json()
+    _first_page = requests.get(final_url, params=_params).json()
     _scroll_id = _first_page.get("_scroll_id")
     _total_documents = _first_page.get("hits").get("total").get("value")
 
     for _scroll_index in range(0, _total_documents, size):
         if _scroll_index == 0:
             for document in _first_page.get("hits").get("hits"):
-                yield check_es_source_for_id(document)
+                if _filter and is_skip_doc(document, doc_name_filter, inverse_filter):
+                    continue
+                yield check_es_source_for_id(document, other_id)
         else:
             _response = requests.post(
                 url=f"{url.rstrip('/')}:{port}/_search/scroll",
                 json={"scroll_id": _scroll_id, "scroll": "1m"}).json()
             for document in _response.get("hits").get("hits"):
-                yield check_es_source_for_id(document)
+                if _filter and is_skip_doc(document, doc_name_filter, inverse_filter):
+                    continue
+                yield check_es_source_for_id(document, other_id)
 
 
 def populate_running_processes(app: flask.Flask, path: str, running_processes: dict):
     for process in get_all_processes(path):
-        _finished = [_finished_step.get("name") for _finished_step in process.get("finished_steps", [])]
-        _name = process.get("name", None)
-        if _name is None:
+        _finished = [_finished_step.get("name") for _finished_step in process.get("status", [])]
+        _process_name = process.get("name", None)
+        if _process_name is None:
             app.logger.warning(f"Skipping process entry with no name and '{_finished}' steps.")
             continue
 
-        running_processes[_name] = {"status": {}, "name": _name}
-        for _step in steps_relation_dict.keys():
-            running_processes[_name]["status"][_step] = ProcessStatus.NOT_PRESENT
-            if _step in _finished:
-                running_processes[_name]["status"][_step] = ProcessStatus.FINISHED
+        for _step, _rank in steps_relation_dict.items():
+            if _step not in _finished:
+                add_status_to_running_process(_process_name, _step, ProcessStatus.NOT_PRESENT, running_processes)
+            else:
+                add_status_to_running_process(_process_name, _step, ProcessStatus.FINISHED, running_processes)
+    return running_processes
 
 
 def get_all_processes(path: str):
@@ -116,10 +193,11 @@ def get_all_processes(path: str):
                 _step = _pickle_stem.removeprefix(f"{_proc_name}_")
                 if steps_relation_dict.get(_step, False):
                     _steps_list.append({"rank": steps_relation_dict.get(_step),
-                                        "name": _step})
+                                        "name": _step,
+                                        "status": ProcessStatus.FINISHED})
             _ord_dict = OrderedDict()
             _ord_dict["name"] = _proc_name
-            _ord_dict["finished_steps"] = sorted(_steps_list, key=lambda x: x.get("rank", -1))
+            _ord_dict["status"] = sorted(_steps_list, key=lambda x: x.get("rank", -1))
             _process_detailed.append(_ord_dict)
     return _process_detailed
 
@@ -163,7 +241,10 @@ def read_config(app: flask.Flask, processor, process_type, process_name=None, co
             pathlib.Path(processor._file_storage) /
             pathlib.Path(f"{process_name}_{process_type}_config.yaml")
     ).open('w') as config_save:
-        yaml.safe_dump(processor.config, config_save)
+        try:
+            yaml.safe_dump(processor.config, config_save)
+        except RepresenterError:
+            yaml.safe_dump(processor.serializable_config, config_save)
     return process_name
 
 
@@ -210,7 +291,8 @@ def graph_get_statistics(app: flask.Flask, data: Union[str, list], path: str) ->
             graph_list = pickle.load(_path.open('rb'))
         except FileNotFoundError as e:
             app.logger.info(e)
-            return {"error": f"Couldn't find graph pickle '{data}_graph.pickle'. Probably steps before failed; check the logs."}
+            return {
+                "error": f"Couldn't find graph pickle '{data}_graph.pickle'. Probably steps before failed; check the logs."}
     elif isinstance(data, list):
         graph_list = data
     else:
@@ -309,6 +391,20 @@ def get_bool_expression(str_bool: str, default: Union[bool, str] = False) -> boo
         }.get(str_bool.lower(), default)
     else:
         return False
+
+
+def get_dict_expression(dict_str: str):
+    # e.g. "{'text': 'content'}"
+    if not dict_str.startswith("{") and not dict_str.endswith("}"):
+        return dict_str
+    _str = dict_str[1:-1].split(",")
+    _return_dict = dict()
+    for _s in _str:
+        _split_s = _s.split(":")
+        if len(_split_s) != 2:
+            break
+        _return_dict[_split_s[0].strip().strip("'").strip('"')] = _split_s[1].strip().strip("'").strip('"')
+    return _return_dict
 
 
 def get_query_param_help_text(param: str):

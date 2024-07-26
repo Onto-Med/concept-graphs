@@ -1,15 +1,15 @@
 import logging
+import pathlib
+import shutil
 import threading
 
-from enum import IntEnum
 from time import sleep
 
-import waitress
 from flask import Flask, Response
 from flask.logging import default_handler
 
 from main_methods import *
-from main_utils import ProcessStatus
+from main_utils import ProcessStatus, HTTPResponses, StepsName, add_status_to_running_process
 from preprocessing_util import PreprocessingUtil
 from embedding_util import PhraseEmbeddingUtil
 from clustering_util import ClusteringUtil
@@ -47,20 +47,6 @@ populate_running_processes(app, FILE_STORAGE_TMP, running_processes)
 # ToDo: get info on each base endpoint, when providing no further args or params (if necessary)
 
 # ToDo: adapt README
-
-# ToDo: the graph draw physics behave weirdly; maybe switch to another (static) rendering
-
-
-class HTTPResponses(IntEnum):
-    OK = 200
-    ACCEPTED = 202
-    BAD_REQUEST = 400
-    UNAUTHORIZED = 401
-    FORBIDDEN = 403
-    NOT_FOUND = 404
-    INTERNAL_SERVER_ERROR = 500
-    NOT_IMPLEMENTED = 501
-    SERVICE_UNAVAILABLE = 503
 
 
 @app.route("/")
@@ -104,7 +90,7 @@ def data_preprocessing():
 
 @app.route("/preprocessing/<path_arg>", methods=['GET'])
 def data_preprocessing_with_arg(path_arg):
-    process = request.args.get("process", "default")
+    process = request.args.get("process", "default").lower()
     path_arg = path_arg.lower()
 
     _path_args = ["statistics", "noun_chunks"]
@@ -143,7 +129,7 @@ def phrase_embedding():
 
 @app.route("/embedding/<path_arg>", methods=['GET'])
 def phrase_embedding_with_arg(path_arg):
-    process = request.args.get("process", "default")
+    process = request.args.get("process", "default").lower()
     path_arg = path_arg.lower()
 
     _path_args = ["statistics"]
@@ -185,7 +171,7 @@ def phrase_clustering():
 
 @app.route("/clustering/<path_arg>", methods=['GET'])
 def clustering_with_arg(path_arg):
-    process = request.args.get("process", "default")
+    process = request.args.get("process", "default").lower()
     top_k = int(request.args.get("top_k", 15))
     distance = float(request.args.get("distance", .6))
     path_arg = path_arg.lower()
@@ -242,7 +228,7 @@ def graph_base_endpoint():
 
 @app.route("/graph/<path_arg>", methods=['POST', 'GET'])
 def graph_creation_with_arg(path_arg):
-    process = request.args.get("process", "default")
+    process = request.args.get("process", "default").lower()
     draw = get_bool_expression(request.args.get("draw", False))
     path_arg = path_arg.lower()
 
@@ -250,7 +236,11 @@ def graph_creation_with_arg(path_arg):
     if path_arg in _path_args:
         try:
             if path_arg == "statistics":
-                return graph_get_statistics(app, process, FILE_STORAGE_TMP)
+                _result = graph_get_statistics(app, process, FILE_STORAGE_TMP)
+                _http_response = HTTPResponses.OK
+                if "error" in _result:
+                    _http_response = HTTPResponses.INTERNAL_SERVER_ERROR
+                return jsonify(name=process, **_result), _http_response
             elif path_arg == "creation":
                 return graph_create(app, FILE_STORAGE_TMP)
         except FileNotFoundError:
@@ -268,40 +258,24 @@ def graph_creation_with_arg(path_arg):
 
 @app.route("/pipeline", methods=['POST'])
 def complete_pipeline():
-    corpus = request.args.get("process", "default")
-    if corpus_status := running_processes.get(corpus, False):
-        if any([v == ProcessStatus.RUNNING for v in corpus_status["status"].values()]):
-            return jsonify(
-                name=corpus,
-                status="A process is currently running for this corpus."
-            ), int(HTTPResponses.FORBIDDEN)
-    app.logger.info(f"Using process name '{corpus}'")
-    language = {"en": "en", "de": "de"}.get(str(request.args.get("lang", "en")).lower(), "en")
-    app.logger.info(f"Using preset language settings for '{language}'")
-
-    skip_present = request.args.get("skip_present", True)
-    if isinstance(skip_present, str):
-        skip_present = get_bool_expression(skip_present, True)
-    if skip_present:
-        app.logger.info("Skipping present saved steps")
-
-    skip_steps = request.args.get("skip_steps", False)
-    omit_pipeline_steps = []
-    if skip_steps:
-        omit_pipeline_steps = get_omit_pipeline_steps(skip_steps)
-
-    return_statistics = request.args.get("return_statistics", False)
-    if isinstance(return_statistics, str):
-        return_statistics = get_bool_expression(return_statistics, True)
-
     data = request.files.get("data", False)
     document_server_config = request.files.get("document_server_config", False)
     replace_keys = None
+    label_getter = None
+
+    query_params = get_pipeline_query_params(app, request, running_processes)
+    if isinstance(query_params, tuple) and isinstance(query_params[0], flask.Response):
+        return query_params
+
+    # ToDo
+    content_type = request.headers.get("Content-Type")
+    if content_type == "application/json":
+        config_object = parse_config_json(request.json)
 
     if not data and not document_server_config:
         return jsonify(
-            name=corpus,
-            status="Neither data provided for upload with 'data' key nor a config file for documents on a server"
+            name=query_params.process_name,
+            error="Neither data provided for upload with 'data' key nor a config file for documents on a server"
         ), int(HTTPResponses.BAD_REQUEST)
     elif data and not document_server_config:
         _tmp_data = pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(".tmp_streams") / data.filename)
@@ -312,13 +286,15 @@ def complete_pipeline():
         base_config = get_data_server_config(document_server_config, app)
         if not check_data_server(url=base_config["url"], port=base_config["port"], index=base_config["index"]):
             return jsonify(
-                name=corpus,
-                status=f"There is no data server at the specified location ({base_config}) or it contains no data."
+                name=query_params.process_name,
+                error=f"There is no data server at the specified location ({base_config}) or it contains no data."
             ), int(HTTPResponses.NOT_FOUND)
         data = get_documents_from_es_server(
-            url=base_config['url'], port=base_config['port'], index=base_config['index'], size=int(base_config['size'])
+            url=base_config['url'], port=base_config['port'], index=base_config['index'], size=int(base_config['size']),
+            other_id=base_config['other_id'], doc_name_filter=["Albers"], inverse_filter=True
         )
         replace_keys = base_config.get("replace_keys", {"text": "content"})
+        label_getter = base_config.get("label_key", None)
 
     labels = request.files.get("labels", None)
     if labels is not None:
@@ -338,62 +314,83 @@ def complete_pipeline():
          cluster_functions.WordEmbeddingClustering,)
     ]
     processes_threading = []
-    running_processes[corpus] = {"status": {}, "name": corpus}
 
     for _name, _proc, _conf, _fact in processes:
         process_obj = _proc(app=app, file_storage=FILE_STORAGE_TMP)
-        running_processes[corpus]["status"][_name] = ProcessStatus.STARTED
-        if process_obj.has_pickle(corpus):
-            if _name in omit_pipeline_steps or skip_present:
+        add_status_to_running_process(query_params.process_name, _name, ProcessStatus.STARTED, running_processes)
+        if process_obj.has_pickle(query_params.process_name):
+            if _name in query_params.omitted_pipeline_steps or query_params.skip_present:
                 logging.info(f"Skipping {_name} because "
-                             f"{'omitted' if _name in omit_pipeline_steps else 'skip_present'}.")
-                running_processes[corpus]["status"][_name] = ProcessStatus.FINISHED
+                             f"{'omitted' if _name in query_params.omitted_pipeline_steps else 'skip_present'}.")
+                add_status_to_running_process(query_params.process_name, _name, ProcessStatus.FINISHED, running_processes)
                 continue
             else:
-                process_obj.delete_pickle(corpus)
+                process_obj.delete_pickle(query_params.process_name)
         read_config(app=app, processor=process_obj, process_type=_name,
-                    process_name=corpus, config=_conf, language=language)
+                    process_name=query_params.process_name, config=_conf, language=query_params.language)
         if _name == StepsName.DATA:
-            process_obj.read_labels(labels)
-            process_obj.read_data(data, replace_keys=replace_keys)
+            process_obj.read_labels(labels if label_getter is None else label_getter)
+            process_obj.read_data(data, replace_keys=replace_keys, label_getter=label_getter)
         processes_threading.append((process_obj, _fact, _name, ))
 
     pipeline_thread = threading.Thread(group=None, target=start_processes, name=None,
-                                       args=(app, processes_threading, corpus, running_processes, ))
+                                       args=(app, processes_threading, query_params.process_name, running_processes, ))
     pipeline_thread.start()
     sleep(1)
 
-    if return_statistics:
+    if query_params.return_statistics:
         pipeline_thread.join()
-        _graph_stats_dict = graph_get_statistics(app=app, data=corpus, path=FILE_STORAGE_TMP)
+        _graph_stats_dict = graph_get_statistics(app=app, data=query_params.process_name, path=FILE_STORAGE_TMP)
         return (
-            jsonify(name=corpus, **_graph_stats_dict),
+            jsonify(name=query_params.process_name, **_graph_stats_dict),
             int(HTTPResponses.OK) if "error" not in _graph_stats_dict else int(HTTPResponses.INTERNAL_SERVER_ERROR)
         )
     else:
         return (
-            jsonify(name=corpus, status=running_processes.get(corpus, {"status": {}}).get("status")),
+            jsonify(
+                name=query_params.process_name,
+                status=running_processes.get(query_params.process_name, {"status": []}).get("status")
+            ),
             int(HTTPResponses.ACCEPTED)
         )
 
 
+@app.route("/processes/<process_id>/delete", methods=["DELETE"])
+def delete_process(process_id):
+    process_id = process_id.lower()
+    if process_id not in running_processes:
+        return Response(f"There is no such process '{process_id}'.\n",
+                        status=int(HTTPResponses.NOT_FOUND))
+    if any([step.get('status') == ProcessStatus.RUNNING
+            for step in running_processes.get(process_id).get("status", [])]):
+        # ToDo: threading could be made so, that we're able to stop a running thread. Right now, this is not implemented
+        return Response(f"The process '{process_id}' is currently running and it can't be stopped in the current implementation.",
+                        status=int(HTTPResponses.NOT_IMPLEMENTED))
+
+    _process_stats = running_processes.pop(process_id)
+    shutil.rmtree(pathlib.Path(f_storage / process_id))
+    return Response(f"Process '{process_id}' deleted."), HTTPResponses.OK
+
+
 @app.route("/processes", methods=['GET'])
 def get_all_processes_api():
-    _process_detailed = get_all_processes(FILE_STORAGE_TMP)
-    if len(_process_detailed) > 0:
-        return jsonify(processes=_process_detailed)
+    if len(running_processes) > 0:
+        return jsonify(processes=[p for p in running_processes.values()])
     else:
-        return Response("No saved processes.", int(HTTPResponses.NOT_FOUND))
+        return jsonify("No saved processes."), int(HTTPResponses.NOT_FOUND)
 
 
 @app.route("/status", methods=['GET'])
 def get_status_of():
-    _process = request.args.get("process", "default")
+    _process = request.args.get("process", "default").lower()
     if _process is not None:
         _response = running_processes.get(_process, None)
         if _response is not None:
             return jsonify(_response), int(HTTPResponses.OK)
-    return jsonify(f"No such (running) process: '{_process}'"), int(HTTPResponses.NOT_FOUND)
+    return jsonify(
+        name=_process,
+        error=f"No such (running) process: '{_process}'"
+    ), int(HTTPResponses.NOT_FOUND)
 
 
 @app.route("/status/document-server", methods=['POST', 'GET'])
@@ -409,8 +406,16 @@ def get_data_server():
                 status=f"No document server config file provided"), int(HTTPResponses.BAD_REQUEST)
         base_config = get_data_server_config(document_server_config, app)
         if not check_data_server(url=base_config["url"], port=base_config["port"], index=base_config["index"]):
-            return jsonify(f"There is no data server at the specified location ({base_config}) or it contains no data."), int(HTTPResponses.NOT_FOUND)
-        return jsonify(f"Data server reachable under: '{base_config['url']}:{base_config['port']}/{base_config['index']}'"), int(HTTPResponses.OK)
+            return (
+                jsonify(
+                    f"There is no data server at the specified location ({base_config}) or it contains no data."),
+                int(HTTPResponses.NOT_FOUND)
+            )
+        return (
+            jsonify(
+                f"Data server reachable under: '{base_config['url']}:{base_config['port']}/{base_config['index']}'"),
+            int(HTTPResponses.OK)
+        )
 
 
 if __name__ in ["__main__"]:

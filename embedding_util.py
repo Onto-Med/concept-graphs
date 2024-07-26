@@ -8,7 +8,7 @@ import sys
 
 from flask import jsonify
 
-from main_utils import ProcessStatus
+from main_utils import ProcessStatus, StepsName, add_status_to_running_process
 
 sys.path.insert(0, "src")
 import util_functions
@@ -19,7 +19,7 @@ DEFAULT_EMBEDDING_MODEL = 'sentence-transformers/paraphrase-albert-small-v2'
 
 class PhraseEmbeddingUtil:
 
-    def __init__(self, app: flask.app.Flask, file_storage: str, step_name: str = "embedding"):
+    def __init__(self, app: flask.app.Flask, file_storage: str, step_name: StepsName = StepsName.EMBEDDING):
         self._app = app
         self._file_storage = Path(file_storage)
         self._process_step = step_name
@@ -56,8 +56,11 @@ class PhraseEmbeddingUtil:
         if language is not None and not base_config.get("model", False):
             base_config["model"] = _language_model_map.get(language, DEFAULT_EMBEDDING_MODEL)
 
-        if process_name is not None:
-            base_config["corpus_name"] = process_name
+        base_config["corpus_name"] = process_name.lower() if process_name is not None else base_config["corpus_name"].lower()
+        # ToDo: Since n_process > 1 would induce Multiprocessing and this doesn't work with the Threading approach
+        #  to keep the server able to respond, the value will be popped here.
+        #  Maybe I can find a solution to this problem
+        base_config.pop("n_process", None)
         self.config = base_config
 
     def set_file_storage_path(self, sub_path):
@@ -81,7 +84,7 @@ class PhraseEmbeddingUtil:
         data_obj = util_functions.load_pickle(
             Path(self._file_storage / f"{cache_name}_data.pickle"))
 
-        process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.RUNNING
+        add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.RUNNING, process_tracker)
         _process = None
         try:
             _process = process_factory.create(
@@ -91,9 +94,9 @@ class PhraseEmbeddingUtil:
                 model_name=config.pop("model", DEFAULT_EMBEDDING_MODEL),
                 **config
             )
-            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.FINISHED
+            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.FINISHED, process_tracker)
         except Exception as e:
-            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.ABORTED
+            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.ABORTED, process_tracker)
             self._app.logger.error(e)
 
         return _process

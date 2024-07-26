@@ -1,5 +1,6 @@
 import copy
 import io
+import logging
 import os
 import pathlib
 import re
@@ -11,7 +12,7 @@ from random import sample
 import numpy as np
 from spacy.tokens.doc import Doc
 from tqdm.autonotebook import tqdm
-from typing import Optional, Generator, Union, Iterable, Dict, List, Set, Callable
+from typing import Optional, Generator, Union, Iterable, Dict, List, Set, Callable, Any
 
 import spacy
 from functools import lru_cache
@@ -69,7 +70,8 @@ class DataProcessingFactory:
             filter_stop: Optional[list] = None,
             disable: Optional[Iterable[str]] = None,
             categories: Optional[list] = None,
-            omit_negated_chunks: bool = True
+            omit_negated_chunks: bool = True,
+            negspacy_config: Optional[dict] = None
     ):
         def _get_label_from_file(
                 fi: pathlib.Path
@@ -137,7 +139,8 @@ class DataProcessingFactory:
             filter_max_df=filter_max_df,
             filter_stop=filter_stop,
             disable=disable,
-            omit_negated_chunks=omit_negated_chunks
+            omit_negated_chunks=omit_negated_chunks,
+            negspacy_config=negspacy_config
         )
 
         if save_to_file:
@@ -161,7 +164,8 @@ class DataProcessingFactory:
                 filter_max_df: Union[int, float] = 1.,
                 filter_stop: Optional[list] = None,
                 disable: Optional[Iterable[str]] = None,
-                omit_negated_chunks: bool = True
+                omit_negated_chunks: bool = True,
+                negspacy_config: Optional[dict] = None
         ) -> None:
             self._data_entries = [d for d in data_entries]
             self._file_encoding = file_encoding
@@ -186,12 +190,14 @@ class DataProcessingFactory:
             self._filter_stop = filter_stop if filter_stop is not None else []
             self._tfidf_filter = None
             self._tfidf_filter_vec = None
+            self._negspacy = {"enabled": omit_negated_chunks, "config": negspacy_config}
             self._process_documents(
                 pipeline=pipeline,
                 n_process=n_process,
                 case_sensitive=case_sensitive,
                 disable=disable,
-                omit_negated_chunks=omit_negated_chunks
+                omit_negated_chunks=omit_negated_chunks,
+                negspacy_config=negspacy_config
             )
 
         # ToDo: some method to set 'doc_topic' outside init?
@@ -476,17 +482,16 @@ class DataProcessingFactory:
                 n_process: int = 1,
                 case_sensitive: bool = False,
                 disable: Optional[Iterable[str]] = None,
-                omit_negated_chunks: bool = True
+                omit_negated_chunks: bool = True,
+                negspacy_config: Any = None
         ) -> None:
-            # ToDo: negspacy config into 'preprocessing_config'
-            _negspacy_config = {
-                "chunk_prefix": ["kein", "keine"],
-                "neg_termset_file": str(pathlib.Path("./conf/negex_files/negex_trigger_german_biotxtm_2016_extended.txt").resolve()),
-                "feat_of_interest": FeaturesOfInterest.NOUN_CHUNKS,
-                "scope": 1,
-                "language": "de"
-            }
-            pipeline.add_pipe("negex", last=True, config=_negspacy_config)
+            _negspacy_config = {}
+            if omit_negated_chunks and (negspacy_config is not None):
+                _negspacy_config = validate_negspacy_config(negspacy_config)
+
+            if omit_negated_chunks:
+                logging.info(f"Omitting negated entities with following settings: {_negspacy_config}")
+                pipeline.add_pipe("negex", last=True, config=_negspacy_config)
             disable = [] if disable is None else disable
             if len(self._processed_docs) == 0:
                 _pipe_trf_type = True if "trf" in pipeline.meta["name"].split("_") else False
@@ -507,6 +512,33 @@ class DataProcessingFactory:
                 self._build_chunk_set_dicts(prepend_head=self._prepend_head, head_only=self._head_only,
                                             use_lemma=self._use_lemma, case_sensitive=case_sensitive,
                                             omit_negated_chunks=omit_negated_chunks)
+
+
+def validate_negspacy_config(config) -> dict:
+    _val_dict = {
+        "neg_termset": None,
+        "feat_types": None,
+        "extension_name": "negex",
+        "chunk_prefix": None,
+        "neg_termset_file": None,
+        "feat_of_interest": FeaturesOfInterest.NOUN_CHUNKS,
+        "scope": None,
+        "language": "en"
+    }
+    _foi = {"NC": FeaturesOfInterest.NOUN_CHUNKS, "NE": FeaturesOfInterest.NAMED_ENTITIES, "BOTH": FeaturesOfInterest.BOTH}
+    _return_dict = {}
+
+    for k, v in _val_dict.items():
+        v_alt = getattr(config, k, None)
+        if k == "feat_of_interest":
+            v_alt = _foi.get(v_alt, FeaturesOfInterest.NOUN_CHUNKS)
+        if v_alt is not None:
+            _return_dict[k] = v_alt
+        else:
+            if v is None:
+                continue
+            _return_dict[k] = v
+    return _return_dict
 
 
 def clean_span(

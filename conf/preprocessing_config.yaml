@@ -25,5 +25,22 @@ filter_max_df: 1.0
 filter_stop: None
 # Name of spaCy pipeline components to disable (None or array)
 disable: None
+# Configuration of NegSpacy (heuristic negation detection)
+#   - chunk_prefix: str (path to file) or array
+#   - neg_termset_file: str (path to file)
+#   - scope: int or bool --> if >=1 it restricts the search for negated candidates to this in terms of distance in dependency parse
+#   - feat_of_interest: string (NE | NC | BOTH) --> negation checked on which feature of interest: named entities (NE), noun chunks (NC), or both
+#   - language: str
+negspacy:
+  - enabled: true
+  - configuration:
+    - chunk_prefix:
+        - kein
+        - keine
+        - keinen
+      neg_termset_file: ./conf/negex_files/negex_trigger_german_biotxtm_2016_extended.txt
+      scope: 1
+      language: de
+      feat_of_interest: NC
 # Meaningless property
 i_am_meaningless: None

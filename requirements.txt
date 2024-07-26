@@ -25,3 +25,4 @@ PyYAML==6.0.1
 scikit-network==0.31.0
 requests==2.22.0
 waitress==3.0.0
+dataclass-wizard==0.22.3

@@ -7,7 +7,7 @@ import sys
 
 from flask import jsonify
 
-from main_utils import ProcessStatus
+from main_utils import ProcessStatus, StepsName, add_status_to_running_process
 
 sys.path.insert(0, "src")
 import util_functions
@@ -16,7 +16,7 @@ import embedding_functions
 
 class ClusteringUtil:
 
-    def __init__(self, app: flask.app.Flask, file_storage: str, step_name: str = "clustering"):
+    def __init__(self, app: flask.app.Flask, file_storage: str, step_name: StepsName = StepsName.CLUSTERING):
         self._app = app
         self._file_storage = Path(file_storage)
         self._process_step = step_name
@@ -52,8 +52,7 @@ class ClusteringUtil:
             except Exception as e:
                 self._app.logger.error(f"Couldn't read config file: {e}")
                 return jsonify("Encountered error. See log.")
-        if process_name is not None:
-            base_config["corpus_name"] = process_name
+        base_config["corpus_name"] = process_name.lower() if process_name is not None else base_config["corpus_name"].lower()
         self.config = base_config
 
     def set_file_storage_path(self, sub_path):
@@ -78,7 +77,7 @@ class ClusteringUtil:
 
         emb_obj = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_embedding.pickle"))
 
-        process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.RUNNING
+        add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.RUNNING, process_tracker)
         cluster_obj = None
         try:
             cluster_obj = process_factory.create(
@@ -90,9 +89,9 @@ class ClusteringUtil:
                 cluster_by_down_scale=True,  # ToDo: is this feasible to toggle via config?
                 ** config
             )
-            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.FINISHED
+            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.FINISHED, process_tracker)
         except Exception as e:
-            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.ABORTED
+            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.ABORTED, process_tracker)
             self._app.logger.error(e)
 
         if cluster_obj is not None:

@@ -10,19 +10,21 @@ import spacy
 import yaml
 from werkzeug.datastructures import FileStorage
 
-from main_utils import ProcessStatus
+from main_methods import get_bool_expression, NegspacyConfig
+from main_utils import ProcessStatus, StepsName, add_status_to_running_process
 
 DEFAULT_SPACY_MODEL = "en_core_web_trf"
 
 
 class PreprocessingUtil:
 
-    def __init__(self, app: flask.app.Flask, file_storage: str, step_name: str = "data"):
+    def __init__(self, app: flask.app.Flask, file_storage: str, step_name: StepsName = StepsName.DATA):
         self._app = app
         self._file_storage = Path(file_storage)
         self._process_step = step_name
         self._process_name = None
         self.config = None
+        self.serializable_config = None
         self.labels = None
         self.data = None
 
@@ -58,7 +60,7 @@ class PreprocessingUtil:
             _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
             _pickle.unlink()
 
-    def read_data(self, data: Union[FileStorage, Path, Generator], replace_keys: Optional[dict]):
+    def read_data(self, data: Union[FileStorage, Path, Generator], replace_keys: Optional[dict], label_getter: Optional[str]):
         try:
             if isinstance(data, FileStorage):
                 archive_path = Path(self._file_storage / data.filename)
@@ -78,6 +80,8 @@ class PreprocessingUtil:
                             for key, repl in replace_keys.items():
                                 _replaced_data[repl] = _data.pop(key)
                             _replaced_data.update(**_data)
+                            if (label_getter is not None) and (label_getter in _data):
+                                _replaced_data['label'] = _data.pop(label_getter)
                             yield _replaced_data
                     self.data = _replace_keys()
                 else:
@@ -92,7 +96,7 @@ class PreprocessingUtil:
             self._app.logger.error(f"Something went wrong with data file reading: {e}")
 
     def read_config(self, config, process_name=None, language=None):
-        base_config = {'spacy_model': DEFAULT_SPACY_MODEL, 'file_encoding': 'utf-8'}
+        base_config = {'spacy_model': DEFAULT_SPACY_MODEL, 'file_encoding': 'utf-8', "omit_negated_chunks": False}
         _language_model_map = {"en": DEFAULT_SPACY_MODEL, "de": "de_dep_news_trf"}
         if config is None:
             self._app.logger.info("No config file provided; using default values")
@@ -107,8 +111,25 @@ class PreprocessingUtil:
         if language is not None and not base_config.get("spacy_model", False):
             base_config["spacy_model"] = _language_model_map.get(language, DEFAULT_SPACY_MODEL)
 
-        if process_name is not None:
-            base_config["corpus_name"] = process_name
+        base_config["corpus_name"] = process_name.lower() if process_name is not None else base_config["corpus_name"].lower()
+        # ToDo: Since n_process > 1 would induce Multiprocessing and this doesn't work with the Threading approach
+        #  to keep the server able to respond, the value will be popped here.
+        #  Maybe I can find a solution to this problem
+        base_config.pop("n_process", None)
+
+        self.serializable_config = base_config.copy()
+        if base_config.get("negspacy", False):
+            _enabled = False
+            _neg_config = NegspacyConfig()
+            for _c in base_config["negspacy"]:
+                if get_bool_expression(_c.get("enabled", "False")):
+                    _enabled = True
+                elif _c.get("configuration", False):
+                    _neg_config = NegspacyConfig.from_dict(_c.get("configuration")[0])
+            base_config.pop("negspacy", None)
+            base_config["negspacy_config"] = _neg_config
+            base_config["omit_negated_chunks"] = _enabled
+
         self.config = base_config
 
     def read_labels(self, labels):
@@ -116,6 +137,9 @@ class PreprocessingUtil:
         if labels is None:
             self._app.logger.info("No labels file provided; no labels will be added to text data")
         else:
+            if isinstance(labels, str):
+                self._app.logger.info(f"Labels will be extracted from the document server if the field '{labels}' is present.")
+                return
             try:
                 base_labels = yaml.safe_load(labels.stream)
             except Exception as e:
@@ -146,7 +170,7 @@ class PreprocessingUtil:
             if x not in default_args:
                 config.pop(x)
 
-        process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.RUNNING
+        add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.RUNNING, process_tracker)
         _process = None
         try:
             _process = process_factory.create(
@@ -157,9 +181,9 @@ class PreprocessingUtil:
                 save_to_file=True,
                 **config
             )
-            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.FINISHED
+            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.FINISHED, process_tracker)
         except Exception as e:
-            process_tracker[self.process_name]["status"][self.process_step] = ProcessStatus.ABORTED
+            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.ABORTED, process_tracker)
             self._app.logger.error(e)
 
         return _process
