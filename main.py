@@ -289,9 +289,10 @@ def complete_pipeline():
                 name=query_params.process_name,
                 error=f"There is no data server at the specified location ({base_config}) or it contains no data."
             ), int(HTTPResponses.NOT_FOUND)
+        # ToDo: don't know if I want this, but 'get_documents_from_es_server' can now filter documents
         data = get_documents_from_es_server(
             url=base_config['url'], port=base_config['port'], index=base_config['index'], size=int(base_config['size']),
-            other_id=base_config['other_id'], doc_name_filter=["Albers"], inverse_filter=True
+            other_id=base_config['other_id']
         )
         replace_keys = base_config.get("replace_keys", {"text": "content"})
         label_getter = base_config.get("label_key", None)
