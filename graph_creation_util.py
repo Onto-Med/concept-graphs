@@ -2,6 +2,7 @@ import pathlib
 import pickle
 import sys
 from pathlib import Path
+from typing import Optional, Union
 
 import flask
 import yaml
@@ -9,6 +10,7 @@ import networkx as nx
 from pyvis import network as net
 
 from flask import jsonify
+from werkzeug.datastructures import FileStorage
 
 from main_utils import ProcessStatus, StepsName, add_status_to_running_process
 
@@ -37,7 +39,7 @@ class GraphCreationUtil:
     def process_step(self):
         return self._process_step
 
-    def read_config(self, config, process_name=None, language=None):
+    def read_config(self, config: Optional[Union[FileStorage, dict]], process_name=None, language=None):
         base_config = {
             "cluster_distance": 0.7,
             "cluster_min_size": 4,
@@ -50,9 +52,9 @@ class GraphCreationUtil:
             "graph_sub_clustering": False,
             "restrict_to_cluster": True,
         }
-        if config is None:
-            self._app.logger.info("No config file provided; using default values")
-        else:
+        if isinstance(config, dict):
+            pass
+        elif isinstance(config, FileStorage):
             try:
                 base_config = yaml.safe_load(config.stream)
                 if base_config.get('model', False):
@@ -60,6 +62,9 @@ class GraphCreationUtil:
             except Exception as e:
                 self._app.logger.error(f"Couldn't read config file: {e}")
                 return jsonify("Encountered error. See log.")
+        else:
+            self._app.logger.info("No config file provided; using default values")
+
         base_config["corpus_name"] = process_name.lower() if process_name is not None else base_config["corpus_name"].lower()
         self.config = base_config
 

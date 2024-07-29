@@ -1,11 +1,13 @@
 import inspect
 from pathlib import Path
+from typing import Optional, Union
 
 import flask
 import yaml
 import sys
 
 from flask import jsonify
+from werkzeug.datastructures import FileStorage
 
 from main_utils import ProcessStatus, StepsName, add_status_to_running_process
 
@@ -35,13 +37,13 @@ class ClusteringUtil:
     def process_step(self):
         return self._process_step
 
-    def read_config(self, config, process_name=None, language=None):
+    def read_config(self, config: Optional[Union[FileStorage, dict]], process_name=None, language=None):
         base_config = {"algorithm": "kmeans", "downscale": "umap", "scaling_n_neighbors": 10, "scaling_min_dist": 0.1,
                        "scaling_n_components": 100, "scaling_metric": 'euclidean', "scaling_random_state": 42,
                        "kelbow_k": (10, 100), "kelbow_show": False}
-        if config is None:
-            self._app.logger.info("No config file provided; using default values")
-        else:
+        if isinstance(config, dict):
+            pass
+        elif isinstance(config, FileStorage):
             try:
                 _config = yaml.safe_load(config.stream)
                 if _config.pop("missing_as_recommended", True):
@@ -52,6 +54,9 @@ class ClusteringUtil:
             except Exception as e:
                 self._app.logger.error(f"Couldn't read config file: {e}")
                 return jsonify("Encountered error. See log.")
+        else:
+            self._app.logger.info("No config file provided; using default values")
+
         base_config["corpus_name"] = process_name.lower() if process_name is not None else base_config["corpus_name"].lower()
         self.config = base_config
 

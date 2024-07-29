@@ -2,9 +2,9 @@ import os
 import sys
 import pathlib
 import pickle
-from collections import OrderedDict, defaultdict
+from collections import OrderedDict, defaultdict, namedtuple
 from dataclasses import dataclass
-from typing import Union, Optional, Any, Dict, Iterable
+from typing import Union, Optional, Any, Dict, Iterable, NamedTuple
 
 import flask
 import networkx as nx
@@ -12,6 +12,7 @@ import requests
 import yaml
 from dataclass_wizard import JSONWizard
 from flask import request, jsonify, render_template_string
+from munch import Munch
 from werkzeug.datastructures import FileStorage
 from yaml.representer import RepresenterError
 
@@ -23,6 +24,10 @@ import graph_creation_util
 import cluster_functions
 
 
+pipeline_json_config = namedtuple("pipeline_json_config",
+                                  ["name", "language", "data", "embedding", "clustering", "graph", "document_server"])
+
+
 @dataclass
 class NegspacyConfig(JSONWizard):
     chunk_prefix: str | list[str] | None = None
@@ -32,15 +37,54 @@ class NegspacyConfig(JSONWizard):
     feat_of_interest: str | None = None
 
 
-def parse_config_json(response_json) -> dict:
-    return {}
+def parse_config_json(response_json) -> pipeline_json_config:
+    config = Munch.fromDict(response_json)
+    return pipeline_json_config(config.get("name", None),
+                                config.get("language", None),
+                                config.get("data", Munch()),
+                                config.get("embedding", Munch()),
+                                config.get("clustering", Munch()),
+                                config.get("graph", Munch()),
+                                config.get("document_server", None))
+
+
+def read_config_json(app, processor, process_type, query_process_name, config):
+    app.logger.info(f"Reading config ({process_type}) ...")
+    # processor.read_config(config=config if config is not None else request.files.get("config", None),
+    #                       process_name=process_name,
+    #                       language=None if process_type not in [StepsName.DATA, StepsName.EMBEDDING] else language)
+    # # pyyaml doesn't handle 'None' so we need to convert them
+    # for k, v in processor.config.items():
+    #     if isinstance(v, str) and v.lower() == "none":
+    #         processor.config[k] = None
+    # app.logger.info(f"Parsed the following arguments for {processor}:\n\t{processor.config}")
+    # process_name_conf = processor.config.pop("corpus_name", "default")
+    # if process_name is None:
+    #     process_name = process_name_conf
+    # processor.set_file_storage_path(process_name)
+    # processor.process_name = process_name
+    #
+    # with pathlib.Path(
+    #         pathlib.Path(processor._file_storage) /
+    #         pathlib.Path(f"{process_name}_{process_type}_config.yaml")
+    # ).open('w') as config_save:
+    #     try:
+    #         yaml.safe_dump(processor.config, config_save)
+    #     except RepresenterError:
+    #         yaml.safe_dump(processor.serializable_config, config_save)
+    # return process_name
 
 
 def get_pipeline_query_params(
         app: flask.Flask,
         flask_request: flask.Request,
-        running_processes: dict) -> Union[pipeline_query_params, tuple]:
-    corpus = flask_request.args.get("process", "default").lower()
+        running_processes: dict,
+        config_obj_json: pipeline_json_config
+) -> Union[pipeline_query_params, tuple]:
+    if config_obj_json is not None and config_obj_json.name is not None:
+        corpus = config_obj_json.name
+    else:
+        corpus = flask_request.args.get("process", "default").lower()
     if corpus_status := running_processes.get(corpus, False):
         if any([v.get("status", None) == ProcessStatus.RUNNING for v in corpus_status.get("status", [])]):
             return jsonify(
@@ -48,8 +92,11 @@ def get_pipeline_query_params(
                 error=f"A process is currently running for this corpus. Use '/status?process={corpus}' for specifics."
             ), int(HTTPResponses.FORBIDDEN)
     app.logger.info(f"Using process name '{corpus}'")
-    language = {"en": "en", "de": "de"}.get(str(flask_request.args.get("lang", "en")).lower(), "en")
-    app.logger.info(f"Using preset language settings for '{language}'")
+    if config_obj_json is not None and config_obj_json.language is not None:
+        language = {"en": "en", "de": "de"}.get(config_obj_json.language.lower(), "en")
+    else:
+        language = {"en": "en", "de": "de"}.get(str(flask_request.args.get("lang", "en")).lower(), "en")
+    app.logger.info(f"Using preset language settings for '{language}' where specific configuration is not provided.")
 
     skip_present = flask_request.args.get("skip_present", True)
     if isinstance(skip_present, str):
