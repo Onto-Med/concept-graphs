@@ -258,9 +258,11 @@ def graph_creation_with_arg(path_arg):
 @app.route("/pipeline", methods=['POST'])
 def complete_pipeline():
     data = request.files.get("data", False)
+    data_upload = False
     document_server_config = request.files.get("document_server_config", False)
     replace_keys = None
     label_getter = None
+    labels = None
 
     content_type = request.headers.get("Content-Type")
     content_type_json = False
@@ -278,6 +280,7 @@ def complete_pipeline():
         if _document_server is not None:
             replace_keys = _document_server.get("replace_keys", {"text": "content"})
             label_getter = _document_server.get("label_key", None)
+            document_server_config = _document_server.copy()
         else:
             return jsonify(
                 name=config_object_json.name if config_object_json.name is not None else query_params.process_name,
@@ -299,20 +302,7 @@ def complete_pipeline():
             _tmp_data.parent.mkdir(parents=True, exist_ok=True)
             data.save(_tmp_data)
             data = _tmp_data
-        else:
-            base_config = get_data_server_config(document_server_config, app)
-            if not check_data_server(url=base_config["url"], port=base_config["port"], index=base_config["index"]):
-                return jsonify(
-                    name=query_params.process_name,
-                    error=f"There is no data server at the specified location ({base_config}) or it contains no data."
-                ), int(HTTPResponses.NOT_FOUND)
-            # ToDo: don't know if I want this, but 'get_documents_from_es_server' can now filter documents
-            data = get_documents_from_es_server(
-                url=base_config['url'], port=base_config['port'], index=base_config['index'], size=int(base_config['size']),
-                other_id=base_config['other_id']
-            )
-            replace_keys = base_config.get("replace_keys", {"text": "content"})
-            label_getter = base_config.get("label_key", None)
+            data_upload = True
 
         labels = request.files.get("labels", None)
         if labels is not None:
@@ -325,6 +315,21 @@ def complete_pipeline():
         _embedding_config = request.files.get(f"{StepsName.EMBEDDING}_config", None)
         _clustering_config = request.files.get(f"{StepsName.CLUSTERING}_config", None)
         _graph_config = request.files.get(f"{StepsName.GRAPH}_config", None)
+
+    if not data_upload:
+        ds_base_config = get_data_server_config(document_server_config, app)
+        if not check_data_server(url=ds_base_config["url"], port=ds_base_config["port"], index=ds_base_config["index"]):
+            return jsonify(
+                name=query_params.process_name,
+                error=f"There is no data server at the specified location ({ds_base_config}) or it contains no data."
+            ), int(HTTPResponses.NOT_FOUND)
+        # ToDo: don't know if I want this, but 'get_documents_from_es_server' can now filter documents
+        data = get_documents_from_es_server(
+            url=ds_base_config['url'], port=ds_base_config['port'], index=ds_base_config['index'], size=int(ds_base_config['size']),
+            other_id=ds_base_config['other_id']
+        )
+        replace_keys = ds_base_config.get("replace_keys", {"text": "content"})
+        label_getter = ds_base_config.get("label_key", None)
 
     processes = [
         (StepsName.DATA, PreprocessingUtil, _data_config, data_functions.DataProcessingFactory,),
@@ -348,7 +353,8 @@ def complete_pipeline():
 
         if content_type_json:
             read_config_json(app=app, processor=process_obj, process_type=_name,
-                             query_process_name=query_params.process_name, config=_conf)
+                             process_name=query_params.process_name, config=_conf,
+                             language=query_params.language)
         else:
             read_config(app=app, processor=process_obj, process_type=_name,
                         process_name=query_params.process_name, config=_conf, language=query_params.language)

@@ -500,6 +500,7 @@ class DataProcessingFactory:
 
                 data_corpus = pipeline.pipe(self._data_corpus_tuples, as_tuples=True, n_process=n_process,
                                             disable=disable)
+                #ToDo: it crashes here with 'not able to iterate over bool' when using json method only; data_corpus shows as 'generator'
                 for _doc, _ctx in tqdm(data_corpus, total=len(self._data_corpus_tuples)):
                     _doc._.doc_id = _ctx.get("doc_id", None)
                     _doc._.doc_index = _ctx.get("doc_index", None)

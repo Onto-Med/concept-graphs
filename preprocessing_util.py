@@ -8,6 +8,7 @@ from typing import List, Dict, Union, Generator, Optional
 import flask.app
 import spacy
 import yaml
+from munch import Munch, unmunchify
 from werkzeug.datastructures import FileStorage
 
 from main_methods import get_bool_expression, NegspacyConfig
@@ -100,7 +101,10 @@ class PreprocessingUtil:
         _language_model_map = {"en": DEFAULT_SPACY_MODEL, "de": "de_dep_news_trf"}
 
         if isinstance(config, dict):
-            pass
+            if isinstance(config, Munch):
+                base_config = unmunchify(config)
+            else:
+                base_config = config
         elif isinstance(config, FileStorage):
             try:
                 base_config = yaml.safe_load(config.stream)
@@ -124,11 +128,18 @@ class PreprocessingUtil:
         if base_config.get("negspacy", False):
             _enabled = False
             _neg_config = NegspacyConfig()
-            for _c in base_config["negspacy"]:
-                if get_bool_expression(_c.get("enabled", "False")):
-                    _enabled = True
-                elif _c.get("configuration", False):
-                    _neg_config = NegspacyConfig.from_dict(_c.get("configuration")[0])
+            if isinstance(base_config["negspacy"], dict):
+                for k, v in base_config["negspacy"].items():
+                    if k.lower() == "enabled":
+                        _enabled = get_bool_expression(v)
+                    elif k.lower() == "configuration":
+                        _neg_config = NegspacyConfig.from_dict(v)
+            elif isinstance(base_config["negspacy"], list):
+                for _c in base_config["negspacy"]:
+                    if get_bool_expression(_c.get("enabled", "False")):
+                        _enabled = True
+                    elif _c.get("configuration", False):
+                        _neg_config = NegspacyConfig.from_dict(_c.get("configuration")[0])
             base_config.pop("negspacy", None)
             base_config["negspacy_config"] = _neg_config
             base_config["omit_negated_chunks"] = _enabled

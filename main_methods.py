@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 import pathlib
@@ -23,9 +24,8 @@ sys.path.insert(0, "src")
 import graph_creation_util
 import cluster_functions
 
-
 pipeline_json_config = namedtuple("pipeline_json_config",
-                                  ["name", "language", "data", "embedding", "clustering", "graph", "document_server"])
+                                  ["name", "language", "document_server", "data", "embedding", "clustering", "graph"])
 
 
 @dataclass
@@ -39,40 +39,45 @@ class NegspacyConfig(JSONWizard):
 
 def parse_config_json(response_json) -> pipeline_json_config:
     config = Munch.fromDict(response_json)
-    return pipeline_json_config(config.get("name", None),
-                                config.get("language", None),
-                                config.get("data", Munch()),
-                                config.get("embedding", Munch()),
-                                config.get("clustering", Munch()),
-                                config.get("graph", Munch()),
-                                config.get("document_server", None))
+    try:
+        return pipeline_json_config(config.get("name", None),
+                                    config.get("language", None),
+                                    config.get("document_server", None),
+                                    config.config.get("data", Munch()),
+                                    config.config.get("embedding", Munch()),
+                                    config.config.get("clustering", Munch()),
+                                    config.config.get("graph", Munch())
+                                    )
+    except AttributeError as e:
+        logging.error(f"Json body/configuration seems to be malformed: no 'config' entry was provided.\n{e}")
+        return pipeline_json_config(config.get("name", None),
+                                    config.get("language", None),
+                                    config.get("document_server", None),
+                                    Munch(),
+                                    Munch(),
+                                    Munch(),
+                                    Munch()
+                                    )
 
 
-def read_config_json(app, processor, process_type, query_process_name, config):
+def read_config_json(app, processor, process_type, process_name, config, language):
     app.logger.info(f"Reading config ({process_type}) ...")
-    # processor.read_config(config=config if config is not None else request.files.get("config", None),
-    #                       process_name=process_name,
-    #                       language=None if process_type not in [StepsName.DATA, StepsName.EMBEDDING] else language)
-    # # pyyaml doesn't handle 'None' so we need to convert them
-    # for k, v in processor.config.items():
-    #     if isinstance(v, str) and v.lower() == "none":
-    #         processor.config[k] = None
-    # app.logger.info(f"Parsed the following arguments for {processor}:\n\t{processor.config}")
-    # process_name_conf = processor.config.pop("corpus_name", "default")
-    # if process_name is None:
-    #     process_name = process_name_conf
-    # processor.set_file_storage_path(process_name)
-    # processor.process_name = process_name
-    #
-    # with pathlib.Path(
-    #         pathlib.Path(processor._file_storage) /
-    #         pathlib.Path(f"{process_name}_{process_type}_config.yaml")
-    # ).open('w') as config_save:
-    #     try:
-    #         yaml.safe_dump(processor.config, config_save)
-    #     except RepresenterError:
-    #         yaml.safe_dump(processor.serializable_config, config_save)
-    # return process_name
+    processor.read_config(config=config, process_name=config.get("name", process_name),
+                          language=config.get("language", language) if process_type in [StepsName.DATA,
+                                                                                        StepsName.EMBEDDING] else None)
+    app.logger.info(f"Parsed the following arguments for {processor}:\n\t{processor.config}")
+    processor.set_file_storage_path(process_name)
+    processor.process_name = process_name
+
+    with pathlib.Path(
+            pathlib.Path(processor._file_storage) /
+            pathlib.Path(f"{process_name}_{process_type}_config.yaml")
+    ).open('w') as config_save:
+        try:
+            yaml.safe_dump(processor.config, config_save)
+        except RepresenterError:
+            yaml.safe_dump(processor.serializable_config, config_save)
+    return process_name
 
 
 def get_pipeline_query_params(
@@ -116,11 +121,16 @@ def get_pipeline_query_params(
     return pipeline_query_params(corpus, language, skip_present, omit_pipeline_steps, return_statistics)
 
 
-def get_data_server_config(document_server_config: FileStorage, app: flask.Flask):
+def get_data_server_config(document_server_config: Union[FileStorage, dict], app: flask.Flask):
     base_config = {"url": "http://localhost", "port": "9008", "index": "documents", "size": "30", "label_key": "label",
                    "other_id": "id"}
     try:
-        _config = yaml.safe_load(document_server_config.stream)
+        if isinstance(document_server_config, FileStorage):
+            _config = yaml.safe_load(document_server_config.stream)
+        elif isinstance(document_server_config, dict):
+            _config = document_server_config.copy()
+        else:
+            raise Exception("Document server config is not of type 'FileStorage' or 'dict'!")
         for k, v in base_config.items():
             if k not in _config:
                 if v is None or (isinstance(v, str) and v.lower() == "none"):
@@ -175,7 +185,8 @@ def is_skip_doc(document_hit: dict, doc_filter: Iterable, inverse_filter: bool =
 
 
 def get_documents_from_es_server(
-        url: str, port: Union[str, int], index: str, size: int = 30, other_id: str = "id", doc_name_filter: list = None, inverse_filter: bool = False,
+        url: str, port: Union[str, int], index: str, size: int = 30, other_id: str = "id", doc_name_filter: list = None,
+        inverse_filter: bool = False,
 ):
     """Gets documents from a specified Elasticsearch server and index.
 
@@ -190,7 +201,8 @@ def get_documents_from_es_server(
     """
     _params = {"size": f"{size}", "scroll": "1m"}
     _filter = False
-    if isinstance(doc_name_filter, Iterable) and not isinstance(doc_name_filter, (str, bytes)) and len(doc_name_filter) > 0:
+    if isinstance(doc_name_filter, Iterable) and not isinstance(doc_name_filter, (str, bytes)) and len(
+            doc_name_filter) > 0:
         _filter = True
     final_url = f"{url.rstrip('/')}:{port}/{index.lstrip('/').rstrip('/')}/_search"
     _first_page = requests.get(final_url, params=_params).json()
