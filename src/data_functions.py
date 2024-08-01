@@ -195,7 +195,7 @@ class DataProcessingFactory:
                 pipeline=pipeline,
                 n_process=n_process,
                 case_sensitive=case_sensitive,
-                disable=disable,
+                disable=disable if (isinstance(disable, Iterable) or disable is None) else [],
                 omit_negated_chunks=omit_negated_chunks,
                 negspacy_config=negspacy_config
             )
@@ -483,7 +483,7 @@ class DataProcessingFactory:
                 case_sensitive: bool = False,
                 disable: Optional[Iterable[str]] = None,
                 omit_negated_chunks: bool = True,
-                negspacy_config: Any = None
+                negspacy_config = None
         ) -> None:
             _negspacy_config = {}
             if omit_negated_chunks and (negspacy_config is not None):
@@ -498,9 +498,8 @@ class DataProcessingFactory:
                 _set_extensions()
                 self._build_data_tuples()
 
-                data_corpus = pipeline.pipe(self._data_corpus_tuples, as_tuples=True, n_process=n_process,
+                data_corpus = pipeline.pipe(self._data_corpus_tuples[:], as_tuples=True, n_process=n_process,
                                             disable=disable)
-                #ToDo: it crashes here with 'not able to iterate over bool' when using json method only; data_corpus shows as 'generator'
                 for _doc, _ctx in tqdm(data_corpus, total=len(self._data_corpus_tuples)):
                     _doc._.doc_id = _ctx.get("doc_id", None)
                     _doc._.doc_index = _ctx.get("doc_index", None)
@@ -526,13 +525,15 @@ def validate_negspacy_config(config) -> dict:
         "scope": None,
         "language": "en"
     }
-    _foi = {"NC": FeaturesOfInterest.NOUN_CHUNKS, "NE": FeaturesOfInterest.NAMED_ENTITIES, "BOTH": FeaturesOfInterest.BOTH}
+    _foi = {"nc": FeaturesOfInterest.NOUN_CHUNKS, "ne": FeaturesOfInterest.NAMED_ENTITIES, "both": FeaturesOfInterest.BOTH}
     _return_dict = {}
 
     for k, v in _val_dict.items():
         v_alt = getattr(config, k, None)
         if k == "feat_of_interest":
-            v_alt = _foi.get(v_alt, FeaturesOfInterest.NOUN_CHUNKS)
+            v_alt = _foi.get(v_alt.lower(), FeaturesOfInterest.NOUN_CHUNKS) if isinstance(v_alt, str) else (
+                v_alt if isinstance(v_alt, list) else FeaturesOfInterest.NOUN_CHUNKS
+            )
         if v_alt is not None:
             _return_dict[k] = v_alt
         else:

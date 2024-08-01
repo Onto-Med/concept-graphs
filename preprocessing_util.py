@@ -13,6 +13,7 @@ from werkzeug.datastructures import FileStorage
 
 from main_methods import get_bool_expression, NegspacyConfig
 from main_utils import ProcessStatus, StepsName, add_status_to_running_process
+from src.negspacy.utils import FeaturesOfInterest
 
 DEFAULT_SPACY_MODEL = "en_core_web_trf"
 
@@ -140,6 +141,15 @@ class PreprocessingUtil:
                         _enabled = True
                     elif _c.get("configuration", False):
                         _neg_config = NegspacyConfig.from_dict(_c.get("configuration")[0])
+            _foi_map = {
+                "nc": FeaturesOfInterest.NOUN_CHUNKS,
+                "ne": FeaturesOfInterest.NAMED_ENTITIES,
+                "both": FeaturesOfInterest.BOTH
+            }
+            _neg_config.feat_of_interest = (
+                _foi_map.get(_neg_config.feat_of_interest.lower(), FeaturesOfInterest.NAMED_ENTITIES)
+                if isinstance(_neg_config.feat_of_interest, str) else FeaturesOfInterest.NAMED_ENTITIES
+            )
             base_config.pop("negspacy", None)
             base_config["negspacy_config"] = _neg_config
             base_config["omit_negated_chunks"] = _enabled

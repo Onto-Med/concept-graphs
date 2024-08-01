@@ -17,7 +17,7 @@
                 "max_df": 1.0,
                 "stop": false
             },
-            "disable": false,
+            "disable": null,
             "negspacy": {
                 "enabled": true,
                 "configuration": {
