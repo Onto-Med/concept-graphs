@@ -123,10 +123,12 @@ class SentenceEmbeddingsFactory:
         ):
             if "convert_to_numpy" in kwargs.keys():
                 kwargs.pop("convert_to_numpy") #ToDo?
+
+            for _key in list(kwargs.keys()):
+                if _key not in ["batch_size", "chunk_size"]:
+                    kwargs.pop(_key)
+
             if n_process > 1:
-                for _key in list(kwargs.keys()):
-                    if _key not in ["batch_size", "chunk_size"]:
-                        kwargs.pop(_key)
                 logging.info(f"Using {n_process} processes.")
                 pool = self._model.start_multi_process_pool([device]*n_process if isinstance(device, str) else device)
                 self._embeddings = self._model.encode_multi_process(

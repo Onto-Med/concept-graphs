@@ -7,6 +7,7 @@ import yaml
 import sys
 
 from flask import jsonify
+from munch import Munch, unmunchify
 from werkzeug.datastructures import FileStorage
 
 from main_utils import ProcessStatus, StepsName, add_status_to_running_process
@@ -42,7 +43,20 @@ class ClusteringUtil:
                        "scaling_n_components": 100, "scaling_metric": 'euclidean', "scaling_random_state": 42,
                        "kelbow_k": (10, 100), "kelbow_show": False}
         if isinstance(config, dict):
-            pass
+            if isinstance(config, Munch):
+                _config = unmunchify(config)
+            else:
+                _config = config
+            for _type in ["scaling", "clustering", "kelbow"]:
+                _sub_config = _config.get(_type, {}).copy()
+                for k, v in _sub_config.items():
+                    _config[f"{_type}_{k}"] = v
+                _config.pop(_type, None)
+            if _config.pop("missing_as_recommended", True):
+                for k, v in base_config.items():
+                    if k not in _config:
+                        _config[k] = v
+            base_config = _config
         elif isinstance(config, FileStorage):
             try:
                 _config = yaml.safe_load(config.stream)

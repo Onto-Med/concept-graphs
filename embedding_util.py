@@ -7,6 +7,7 @@ import yaml
 import sys
 
 from flask import jsonify
+from munch import Munch, unmunchify
 from werkzeug.datastructures import FileStorage
 
 from main_utils import ProcessStatus, StepsName, add_status_to_running_process
@@ -43,7 +44,14 @@ class PhraseEmbeddingUtil:
         _language_model_map = {"en": DEFAULT_EMBEDDING_MODEL, "de": "Sahajtomar/German-semantic"}
         base_config = {'model': DEFAULT_EMBEDDING_MODEL, 'down_scale_algorithm': None}
         if isinstance(config, dict):
-            pass
+            if isinstance(config, Munch):
+                base_config = unmunchify(config)
+            else:
+                base_config = config
+            _scaling = base_config.get("scaling", {}).copy()
+            for k, v in _scaling.items():
+                base_config[f"scaling_{k}"] = v
+            base_config.pop("scaling")
         elif isinstance(config, FileStorage):
             try:
                 base_config = yaml.safe_load(config.stream)

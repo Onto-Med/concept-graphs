@@ -31,15 +31,21 @@
         },
         "embedding": {
             "model": "Sahajtomar/German-semantic",
-            "n_process": 1,
-            "scaling": {
-
-            }
+            "n_process": 1
         },
         "clustering": {
             "algorithm": "kmeans",
             "downscale": "umap",
-            "missing_as_recommended": true
+            "missing_as_recommended": true,
+            "scaling": {
+
+            },
+            "clustering": {
+
+            },
+            "kelbow": {
+                
+            }
         },
         "graph": {
             "cluster": {

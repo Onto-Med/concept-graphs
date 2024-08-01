@@ -3,10 +3,12 @@ import pickle
 import sys
 from pathlib import Path
 from typing import Optional, Union
+from inspect import getfullargspec
 
 import flask
 import yaml
 import networkx as nx
+from munch import Munch, unmunchify
 from pyvis import network as net
 
 from flask import jsonify
@@ -53,7 +55,16 @@ class GraphCreationUtil:
             "restrict_to_cluster": True,
         }
         if isinstance(config, dict):
-            pass
+            if isinstance(config, Munch):
+                _config = unmunchify(config)
+            else:
+                _config = config
+            for _type in ["graph", "cluster"]:
+                _sub_config = _config.get(_type, {}).copy()
+                for k, v in _sub_config.items():
+                    _config[f"{_type}_{k}"] = v
+                _config.pop(_type, None)
+            base_config = _config
         elif isinstance(config, FileStorage):
             try:
                 base_config = yaml.safe_load(config.stream)
@@ -96,6 +107,11 @@ class GraphCreationUtil:
                 cluster_exclusion_ids=exclusion_ids
             ).create_concept_graph_clustering()
 
+            # ToDo: should this go everywhere?
+            _valid_config = getfullargspec(concept_graph_clustering.build_document_concept_matrix).args
+            for _arg in config.copy().keys():
+                if _arg not in _valid_config:
+                    config.pop(_arg)
             concept_graphs = concept_graph_clustering.build_document_concept_matrix(
                 break_after_graph_creation=True,
                 **config
