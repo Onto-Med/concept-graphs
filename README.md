@@ -186,8 +186,9 @@ replace_keys: dictionary -
 
 #### Path Parameters
 * ``/pipeline/configuration``  
-  (query params here: ``process`` & ``default``)  
-_ToDo_
+  (query params here: ``process`` (if a configuration from a specific pipeline is requested) &
+  ``default`` (defaults to ``true`` so that the endpoint returns a default configuration; if set to ``false`` it can be combined with `process` to request a specific configuration))  
+_ToDo: proper format for this entry_
 
 ####  Query Parameters
 * `process`: overrides the `corpus_name` given in the config
