@@ -398,7 +398,7 @@ def get_pipeline_default_configuration():
             default_conf = pathlib.Path("./conf/pipeline-config.json")
             if default_conf.exists() and default_conf.is_file():
                 try:
-                    return jsonify(json.load(default_conf.open('rb'))), int(HTTPResponses.OK)
+                    return jsonify(**json.load(default_conf.open('rb'))), int(HTTPResponses.OK)
                 except Exception as e:
                     logging.error(e)
             return jsonify(message="Couldn't find/read default configuration."), int(HTTPResponses.NOT_FOUND)
