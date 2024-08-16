@@ -403,7 +403,7 @@ def get_pipeline_default_configuration():
                     logging.error(e)
             return jsonify(message="Couldn't find/read default configuration."), int(HTTPResponses.NOT_FOUND)
         else:
-            # ToDo: to implement
+            # ToDo: to implement! Needs to return same format as 'default' config -> {'name': ..., 'language': ..., 'config': ..., 'document_server': ...}
             logging.info(f"Returning configuration for '{process}' pipeline.")
             return jsonify(message="Not implemented."), HTTPResponses.NOT_IMPLEMENTED
     else:
