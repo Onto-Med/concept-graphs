@@ -1,11 +1,23 @@
 import pathlib
 from collections import namedtuple
+from dataclasses import dataclass
 from enum import Enum, IntEnum
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Union
 
 import flask
 import yaml
+from dataclass_wizard import JSONWizard
+
+
+@dataclass
+class NegspacyConfig(JSONWizard):
+    chunk_prefix: str | list[str] | None = None
+    neg_termset_file: str | None = None
+    scope: int | None = None
+    language: str | None = None
+    feat_of_interest: str | None = None
 
 
 class BaseUtil(ABC):
@@ -143,3 +155,15 @@ def add_status_to_running_process(
     else:
         running_processes[process_name]["status"].append(_step)
     return running_processes
+
+
+def get_bool_expression(str_bool: str, default: Union[bool, str] = False) -> bool:
+    if isinstance(str_bool, bool):
+        return str_bool
+    elif isinstance(str_bool, str):
+        return {
+            'true': True, 'yes': True, 'y': True, 'ja': True, 'j': True,
+            'false': False, 'no': False, 'n': False, 'nein': False,
+        }.get(str_bool.lower(), default)
+    else:
+        return False

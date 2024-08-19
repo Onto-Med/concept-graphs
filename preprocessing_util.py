@@ -1,5 +1,4 @@
 import inspect
-import sys
 import zipfile
 from pathlib import Path
 from types import GeneratorType
@@ -11,8 +10,7 @@ import yaml
 from munch import Munch, unmunchify
 from werkzeug.datastructures import FileStorage
 
-from main_methods import get_bool_expression, NegspacyConfig
-from main_utils import ProcessStatus, StepsName, add_status_to_running_process
+from main_utils import ProcessStatus, StepsName, add_status_to_running_process, get_bool_expression, NegspacyConfig
 from src.negspacy.utils import FeaturesOfInterest
 
 DEFAULT_SPACY_MODEL = "en_core_web_trf"
@@ -169,6 +167,14 @@ class PreprocessingUtil:
             except Exception as e:
                 self._app.logger.error(f"Couldn't read labels file: {e}")
         self.labels = base_labels
+
+    def read_stored_config(self, ext: str = "yaml"):
+        _file_name = f"{self.process_name}_{self.process_step}_config.{ext}"
+        _file = Path(self._file_storage / _file_name)
+        if not _file.exists():
+            return self.process_step, {}
+        config_yaml = yaml.safe_load(_file.open('rb'))
+        return self.process_step, config_yaml
 
     def start_process(self, cache_name, process_factory, process_tracker):
         config = self.config.copy()

@@ -4,21 +4,22 @@ import sys
 import pathlib
 import pickle
 from collections import OrderedDict, defaultdict, namedtuple
-from dataclasses import dataclass
-from typing import Union, Optional, Any, Dict, Iterable, NamedTuple
+from typing import Union, Iterable
 
 import flask
 import networkx as nx
 import requests
 import yaml
-from dataclass_wizard import JSONWizard
 from flask import request, jsonify, render_template_string
 from munch import Munch
 from werkzeug.datastructures import FileStorage
 from yaml.representer import RepresenterError
 
+from clustering_util import ClusteringUtil
+from embedding_util import PhraseEmbeddingUtil
 from main_utils import ProcessStatus, HTTPResponses, StepsName, pipeline_query_params, steps_relation_dict, \
-    add_status_to_running_process, PipelineLanguage
+    add_status_to_running_process, PipelineLanguage, get_bool_expression
+from preprocessing_util import PreprocessingUtil
 
 sys.path.insert(0, "src")
 import graph_creation_util
@@ -26,15 +27,6 @@ import cluster_functions
 
 pipeline_json_config = namedtuple("pipeline_json_config",
                                   ["name", "language", "document_server", "data", "embedding", "clustering", "graph"])
-
-
-@dataclass
-class NegspacyConfig(JSONWizard):
-    chunk_prefix: str | list[str] | None = None
-    neg_termset_file: str | None = None
-    scope: int | None = None
-    language: str | None = None
-    feat_of_interest: str | None = None
 
 
 def parse_config_json(response_json) -> pipeline_json_config:
@@ -307,6 +299,35 @@ def read_config(app: flask.Flask, processor, process_type, process_name=None, co
     return process_name
 
 
+def load_configs(app: flask.app, process_name: str, path_to_configs: Union[pathlib.Path, str], ext: str = "yaml"):
+    # ToDo: still need to parse config with sub objects in mind for each "util" (e.g. right now
+    # "clustering": {
+    #    "scaling_metric": ...
+    #    "scaling_min_dist": ...
+    # }
+    # should become =>
+    # "clustering": {
+    #    "scaling": {
+    #       metric": ...
+    #       min_dist": ...
+    #    }
+    # }
+    final_config = {}
+    processes = [
+        (StepsName.DATA, PreprocessingUtil,),
+        (StepsName.EMBEDDING, PhraseEmbeddingUtil,),
+        (StepsName.CLUSTERING, ClusteringUtil,),
+        (StepsName.GRAPH, graph_creation_util.GraphCreationUtil,)
+    ]
+    for _step, _proc in processes:
+        process_obj = _proc(app=app, file_storage=path_to_configs)
+        process_obj.process_name = process_name
+        process_obj.set_file_storage_path(process_name)
+        key, val = process_obj.read_stored_config()
+        final_config[key] = val
+    return final_config
+
+
 def read_exclusion_ids(exclusion: Union[str, FileStorage]):
     if isinstance(exclusion, str):
         if exclusion.startswith("[") and exclusion.endswith("]"):
@@ -438,18 +459,6 @@ def graph_create(app: flask.Flask, path: str):
         except FileNotFoundError:
             return jsonify(f"There is no processed data for the '{process_name}' process to be embedded.")
     return jsonify("Nothing to do.")
-
-
-def get_bool_expression(str_bool: str, default: Union[bool, str] = False) -> bool:
-    if isinstance(str_bool, bool):
-        return str_bool
-    elif isinstance(str_bool, str):
-        return {
-            'true': True, 'yes': True, 'y': True, 'ja': True, 'j': True,
-            'false': False, 'no': False, 'n': False, 'nein': False,
-        }.get(str_bool.lower(), default)
-    else:
-        return False
 
 
 def get_dict_expression(dict_str: str):

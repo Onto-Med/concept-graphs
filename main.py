@@ -1,6 +1,4 @@
 import json
-import logging
-import pathlib
 import shutil
 import threading
 
@@ -10,7 +8,7 @@ from flask import Flask, Response
 from flask.logging import default_handler
 
 from main_methods import *
-from main_utils import ProcessStatus, HTTPResponses, StepsName, add_status_to_running_process
+from main_utils import ProcessStatus, HTTPResponses, StepsName, add_status_to_running_process, get_bool_expression
 from preprocessing_util import PreprocessingUtil
 from embedding_util import PhraseEmbeddingUtil
 from clustering_util import ClusteringUtil
@@ -404,9 +402,13 @@ def get_pipeline_default_configuration():
                     logging.error(e)
             return jsonify(message="Couldn't find/read default configuration."), int(HTTPResponses.NOT_FOUND)
         else:
-            # ToDo: to implement! Needs to return same format as 'default' config -> {'name': ..., 'language': ..., 'config': ..., 'document_server': ...}
             logging.info(f"Returning configuration for '{process}' pipeline.")
-            return jsonify(message="Not implemented."), HTTPResponses.NOT_IMPLEMENTED
+            try:
+                _config = load_configs(app=app, process_name=process, path_to_configs=FILE_STORAGE_TMP)
+                return jsonify(name=process, language=language, config=_config), int(HTTPResponses.OK)
+            except Exception as e:
+                logging.error(e)
+            return jsonify(message=f"Couldn't find/read configuration for '{process}'."), int(HTTPResponses.NOT_FOUND)
     else:
         return HTTPResponses.BAD_REQUEST
 

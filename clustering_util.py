@@ -1,4 +1,3 @@
-import inspect
 from pathlib import Path
 from typing import Optional, Union
 
@@ -86,6 +85,14 @@ class ClusteringUtil:
         if self.has_pickle(process):
             _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
             _pickle.unlink()
+
+    def read_stored_config(self, ext: str = "yaml"):
+        _file_name = f"{self.process_name}_{self.process_step}_config.{ext}"
+        _file = Path(self._file_storage / _file_name)
+        if not _file.exists():
+            return self.process_step, {}
+        config_yaml = yaml.safe_load(_file.open('rb'))
+        return self.process_step, config_yaml
 
     def start_process(self, cache_name, process_factory, process_tracker):
         config = self.config.copy()
