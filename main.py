@@ -394,8 +394,9 @@ def get_pipeline_default_configuration():
     if request.method == "GET":
         is_default_conf = get_bool_expression(request.args.get("default", True))
         process = request.args.get("process", "default")
+        language = PipelineLanguage.language_from_string(request.args.get("language", "en"))
         if is_default_conf:
-            default_conf = pathlib.Path("./conf/pipeline-config.json")
+            default_conf = pathlib.Path(f"./conf/pipeline-config_{language}.json")
             if default_conf.exists() and default_conf.is_file():
                 try:
                     return jsonify(**json.load(default_conf.open('rb'))), int(HTTPResponses.OK)

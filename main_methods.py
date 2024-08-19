@@ -18,7 +18,7 @@ from werkzeug.datastructures import FileStorage
 from yaml.representer import RepresenterError
 
 from main_utils import ProcessStatus, HTTPResponses, StepsName, pipeline_query_params, steps_relation_dict, \
-    add_status_to_running_process
+    add_status_to_running_process, PipelineLanguage
 
 sys.path.insert(0, "src")
 import graph_creation_util
@@ -98,9 +98,9 @@ def get_pipeline_query_params(
             ), int(HTTPResponses.FORBIDDEN)
     app.logger.info(f"Using process name '{corpus}'")
     if config_obj_json is not None and config_obj_json.language is not None:
-        language = {"en": "en", "de": "de"}.get(config_obj_json.language.lower(), "en")
+        language = PipelineLanguage.language_from_string(config_obj_json.language)
     else:
-        language = {"en": "en", "de": "de"}.get(str(flask_request.args.get("lang", "en")).lower(), "en")
+        language = PipelineLanguage.language_from_string(str(flask_request.args.get("lang", "en")))
     app.logger.info(f"Using preset language settings for '{language}' where specific configuration is not provided.")
 
     skip_present = flask_request.args.get("skip_present", True)

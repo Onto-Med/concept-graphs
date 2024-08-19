@@ -98,6 +98,21 @@ steps_relation_dict = {
 }
 
 
+class PipelineLanguage:
+    language_map = {
+        "en": "en",
+        "english": "en",
+        "englisch": "en",
+        "de": "de",
+        "german": "de",
+        "deutsch": "de"
+    }
+
+    @staticmethod
+    def language_from_string(lang):
+        return PipelineLanguage.language_map.get(lang.lower(), "en")
+
+
 def add_status_to_running_process(
         process_name: str,
         step_name: StepsName,

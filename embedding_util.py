@@ -51,7 +51,7 @@ class PhraseEmbeddingUtil:
             _scaling = base_config.get("scaling", {}).copy()
             for k, v in _scaling.items():
                 base_config[f"scaling_{k}"] = v
-            base_config.pop("scaling")
+            base_config.pop("scaling", None)
         elif isinstance(config, FileStorage):
             try:
                 base_config = yaml.safe_load(config.stream)
