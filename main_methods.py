@@ -11,7 +11,7 @@ import flask
 import networkx as nx
 import requests
 import yaml
-from flask import request, jsonify, render_template_string
+from flask import request, jsonify, render_template_string, Response
 from munch import Munch
 from werkzeug.datastructures import FileStorage
 from yaml.representer import RepresenterError
@@ -270,7 +270,13 @@ def start_processes(
     for process_obj, _fact, _name in processes:
         if thread_store.get(process_name, None) is not None:
             if thread_store[process_name].stopped():
-                break
+                add_status_to_running_process(
+                    process_name=process_name,
+                    step_name=_name,
+                    step_status=ProcessStatus.NOT_PRESENT,
+                    running_processes=process_tracker
+                )
+                continue
         try:
             process_obj.start_process(
                 cache_name=process_name,
@@ -311,13 +317,13 @@ def stop_thread(
     if _thread is None or _process is None:
         _msg = f"No thread/process for '{process_name}' was found."
         logging.error(_msg)
-        return jsonify(message=_msg), int(HTTPResponses.INTERNAL_SERVER_ERROR)
+        return Response(_msg, status=int(HTTPResponses.INTERNAL_SERVER_ERROR))
 
     _current_step = next((step for step in sorted(_process.get('status', {}), key=lambda p: p.get('rank', 99)) if step.get('status', None) == ProcessStatus.RUNNING), None)
     if _current_step is None:
         _msg = f"Couldn't find a running step in the pipeline '{process_name}'."
         logging.error(_msg)
-        return jsonify(message=_msg), int(HTTPResponses.INTERNAL_SERVER_ERROR)
+        return Response(_msg, status=int(HTTPResponses.INTERNAL_SERVER_ERROR))
     _thread.stop()
 
     try:
@@ -332,7 +338,7 @@ def stop_thread(
 
     app.logger.info(
         f"Thread for '{process_name}' will be stopped after the present step ('{_current_step.get('name', None)}') is completed.")
-    return jsonify(name=process_name, status=ProcessStatus.STOPPED, message="Process will be stopped."), int(HTTPResponses.ACCEPTED)
+    return Response("Process will be stopped.", status=int(HTTPResponses.ACCEPTED))
 
 
 def read_config(app: flask.Flask, processor, process_type, process_name=None, config=None, language=None):

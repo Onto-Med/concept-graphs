@@ -389,13 +389,13 @@ def complete_pipeline():
         )
 
 
-@app.route("/pipeline/stop", methods=["GET"])
-def stop_pipeline():
+@app.route("/processes/<process_id>/stop", methods=["GET"])
+def stop_pipeline(process_id):
     if request.method == "GET":
-        process = request.args.get("process", "default")
+        process_id = process_id.lower()
         return stop_thread(
             app=app,
-            process_name=process,
+            process_name=process_id,
             threading_store=pipeline_threads_store,
             process_tracker=running_processes
         )
