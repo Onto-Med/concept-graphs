@@ -93,11 +93,18 @@ class GraphCreationUtil:
             _pickle.unlink()
 
     def read_stored_config(self, ext: str = "yaml"):
+        _sub_configs = {"graph": {}, "cluster": {}}
         _file_name = f"{self.process_name}_{self.process_step}_config.{ext}"
         _file = Path(self._file_storage / _file_name)
         if not _file.exists():
             return self.process_step, {}
         config_yaml = yaml.safe_load(_file.open('rb'))
+        for key, value in config_yaml.copy().items():
+            _sub_key_split = key.split("_")
+            if len(_sub_key_split) > 1 and _sub_key_split[0] in _sub_configs.keys():
+                _sub_configs[_sub_key_split[0]]["_".join(_sub_key_split[1:])] = value
+                config_yaml.pop(key)
+        config_yaml.update(_sub_configs)
         return self.process_step, config_yaml
 
     def start_process(self, cache_name, process_factory, process_tracker, exclusion_ids=None):

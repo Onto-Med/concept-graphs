@@ -300,18 +300,6 @@ def read_config(app: flask.Flask, processor, process_type, process_name=None, co
 
 
 def load_configs(app: flask.app, process_name: str, path_to_configs: Union[pathlib.Path, str], ext: str = "yaml"):
-    # ToDo: still need to parse config with sub objects in mind for each "util" (e.g. right now
-    # "clustering": {
-    #    "scaling_metric": ...
-    #    "scaling_min_dist": ...
-    # }
-    # should become =>
-    # "clustering": {
-    #    "scaling": {
-    #       metric": ...
-    #       min_dist": ...
-    #    }
-    # }
     final_config = {}
     processes = [
         (StepsName.DATA, PreprocessingUtil,),
