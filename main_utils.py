@@ -1,4 +1,5 @@
 import pathlib
+import threading
 from collections import namedtuple
 from dataclasses import dataclass
 from enum import Enum, IntEnum
@@ -18,6 +19,22 @@ class NegspacyConfig(JSONWizard):
     scope: int | None = None
     language: str | None = None
     feat_of_interest: str | None = None
+
+
+class StoppableThread(threading.Thread):
+    """Thread class with a stop() method. The thread itself has to check
+    regularly for the stopped() condition.
+    From: https://stackoverflow.com/questions/323972/is-there-any-way-to-kill-a-thread"""
+
+    def __init__(self, group, target, name, target_args):
+        super().__init__(args=target_args, group=group, target=target, name=name)
+        self._stop_event = threading.Event()
+
+    def stop(self):
+        self._stop_event.set()
+
+    def stopped(self):
+        return self._stop_event.is_set()
 
 
 class BaseUtil(ABC):
@@ -78,6 +95,7 @@ class ProcessStatus(str, Enum):
     FINISHED = "finished"
     ABORTED = "aborted"
     NOT_PRESENT = "not present"
+    STOPPED = "stopped"
 
 
 class HTTPResponses(IntEnum):

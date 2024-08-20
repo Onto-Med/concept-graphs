@@ -4,6 +4,7 @@ import sys
 import pathlib
 import pickle
 from collections import OrderedDict, defaultdict, namedtuple
+from time import sleep
 from typing import Union, Iterable
 
 import flask
@@ -18,7 +19,7 @@ from yaml.representer import RepresenterError
 from clustering_util import ClusteringUtil
 from embedding_util import PhraseEmbeddingUtil
 from main_utils import ProcessStatus, HTTPResponses, StepsName, pipeline_query_params, steps_relation_dict, \
-    add_status_to_running_process, PipelineLanguage, get_bool_expression
+    add_status_to_running_process, PipelineLanguage, get_bool_expression, StoppableThread
 from preprocessing_util import PreprocessingUtil
 
 sys.path.insert(0, "src")
@@ -253,7 +254,13 @@ def get_all_processes(path: str):
     return _process_detailed
 
 
-def start_processes(app: flask.Flask, processes: tuple, process_name: str, process_tracker: dict):
+def start_processes(
+        app: flask.Flask,
+        processes: tuple,
+        process_name: str,
+        process_tracker: dict[str, dict],
+        thread_store: dict[str, StoppableThread]
+):
     _name_marker = {
         StepsName.DATA: "**data**, embedding, clustering, graph",
         StepsName.EMBEDDING: "data, **embedding**, clustering, graph",
@@ -261,6 +268,9 @@ def start_processes(app: flask.Flask, processes: tuple, process_name: str, proce
         StepsName.GRAPH: "data, embedding, clustering, **graph**",
     }
     for process_obj, _fact, _name in processes:
+        if thread_store.get(process_name, None) is not None:
+            if thread_store[process_name].stopped():
+                break
         try:
             process_obj.start_process(
                 cache_name=process_name,
@@ -270,6 +280,59 @@ def start_processes(app: flask.Flask, processes: tuple, process_name: str, proce
         except FileNotFoundError as e:
             app.logger.warning(f"Something went wrong with one of the previous steps: {_name_marker[_name]}."
                                f"\nThere is a pickle file missing: {e}")
+
+
+def start_thread(
+        app: flask.Flask,
+        process_name: str,
+        pipeline_thread: StoppableThread,
+        threading_store: dict[str, StoppableThread]
+):
+    app.logger.info(f"Starting thread for '{process_name}'.")
+    pipeline_thread.start()
+    threading_store[process_name] = pipeline_thread
+    sleep(1)
+    return True
+
+
+def stop_thread(
+        app: flask.Flask,
+        process_name: str,
+        threading_store: dict[str, StoppableThread],
+        process_tracker: dict[str, dict],
+        hard_stop: bool = False
+):
+    # ToDo: delete config for aborted steps
+    # ToDo: maybe allow for hard stop? -> terminate the thread even if a step is not yet finished
+    app.logger.info(f"Trying to stop thread for '{process_name}'.")
+    _thread = threading_store.get(process_name, None)
+    _process = process_tracker.get(process_name, None)
+
+    if _thread is None or _process is None:
+        _msg = f"No thread/process for '{process_name}' was found."
+        logging.error(_msg)
+        return jsonify(message=_msg), int(HTTPResponses.INTERNAL_SERVER_ERROR)
+
+    _current_step = next((step for step in sorted(_process.get('status', {}), key=lambda p: p.get('rank', 99)) if step.get('status', None) == ProcessStatus.RUNNING), None)
+    if _current_step is None:
+        _msg = f"Couldn't find a running step in the pipeline '{process_name}'."
+        logging.error(_msg)
+        return jsonify(message=_msg), int(HTTPResponses.INTERNAL_SERVER_ERROR)
+    _thread.stop()
+
+    try:
+        for _step in sorted(_process.get('status', {}), key=lambda p: p.get('rank')):
+            if _step.get('rank') <= _current_step.get('rank'):
+                if _step.get('name') == _current_step.get('name'):
+                    process_tracker[process_name]["status"][_step.get('rank') - 1]["status"] = ProcessStatus.STOPPED
+                continue
+            process_tracker[process_name]["status"][_step.get('rank') - 1]["status"] = ProcessStatus.ABORTED
+    except Exception:
+        pass
+
+    app.logger.info(
+        f"Thread for '{process_name}' will be stopped after the present step ('{_current_step.get('name', None)}') is completed.")
+    return jsonify(name=process_name, status=ProcessStatus.STOPPED, message="Process will be stopped."), int(HTTPResponses.ACCEPTED)
 
 
 def read_config(app: flask.Flask, processor, process_type, process_name=None, config=None, language=None):

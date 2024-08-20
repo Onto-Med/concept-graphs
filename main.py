@@ -1,14 +1,14 @@
 import json
 import shutil
-import threading
 
-from time import sleep
+from typing import Optional
 
 from flask import Flask, Response
 from flask.logging import default_handler
 
 from main_methods import *
-from main_utils import ProcessStatus, HTTPResponses, StepsName, add_status_to_running_process, get_bool_expression
+from main_utils import ProcessStatus, HTTPResponses, StepsName, add_status_to_running_process, get_bool_expression, \
+    StoppableThread
 from preprocessing_util import PreprocessingUtil
 from embedding_util import PhraseEmbeddingUtil
 from clustering_util import ClusteringUtil
@@ -27,6 +27,7 @@ root.addHandler(default_handler)
 FILE_STORAGE_TMP = "./tmp"
 
 running_processes = {}
+pipeline_threads_store = {}
 
 f_storage = pathlib.Path(FILE_STORAGE_TMP)
 if not f_storage.exists():
@@ -365,10 +366,11 @@ def complete_pipeline():
 
         processes_threading.append((process_obj, _fact, _name, ))
 
-    pipeline_thread = threading.Thread(group=None, target=start_processes, name=None,
-                                       args=(app, processes_threading, query_params.process_name, running_processes, ))
-    pipeline_thread.start()
-    sleep(1)
+    pipeline_thread = StoppableThread(
+        target_args=(app, processes_threading, query_params.process_name, running_processes, pipeline_threads_store,),
+        group=None, target=start_processes, name=None)
+
+    start_thread(app, query_params.process_name, pipeline_thread, pipeline_threads_store)
 
     if query_params.return_statistics:
         pipeline_thread.join()
@@ -384,6 +386,18 @@ def complete_pipeline():
                 status=running_processes.get(query_params.process_name, {"status": []}).get("status")
             ),
             int(HTTPResponses.ACCEPTED)
+        )
+
+
+@app.route("/pipeline/stop", methods=["GET"])
+def stop_pipeline():
+    if request.method == "GET":
+        process = request.args.get("process", "default")
+        return stop_thread(
+            app=app,
+            process_name=process,
+            threading_store=pipeline_threads_store,
+            process_tracker=running_processes
         )
 
 
