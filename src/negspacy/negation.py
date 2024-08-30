@@ -133,6 +133,13 @@ class Negex:
         elif not isinstance(scope, int):
             scope = None
 
+        if isinstance(feat_of_interest, str):
+            feat_of_interest = {
+                "nc": FeaturesOfInterest.NOUN_CHUNKS,
+                "ne": FeaturesOfInterest.NAMED_ENTITIES,
+                "both": FeaturesOfInterest.BOTH
+            }.get(feat_of_interest.lower(), FeaturesOfInterest.NAMED_ENTITIES)
+
         self.pseudo_negations = ts["pseudo_negations"]
         self.preceding_negations = ts["preceding_negations"]
         self.following_negations = ts["following_negations"]

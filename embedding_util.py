@@ -1,12 +1,14 @@
 import inspect
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 import flask
 import yaml
 import sys
 
 from flask import jsonify
+from munch import Munch, unmunchify
+from werkzeug.datastructures import FileStorage
 
 from main_utils import ProcessStatus, StepsName, add_status_to_running_process
 
@@ -38,14 +40,19 @@ class PhraseEmbeddingUtil:
     def process_step(self):
         return self._process_step
 
-    def read_config(self, config, process_name=None, language=None):
+    def read_config(self, config: Optional[Union[FileStorage, dict]], process_name=None, language=None):
         _language_model_map = {"en": DEFAULT_EMBEDDING_MODEL, "de": "Sahajtomar/German-semantic"}
         base_config = {'model': DEFAULT_EMBEDDING_MODEL, 'down_scale_algorithm': None}
-        if config is None:
-            self._app.logger.info("No config file provided; using default values")
-            if language is not None:
-                base_config["model"] = _language_model_map.get(language, DEFAULT_EMBEDDING_MODEL)
-        else:
+        if isinstance(config, dict):
+            if isinstance(config, Munch):
+                base_config = unmunchify(config)
+            else:
+                base_config = config
+            _scaling = base_config.get("scaling", {}).copy()
+            for k, v in _scaling.items():
+                base_config[f"scaling_{k}"] = v
+            base_config.pop("scaling", None)
+        elif isinstance(config, FileStorage):
             try:
                 base_config = yaml.safe_load(config.stream)
                 if not base_config.get('model', False):
@@ -53,6 +60,11 @@ class PhraseEmbeddingUtil:
             except Exception as e:
                 self._app.logger.error(f"Couldn't read config file: {e}")
                 return jsonify("Encountered error. See log.")
+        else:
+            self._app.logger.info("No config file provided; using default values")
+            if language is not None:
+                base_config["model"] = _language_model_map.get(language, DEFAULT_EMBEDDING_MODEL)
+
         if language is not None and not base_config.get("model", False):
             base_config["model"] = _language_model_map.get(language, DEFAULT_EMBEDDING_MODEL)
 
@@ -75,6 +87,14 @@ class PhraseEmbeddingUtil:
         if self.has_pickle(process):
             _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
             _pickle.unlink()
+
+    def read_stored_config(self, ext: str = "yaml"):
+        _file_name = f"{self.process_name}_{self.process_step}_config.{ext}"
+        _file = Path(self._file_storage / _file_name)
+        if not _file.exists():
+            return self.process_step, {}
+        config_yaml = yaml.safe_load(_file.open('rb'))
+        return self.process_step, config_yaml
 
     def start_process(self, cache_name, process_factory, process_tracker):
         config = self.config.copy()

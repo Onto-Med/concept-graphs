@@ -1,11 +1,40 @@
 import pathlib
+import threading
 from collections import namedtuple
+from dataclasses import dataclass
 from enum import Enum, IntEnum
 from abc import ABC, abstractmethod
 from pathlib import Path
+from typing import Union
 
 import flask
 import yaml
+from dataclass_wizard import JSONWizard
+
+
+@dataclass
+class NegspacyConfig(JSONWizard):
+    chunk_prefix: str | list[str] | None = None
+    neg_termset_file: str | None = None
+    scope: int | None = None
+    language: str | None = None
+    feat_of_interest: str | None = None
+
+
+class StoppableThread(threading.Thread):
+    """Thread class with a stop() method. The thread itself has to check
+    regularly for the stopped() condition.
+    From: https://stackoverflow.com/questions/323972/is-there-any-way-to-kill-a-thread"""
+
+    def __init__(self, group, target, name, target_args):
+        super().__init__(args=target_args, group=group, target=target, name=name)
+        self._stop_event = threading.Event()
+
+    def stop(self):
+        self._stop_event.set()
+
+    def stopped(self):
+        return self._stop_event.is_set()
 
 
 class BaseUtil(ABC):
@@ -66,6 +95,7 @@ class ProcessStatus(str, Enum):
     FINISHED = "finished"
     ABORTED = "aborted"
     NOT_PRESENT = "not present"
+    STOPPED = "stopped"
 
 
 class HTTPResponses(IntEnum):
@@ -98,6 +128,21 @@ steps_relation_dict = {
 }
 
 
+class PipelineLanguage:
+    language_map = {
+        "en": "en",
+        "english": "en",
+        "englisch": "en",
+        "de": "de",
+        "german": "de",
+        "deutsch": "de"
+    }
+
+    @staticmethod
+    def language_from_string(lang):
+        return PipelineLanguage.language_map.get(lang.lower(), "en")
+
+
 def add_status_to_running_process(
         process_name: str,
         step_name: StepsName,
@@ -128,3 +173,15 @@ def add_status_to_running_process(
     else:
         running_processes[process_name]["status"].append(_step)
     return running_processes
+
+
+def get_bool_expression(str_bool: str, default: Union[bool, str] = False) -> bool:
+    if isinstance(str_bool, bool):
+        return str_bool
+    elif isinstance(str_bool, str):
+        return {
+            'true': True, 'yes': True, 'y': True, 'ja': True, 'j': True,
+            'false': False, 'no': False, 'n': False, 'nein': False,
+        }.get(str_bool.lower(), default)
+    else:
+        return False

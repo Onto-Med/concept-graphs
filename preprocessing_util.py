@@ -1,5 +1,4 @@
 import inspect
-import sys
 import zipfile
 from pathlib import Path
 from types import GeneratorType
@@ -8,10 +7,11 @@ from typing import List, Dict, Union, Generator, Optional
 import flask.app
 import spacy
 import yaml
+from munch import Munch, unmunchify
 from werkzeug.datastructures import FileStorage
 
-from main_methods import get_bool_expression, NegspacyConfig
-from main_utils import ProcessStatus, StepsName, add_status_to_running_process
+from main_utils import ProcessStatus, StepsName, add_status_to_running_process, get_bool_expression, NegspacyConfig
+from src.negspacy.utils import FeaturesOfInterest
 
 DEFAULT_SPACY_MODEL = "en_core_web_trf"
 
@@ -95,18 +95,24 @@ class PreprocessingUtil:
         except Exception as e:
             self._app.logger.error(f"Something went wrong with data file reading: {e}")
 
-    def read_config(self, config, process_name=None, language=None):
+    def read_config(self, config: Optional[Union[FileStorage, dict]], process_name=None, language=None):
         base_config = {'spacy_model': DEFAULT_SPACY_MODEL, 'file_encoding': 'utf-8', "omit_negated_chunks": False}
         _language_model_map = {"en": DEFAULT_SPACY_MODEL, "de": "de_dep_news_trf"}
-        if config is None:
-            self._app.logger.info("No config file provided; using default values")
-            if language is not None:
-                base_config["spacy_model"] = _language_model_map.get(language, DEFAULT_SPACY_MODEL)
-        else:
+
+        if isinstance(config, dict):
+            if isinstance(config, Munch):
+                base_config = unmunchify(config)
+            else:
+                base_config = config
+        elif isinstance(config, FileStorage):
             try:
                 base_config = yaml.safe_load(config.stream)
             except Exception as e:
                 self._app.logger.error(f"Couldn't read config file: {e}")
+        else:
+            self._app.logger.info("No config file provided; using default values")
+            if language is not None:
+                base_config["spacy_model"] = _language_model_map.get(language, DEFAULT_SPACY_MODEL)
 
         if language is not None and not base_config.get("spacy_model", False):
             base_config["spacy_model"] = _language_model_map.get(language, DEFAULT_SPACY_MODEL)
@@ -121,11 +127,27 @@ class PreprocessingUtil:
         if base_config.get("negspacy", False):
             _enabled = False
             _neg_config = NegspacyConfig()
-            for _c in base_config["negspacy"]:
-                if get_bool_expression(_c.get("enabled", "False")):
-                    _enabled = True
-                elif _c.get("configuration", False):
-                    _neg_config = NegspacyConfig.from_dict(_c.get("configuration")[0])
+            if isinstance(base_config["negspacy"], dict):
+                for k, v in base_config["negspacy"].items():
+                    if k.lower() == "enabled":
+                        _enabled = get_bool_expression(v)
+                    elif k.lower() == "configuration":
+                        _neg_config = NegspacyConfig.from_dict(v)
+            elif isinstance(base_config["negspacy"], list):
+                for _c in base_config["negspacy"]:
+                    if get_bool_expression(_c.get("enabled", "False")):
+                        _enabled = True
+                    elif _c.get("configuration", False):
+                        _neg_config = NegspacyConfig.from_dict(_c.get("configuration")[0])
+            _foi_map = {
+                "nc": FeaturesOfInterest.NOUN_CHUNKS,
+                "ne": FeaturesOfInterest.NAMED_ENTITIES,
+                "both": FeaturesOfInterest.BOTH
+            }
+            _neg_config.feat_of_interest = (
+                _foi_map.get(_neg_config.feat_of_interest.lower(), FeaturesOfInterest.NAMED_ENTITIES)
+                if isinstance(_neg_config.feat_of_interest, str) else FeaturesOfInterest.NAMED_ENTITIES
+            )
             base_config.pop("negspacy", None)
             base_config["negspacy_config"] = _neg_config
             base_config["omit_negated_chunks"] = _enabled
@@ -145,6 +167,14 @@ class PreprocessingUtil:
             except Exception as e:
                 self._app.logger.error(f"Couldn't read labels file: {e}")
         self.labels = base_labels
+
+    def read_stored_config(self, ext: str = "yaml"):
+        _file_name = f"{self.process_name}_{self.process_step}_config.{ext}"
+        _file = Path(self._file_storage / _file_name)
+        if not _file.exists():
+            return self.process_step, {}
+        config_yaml = yaml.safe_load(_file.open('rb'))
+        return self.process_step, config_yaml
 
     def start_process(self, cache_name, process_factory, process_tracker):
         config = self.config.copy()

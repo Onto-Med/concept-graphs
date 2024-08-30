@@ -1,46 +1,88 @@
+import logging
 import os
 import sys
 import pathlib
 import pickle
-from collections import OrderedDict, defaultdict
-from dataclasses import dataclass
-from typing import Union, Optional, Any, Dict, Iterable
+from collections import OrderedDict, defaultdict, namedtuple
+from time import sleep
+from typing import Union, Iterable
 
 import flask
 import networkx as nx
 import requests
 import yaml
-from dataclass_wizard import JSONWizard
-from flask import request, jsonify, render_template_string
+from flask import request, jsonify, render_template_string, Response
+from munch import Munch
 from werkzeug.datastructures import FileStorage
 from yaml.representer import RepresenterError
 
+from clustering_util import ClusteringUtil
+from embedding_util import PhraseEmbeddingUtil
 from main_utils import ProcessStatus, HTTPResponses, StepsName, pipeline_query_params, steps_relation_dict, \
-    add_status_to_running_process
+    add_status_to_running_process, PipelineLanguage, get_bool_expression, StoppableThread
+from preprocessing_util import PreprocessingUtil
 
 sys.path.insert(0, "src")
 import graph_creation_util
 import cluster_functions
 
-
-@dataclass
-class NegspacyConfig(JSONWizard):
-    chunk_prefix: str | list[str] | None = None
-    neg_termset_file: str | None = None
-    scope: int | None = None
-    language: str | None = None
-    feat_of_interest: str | None = None
+pipeline_json_config = namedtuple("pipeline_json_config",
+                                  ["name", "language", "document_server", "data", "embedding", "clustering", "graph"])
 
 
-def parse_config_json(response_json) -> dict:
-    return {}
+def parse_config_json(response_json) -> pipeline_json_config:
+    config = Munch.fromDict(response_json)
+    try:
+        return pipeline_json_config(config.get("name", None),
+                                    config.get("language", None),
+                                    config.get("document_server", None),
+                                    config.config.get("data", Munch()),
+                                    config.config.get("embedding", Munch()),
+                                    config.config.get("clustering", Munch()),
+                                    config.config.get("graph", Munch())
+                                    )
+    except AttributeError as e:
+        logging.error(f"Json body/configuration seems to be malformed: no 'config' entry was provided.\n{e}")
+        return pipeline_json_config(config.get("name", None),
+                                    config.get("language", None),
+                                    config.get("document_server", None),
+                                    Munch(),
+                                    Munch(),
+                                    Munch(),
+                                    Munch()
+                                    )
+
+
+def read_config_json(app, processor, process_type, process_name, config, language):
+    app.logger.info(f"Reading config ({process_type}) ...")
+    processor.read_config(config=config, process_name=config.get("name", process_name),
+                          language=config.get("language", language) if process_type in [StepsName.DATA,
+                                                                                        StepsName.EMBEDDING] else None)
+    app.logger.info(f"Parsed the following arguments for {processor}:\n\t{processor.config}")
+    processor.set_file_storage_path(process_name)
+    processor.process_name = process_name
+
+    with pathlib.Path(
+            pathlib.Path(processor._file_storage) /
+            pathlib.Path(f"{process_name}_{process_type}_config.yaml")
+    ).open('w') as config_save:
+        try:
+            yaml.safe_dump(processor.config, config_save)
+        except RepresenterError:
+            yaml.safe_dump(processor.serializable_config, config_save)
+    return process_name
 
 
 def get_pipeline_query_params(
         app: flask.Flask,
         flask_request: flask.Request,
-        running_processes: dict) -> Union[pipeline_query_params, tuple]:
-    corpus = flask_request.args.get("process", "default").lower()
+        running_processes: dict,
+        config_obj_json: pipeline_json_config
+) -> Union[pipeline_query_params, tuple]:
+    if config_obj_json is not None and config_obj_json.name is not None:
+        corpus = config_obj_json.name
+    else:
+        corpus = flask_request.args.get("process", "default").lower()
     if corpus_status := running_processes.get(corpus, False):
         if any([v.get("status", None) == ProcessStatus.RUNNING for v in corpus_status.get("status", [])]):
             return jsonify(
@@ -48,8 +90,11 @@ def get_pipeline_query_params(
                 error=f"A process is currently running for this corpus. Use '/status?process={corpus}' for specifics."
             ), int(HTTPResponses.FORBIDDEN)
     app.logger.info(f"Using process name '{corpus}'")
-    language = {"en": "en", "de": "de"}.get(str(flask_request.args.get("lang", "en")).lower(), "en")
-    app.logger.info(f"Using preset language settings for '{language}'")
+    if config_obj_json is not None and config_obj_json.language is not None:
+        language = PipelineLanguage.language_from_string(config_obj_json.language)
+    else:
+        language = PipelineLanguage.language_from_string(str(flask_request.args.get("lang", "en")))
+    app.logger.info(f"Using preset language settings for '{language}' where specific configuration is not provided.")
 
     skip_present = flask_request.args.get("skip_present", True)
     if isinstance(skip_present, str):
@@ -69,11 +114,16 @@ def get_pipeline_query_params(
     return pipeline_query_params(corpus, language, skip_present, omit_pipeline_steps, return_statistics)
 
 
-def get_data_server_config(document_server_config: FileStorage, app: flask.Flask):
+def get_data_server_config(document_server_config: Union[FileStorage, dict], app: flask.Flask):
     base_config = {"url": "http://localhost", "port": "9008", "index": "documents", "size": "30", "label_key": "label",
                    "other_id": "id"}
     try:
-        _config = yaml.safe_load(document_server_config.stream)
+        if isinstance(document_server_config, FileStorage):
+            _config = yaml.safe_load(document_server_config.stream)
+        elif isinstance(document_server_config, dict):
+            _config = document_server_config.copy()
+        else:
+            raise Exception("Document server config is not of type 'FileStorage' or 'dict'!")
         for k, v in base_config.items():
             if k not in _config:
                 if v is None or (isinstance(v, str) and v.lower() == "none"):
@@ -128,7 +178,8 @@ def is_skip_doc(document_hit: dict, doc_filter: Iterable, inverse_filter: bool =
 
 
 def get_documents_from_es_server(
-        url: str, port: Union[str, int], index: str, size: int = 30, other_id: str = "id", doc_name_filter: list = None, inverse_filter: bool = False,
+        url: str, port: Union[str, int], index: str, size: int = 30, other_id: str = "id", doc_name_filter: list = None,
+        inverse_filter: bool = False,
 ):
     """Gets documents from a specified Elasticsearch server and index.
 
@@ -143,7 +194,8 @@ def get_documents_from_es_server(
     """
     _params = {"size": f"{size}", "scroll": "1m"}
     _filter = False
-    if isinstance(doc_name_filter, Iterable) and not isinstance(doc_name_filter, (str, bytes)) and len(doc_name_filter) > 0:
+    if isinstance(doc_name_filter, Iterable) and not isinstance(doc_name_filter, (str, bytes)) and len(
+            doc_name_filter) > 0:
         _filter = True
     final_url = f"{url.rstrip('/')}:{port}/{index.lstrip('/').rstrip('/')}/_search"
     _first_page = requests.get(final_url, params=_params).json()
@@ -202,7 +254,13 @@ def get_all_processes(path: str):
     return _process_detailed
 
 
-def start_processes(app: flask.Flask, processes: tuple, process_name: str, process_tracker: dict):
+def start_processes(
+        app: flask.Flask,
+        processes: tuple,
+        process_name: str,
+        process_tracker: dict[str, dict],
+        thread_store: dict[str, StoppableThread]
+):
     _name_marker = {
         StepsName.DATA: "**data**, embedding, clustering, graph",
         StepsName.EMBEDDING: "data, **embedding**, clustering, graph",
@@ -210,6 +268,15 @@ def start_processes(app: flask.Flask, processes: tuple, process_name: str, proce
         StepsName.GRAPH: "data, embedding, clustering, **graph**",
     }
     for process_obj, _fact, _name in processes:
+        if thread_store.get(process_name, None) is not None:
+            if thread_store[process_name].stopped():
+                add_status_to_running_process(
+                    process_name=process_name,
+                    step_name=_name,
+                    step_status=ProcessStatus.NOT_PRESENT,
+                    running_processes=process_tracker
+                )
+                continue
         try:
             process_obj.start_process(
                 cache_name=process_name,
@@ -219,6 +286,59 @@ def start_processes(app: flask.Flask, processes: tuple, process_name: str, proce
         except FileNotFoundError as e:
             app.logger.warning(f"Something went wrong with one of the previous steps: {_name_marker[_name]}."
                                f"\nThere is a pickle file missing: {e}")
+
+
+def start_thread(
+        app: flask.Flask,
+        process_name: str,
+        pipeline_thread: StoppableThread,
+        threading_store: dict[str, StoppableThread]
+):
+    app.logger.info(f"Starting thread for '{process_name}'.")
+    pipeline_thread.start()
+    threading_store[process_name] = pipeline_thread
+    sleep(1)
+    return True
+
+
+def stop_thread(
+        app: flask.Flask,
+        process_name: str,
+        threading_store: dict[str, StoppableThread],
+        process_tracker: dict[str, dict],
+        hard_stop: bool = False
+):
+    # ToDo: delete config for aborted steps
+    # ToDo: maybe allow for hard stop? -> terminate the thread even if a step is not yet finished
+    app.logger.info(f"Trying to stop thread for '{process_name}'.")
+    _thread = threading_store.get(process_name, None)
+    _process = process_tracker.get(process_name, None)
+
+    if _thread is None or _process is None:
+        _msg = f"No thread/process for '{process_name}' was found."
+        logging.error(_msg)
+        return Response(_msg, status=int(HTTPResponses.INTERNAL_SERVER_ERROR))
+
+    _current_step = next((step for step in sorted(_process.get('status', {}), key=lambda p: p.get('rank', 99)) if step.get('status', None) == ProcessStatus.RUNNING), None)
+    if _current_step is None:
+        _msg = f"Couldn't find a running step in the pipeline '{process_name}'."
+        logging.error(_msg)
+        return Response(_msg, status=int(HTTPResponses.INTERNAL_SERVER_ERROR))
+    _thread.stop()
+
+    try:
+        for _step in sorted(_process.get('status', {}), key=lambda p: p.get('rank')):
+            if _step.get('rank') <= _current_step.get('rank'):
+                if _step.get('name') == _current_step.get('name'):
+                    process_tracker[process_name]["status"][_step.get('rank') - 1]["status"] = ProcessStatus.STOPPED
+                continue
+            process_tracker[process_name]["status"][_step.get('rank') - 1]["status"] = ProcessStatus.ABORTED
+    except Exception:
+        pass
+
+    app.logger.info(
+        f"Thread for '{process_name}' will be stopped after the present step ('{_current_step.get('name', None)}') is completed.")
+    return Response("Process will be stopped.", status=int(HTTPResponses.ACCEPTED))
 
 
 def read_config(app: flask.Flask, processor, process_type, process_name=None, config=None, language=None):
@@ -246,6 +366,23 @@ def read_config(app: flask.Flask, processor, process_type, process_name=None, co
         except RepresenterError:
             yaml.safe_dump(processor.serializable_config, config_save)
     return process_name
+
+
+def load_configs(app: flask.app, process_name: str, path_to_configs: Union[pathlib.Path, str], ext: str = "yaml"):
+    final_config = {}
+    processes = [
+        (StepsName.DATA, PreprocessingUtil,),
+        (StepsName.EMBEDDING, PhraseEmbeddingUtil,),
+        (StepsName.CLUSTERING, ClusteringUtil,),
+        (StepsName.GRAPH, graph_creation_util.GraphCreationUtil,)
+    ]
+    for _step, _proc in processes:
+        process_obj = _proc(app=app, file_storage=path_to_configs)
+        process_obj.process_name = process_name
+        process_obj.set_file_storage_path(process_name)
+        key, val = process_obj.read_stored_config()
+        final_config[key] = val
+    return final_config
 
 
 def read_exclusion_ids(exclusion: Union[str, FileStorage]):
@@ -379,18 +516,6 @@ def graph_create(app: flask.Flask, path: str):
         except FileNotFoundError:
             return jsonify(f"There is no processed data for the '{process_name}' process to be embedded.")
     return jsonify("Nothing to do.")
-
-
-def get_bool_expression(str_bool: str, default: Union[bool, str] = False) -> bool:
-    if isinstance(str_bool, bool):
-        return str_bool
-    elif isinstance(str_bool, str):
-        return {
-            'true': True, 'yes': True, 'y': True, 'ja': True, 'j': True,
-            'false': False, 'no': False, 'n': False, 'nein': False,
-        }.get(str_bool.lower(), default)
-    else:
-        return False
 
 
 def get_dict_expression(dict_str: str):

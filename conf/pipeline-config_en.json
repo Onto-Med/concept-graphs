@@ -1,0 +1,74 @@
+{
+    "name": "default",
+    "language": "en",
+    "config": {
+        "data": {
+            "spacy_model": "en_core_web_trf",
+            "n_process": 1,
+            "file_extension": "txt",
+            "file_encoding": "utf-8",
+            "use_lemma": false,
+            "prepend_head": false,
+            "head_only": false,
+            "case_sensitive": false,
+            "tfidf_filter": {
+                "enabled": false,
+                "min_df": 1,
+                "max_df": 1.0,
+                "stop": false
+            },
+            "disable": null,
+            "negspacy": {
+                "enabled": true,
+                "configuration": {
+                    "scope": 1,
+                    "language": "en",
+                    "feat_of_interest": "NC"
+                }
+            }
+        },
+        "embedding": {
+            "model": "sentence-transformers/paraphrase-albert-small-v2",
+            "n_process": 1
+        },
+        "clustering": {
+            "algorithm": "kmeans",
+            "downscale": "umap",
+            "missing_as_recommended": true,
+            "scaling": {
+
+            },
+            "clustering": {
+
+            },
+            "kelbow": {
+                
+            }
+        },
+        "graph": {
+            "cluster": {
+                "distance": 0.7,
+                "min_size": 4
+            },
+            "graph": {
+                "cosine_weight": 0.6,
+                "merge_threshold": 0.95,
+                "graph_weight_cut_off": 0.5,
+                "unroll": false,
+                "simplify": 0.5,
+                "simplify_alg": "significance",
+                "sub_clustering": false
+            },
+            "restrict_to_cluster": true
+        }
+    },
+    "document_server": {
+        "url": "http://localhost",
+        "port": 9008,
+        "index": "documents",
+        "size": 30,
+        "label_key": "label",
+        "replace_keys": {"text": "content"},
+        "other_id": "id"
+    }
+}

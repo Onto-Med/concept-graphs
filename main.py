@@ -1,15 +1,14 @@
-import logging
-import pathlib
+import json
 import shutil
-import threading
 
-from time import sleep
+from typing import Optional
 
 from flask import Flask, Response
 from flask.logging import default_handler
 
 from main_methods import *
-from main_utils import ProcessStatus, HTTPResponses, StepsName, add_status_to_running_process
+from main_utils import ProcessStatus, HTTPResponses, StepsName, add_status_to_running_process, get_bool_expression, \
+    StoppableThread
 from preprocessing_util import PreprocessingUtil
 from embedding_util import PhraseEmbeddingUtil
 from clustering_util import ClusteringUtil
@@ -28,6 +27,7 @@ root.addHandler(default_handler)
 FILE_STORAGE_TMP = "./tmp"
 
 running_processes = {}
+pipeline_threads_store = {}
 
 f_storage = pathlib.Path(FILE_STORAGE_TMP)
 if not f_storage.exists():
@@ -259,60 +259,84 @@ def graph_creation_with_arg(path_arg):
 @app.route("/pipeline", methods=['POST'])
 def complete_pipeline():
     data = request.files.get("data", False)
+    data_upload = False
     document_server_config = request.files.get("document_server_config", False)
     replace_keys = None
     label_getter = None
+    labels = None
 
-    query_params = get_pipeline_query_params(app, request, running_processes)
+    content_type = request.headers.get("Content-Type")
+    content_type_json = False
+    config_object_json = None
+    if content_type == "application/json":
+        content_type_json = True
+        config_object_json: Optional[pipeline_json_config] = parse_config_json(request.json)
+
+    query_params = get_pipeline_query_params(app, request, running_processes, config_object_json)
     if isinstance(query_params, tuple) and isinstance(query_params[0], flask.Response):
         return query_params
 
-    # ToDo
-    content_type = request.headers.get("Content-Type")
-    if content_type == "application/json":
-        config_object = parse_config_json(request.json)
+    if content_type_json:
+        _document_server = config_object_json.document_server
+        if _document_server is not None:
+            replace_keys = _document_server.get("replace_keys", {"text": "content"})
+            label_getter = _document_server.get("label_key", None)
+            document_server_config = _document_server.copy()
+        else:
+            return jsonify(
+                name=config_object_json.name if config_object_json.name is not None else query_params.process_name,
+                error="No configuration entry for documents on a server provided."
+            ), int(HTTPResponses.BAD_REQUEST)
+        _data_config = config_object_json.data
+        _embedding_config = config_object_json.embedding
+        _clustering_config = config_object_json.clustering
+        _graph_config = config_object_json.graph
 
-    if not data and not document_server_config:
-        return jsonify(
-            name=query_params.process_name,
-            error="Neither data provided for upload with 'data' key nor a config file for documents on a server"
-        ), int(HTTPResponses.BAD_REQUEST)
-    elif data and not document_server_config:
-        _tmp_data = pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(".tmp_streams") / data.filename)
-        _tmp_data.parent.mkdir(parents=True, exist_ok=True)
-        data.save(_tmp_data)
-        data = _tmp_data
     else:
-        base_config = get_data_server_config(document_server_config, app)
-        if not check_data_server(url=base_config["url"], port=base_config["port"], index=base_config["index"]):
+        if not data and not document_server_config:
             return jsonify(
                 name=query_params.process_name,
-                error=f"There is no data server at the specified location ({base_config}) or it contains no data."
+                error="Neither data provided for upload with 'data' key nor a config file for documents on a server"
+            ), int(HTTPResponses.BAD_REQUEST)
+        elif data and not document_server_config:
+            _tmp_data = pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(".tmp_streams") / data.filename)
+            _tmp_data.parent.mkdir(parents=True, exist_ok=True)
+            data.save(_tmp_data)
+            data = _tmp_data
+            data_upload = True
+
+        labels = request.files.get("labels", None)
+        if labels is not None:
+            _tmp_labels = pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(".tmp_streams") / labels.filename)
+            _tmp_labels.parent.mkdir(parents=True, exist_ok=True)
+            labels.save(_tmp_labels)
+            labels = _tmp_labels
+
+        _data_config = request.files.get(f"{StepsName.DATA}_config", None)
+        _embedding_config = request.files.get(f"{StepsName.EMBEDDING}_config", None)
+        _clustering_config = request.files.get(f"{StepsName.CLUSTERING}_config", None)
+        _graph_config = request.files.get(f"{StepsName.GRAPH}_config", None)
+
+    if not data_upload:
+        ds_base_config = get_data_server_config(document_server_config, app)
+        if not check_data_server(url=ds_base_config["url"], port=ds_base_config["port"], index=ds_base_config["index"]):
+            return jsonify(
+                name=query_params.process_name,
+                error=f"There is no data server at the specified location ({ds_base_config}) or it contains no data."
             ), int(HTTPResponses.NOT_FOUND)
         # ToDo: don't know if I want this, but 'get_documents_from_es_server' can now filter documents
         data = get_documents_from_es_server(
-            url=base_config['url'], port=base_config['port'], index=base_config['index'], size=int(base_config['size']),
-            other_id=base_config['other_id']
+            url=ds_base_config['url'], port=ds_base_config['port'], index=ds_base_config['index'], size=int(ds_base_config['size']),
+            other_id=ds_base_config['other_id']
         )
-        replace_keys = base_config.get("replace_keys", {"text": "content"})
-        label_getter = base_config.get("label_key", None)
-
-    labels = request.files.get("labels", None)
-    if labels is not None:
-        _tmp_labels = pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(".tmp_streams") / labels.filename)
-        _tmp_labels.parent.mkdir(parents=True, exist_ok=True)
-        labels.save(_tmp_labels)
-        labels = _tmp_labels
+        replace_keys = ds_base_config.get("replace_keys", {"text": "content"})
+        label_getter = ds_base_config.get("label_key", None)
 
     processes = [
-        (StepsName.DATA, PreprocessingUtil, request.files.get(f"{StepsName.DATA}_config", None),
-         data_functions.DataProcessingFactory,),
-        (StepsName.EMBEDDING, PhraseEmbeddingUtil, request.files.get(f"{StepsName.EMBEDDING}_config", None),
-         embedding_functions.SentenceEmbeddingsFactory,),
-        (StepsName.CLUSTERING, ClusteringUtil, request.files.get(f"{StepsName.CLUSTERING}_config", None),
-         cluster_functions.PhraseClusterFactory,),
-        (StepsName.GRAPH, GraphCreationUtil, request.files.get(f"{StepsName.GRAPH}_config", None),
-         cluster_functions.WordEmbeddingClustering,)
+        (StepsName.DATA, PreprocessingUtil, _data_config, data_functions.DataProcessingFactory,),
+        (StepsName.EMBEDDING, PhraseEmbeddingUtil, _embedding_config, embedding_functions.SentenceEmbeddingsFactory,),
+        (StepsName.CLUSTERING, ClusteringUtil, _clustering_config, cluster_functions.PhraseClusterFactory,),
+        (StepsName.GRAPH, GraphCreationUtil, _graph_config, cluster_functions.WordEmbeddingClustering,)
     ]
     processes_threading = []
 
@@ -327,17 +351,26 @@ def complete_pipeline():
                 continue
             else:
                 process_obj.delete_pickle(query_params.process_name)
-        read_config(app=app, processor=process_obj, process_type=_name,
-                    process_name=query_params.process_name, config=_conf, language=query_params.language)
+
+        if content_type_json:
+            read_config_json(app=app, processor=process_obj, process_type=_name,
+                             process_name=query_params.process_name, config=_conf,
+                             language=query_params.language)
+        else:
+            read_config(app=app, processor=process_obj, process_type=_name,
+                        process_name=query_params.process_name, config=_conf, language=query_params.language)
+
         if _name == StepsName.DATA:
             process_obj.read_labels(labels if label_getter is None else label_getter)
             process_obj.read_data(data, replace_keys=replace_keys, label_getter=label_getter)
+
         processes_threading.append((process_obj, _fact, _name, ))
 
-    pipeline_thread = threading.Thread(group=None, target=start_processes, name=None,
-                                       args=(app, processes_threading, query_params.process_name, running_processes, ))
-    pipeline_thread.start()
-    sleep(1)
+    pipeline_thread = StoppableThread(
+        target_args=(app, processes_threading, query_params.process_name, running_processes, pipeline_threads_store,),
+        group=None, target=start_processes, name=None)
+
+    start_thread(app, query_params.process_name, pipeline_thread, pipeline_threads_store)
 
     if query_params.return_statistics:
         pipeline_thread.join()
@@ -354,6 +387,44 @@ def complete_pipeline():
             ),
             int(HTTPResponses.ACCEPTED)
         )
+
+
+@app.route("/processes/<process_id>/stop", methods=["GET"])
+def stop_pipeline(process_id):
+    if request.method == "GET":
+        process_id = process_id.lower()
+        return stop_thread(
+            app=app,
+            process_name=process_id,
+            threading_store=pipeline_threads_store,
+            process_tracker=running_processes
+        )
+
+
+@app.route("/pipeline/configuration", methods=['GET'])
+def get_pipeline_default_configuration():
+    if request.method == "GET":
+        is_default_conf = get_bool_expression(request.args.get("default", True))
+        process = request.args.get("process", "default")
+        language = PipelineLanguage.language_from_string(request.args.get("language", "en"))
+        if is_default_conf:
+            default_conf = pathlib.Path(f"./conf/pipeline-config_{language}.json")
+            if default_conf.exists() and default_conf.is_file():
+                try:
+                    return jsonify(**json.load(default_conf.open('rb'))), int(HTTPResponses.OK)
+                except Exception as e:
+                    logging.error(e)
+            return jsonify(message="Couldn't find/read default configuration."), int(HTTPResponses.NOT_FOUND)
+        else:
+            logging.info(f"Returning configuration for '{process}' pipeline.")
+            try:
+                _config = load_configs(app=app, process_name=process, path_to_configs=FILE_STORAGE_TMP)
+                return jsonify(name=process, language=language, config=_config), int(HTTPResponses.OK)
+            except Exception as e:
+                logging.error(e)
+            return jsonify(message=f"Couldn't find/read configuration for '{process}'."), int(HTTPResponses.NOT_FOUND)
+    else:
+        return HTTPResponses.BAD_REQUEST
 
 
 @app.route("/processes/<process_id>/delete", methods=["DELETE"])

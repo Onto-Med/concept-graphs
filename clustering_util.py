@@ -1,11 +1,13 @@
-import inspect
 from pathlib import Path
+from typing import Optional, Union
 
 import flask
 import yaml
 import sys
 
 from flask import jsonify
+from munch import Munch, unmunchify
+from werkzeug.datastructures import FileStorage
 
 from main_utils import ProcessStatus, StepsName, add_status_to_running_process
 
@@ -35,13 +37,26 @@ class ClusteringUtil:
     def process_step(self):
         return self._process_step
 
-    def read_config(self, config, process_name=None, language=None):
+    def read_config(self, config: Optional[Union[FileStorage, dict]], process_name=None, language=None):
         base_config = {"algorithm": "kmeans", "downscale": "umap", "scaling_n_neighbors": 10, "scaling_min_dist": 0.1,
                        "scaling_n_components": 100, "scaling_metric": 'euclidean', "scaling_random_state": 42,
                        "kelbow_k": (10, 100), "kelbow_show": False}
-        if config is None:
-            self._app.logger.info("No config file provided; using default values")
-        else:
+        if isinstance(config, dict):
+            if isinstance(config, Munch):
+                _config = unmunchify(config)
+            else:
+                _config = config
+            for _type in ["scaling", "clustering", "kelbow"]:
+                _sub_config = _config.get(_type, {}).copy()
+                for k, v in _sub_config.items():
+                    _config[f"{_type}_{k}"] = v
+                _config.pop(_type, None)
+            if _config.pop("missing_as_recommended", True):
+                for k, v in base_config.items():
+                    if k not in _config:
+                        _config[k] = v
+            base_config = _config
+        elif isinstance(config, FileStorage):
             try:
                 _config = yaml.safe_load(config.stream)
                 if _config.pop("missing_as_recommended", True):
@@ -52,6 +67,9 @@ class ClusteringUtil:
             except Exception as e:
                 self._app.logger.error(f"Couldn't read config file: {e}")
                 return jsonify("Encountered error. See log.")
+        else:
+            self._app.logger.info("No config file provided; using default values")
+
         base_config["corpus_name"] = process_name.lower() if process_name is not None else base_config["corpus_name"].lower()
         self.config = base_config
 
@@ -67,6 +85,21 @@ class ClusteringUtil:
         if self.has_pickle(process):
             _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
             _pickle.unlink()
+
+    def read_stored_config(self, ext: str = "yaml"):
+        _sub_configs = {"kelbow": {}, "scaling": {}, "clustering": {}}
+        _file_name = f"{self.process_name}_{self.process_step}_config.{ext}"
+        _file = Path(self._file_storage / _file_name)
+        if not _file.exists():
+            return self.process_step, {}
+        config_yaml = yaml.safe_load(_file.open('rb'))
+        for key, value in config_yaml.copy().items():
+            _sub_key_split = key.split("_")
+            if len(_sub_key_split) > 1 and _sub_key_split[0] in _sub_configs.keys():
+                _sub_configs[_sub_key_split[0]]["_".join(_sub_key_split[1:])] = value
+                config_yaml.pop(key)
+        config_yaml.update(_sub_configs)
+        return self.process_step, config_yaml
 
     def start_process(self, cache_name, process_factory, process_tracker):
         config = self.config.copy()

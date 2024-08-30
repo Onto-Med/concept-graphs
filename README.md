@@ -184,6 +184,12 @@ replace_keys: dictionary -
     (e.g.: '{text: content}')
 ```
 
+#### Path Parameters
+* ``/pipeline/configuration``  
+  (query params here: ``process`` (if a configuration from a specific pipeline is requested) &
+  ``default`` (defaults to ``true`` so that the endpoint returns a default configuration; if set to ``false`` it can be combined with `process` to request a specific configuration))  
+_ToDo: proper format for this entry_
+
 ####  Query Parameters
 * `process`: overrides the `corpus_name` given in the config
 * `lang` (`de` or `en`): if declared here and no model provided in `config`, will use default language specific models for `preprocessing` and `clustering` (default: en)
@@ -199,6 +205,7 @@ replace_keys: dictionary -
 
 (see example below)
 
+_ToDo_: describe json config possibilities when header ``Content-Type:application/json``
 
 #### HTTP Requests
 ```

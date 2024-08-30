@@ -2,13 +2,17 @@ import pathlib
 import pickle
 import sys
 from pathlib import Path
+from typing import Optional, Union
+from inspect import getfullargspec
 
 import flask
 import yaml
 import networkx as nx
+from munch import Munch, unmunchify
 from pyvis import network as net
 
 from flask import jsonify
+from werkzeug.datastructures import FileStorage
 
 from main_utils import ProcessStatus, StepsName, add_status_to_running_process
 
@@ -37,7 +41,7 @@ class GraphCreationUtil:
     def process_step(self):
         return self._process_step
 
-    def read_config(self, config, process_name=None, language=None):
+    def read_config(self, config: Optional[Union[FileStorage, dict]], process_name=None, language=None):
         base_config = {
             "cluster_distance": 0.7,
             "cluster_min_size": 4,
@@ -50,9 +54,18 @@ class GraphCreationUtil:
             "graph_sub_clustering": False,
             "restrict_to_cluster": True,
         }
-        if config is None:
-            self._app.logger.info("No config file provided; using default values")
-        else:
+        if isinstance(config, dict):
+            if isinstance(config, Munch):
+                _config = unmunchify(config)
+            else:
+                _config = config
+            for _type in ["graph", "cluster"]:
+                _sub_config = _config.get(_type, {}).copy()
+                for k, v in _sub_config.items():
+                    _config[f"{_type}_{k}"] = v
+                _config.pop(_type, None)
+            base_config = _config
+        elif isinstance(config, FileStorage):
             try:
                 base_config = yaml.safe_load(config.stream)
                 if base_config.get('model', False):
@@ -60,6 +73,9 @@ class GraphCreationUtil:
             except Exception as e:
                 self._app.logger.error(f"Couldn't read config file: {e}")
                 return jsonify("Encountered error. See log.")
+        else:
+            self._app.logger.info("No config file provided; using default values")
+
         base_config["corpus_name"] = process_name.lower() if process_name is not None else base_config["corpus_name"].lower()
         self.config = base_config
 
@@ -76,6 +92,21 @@ class GraphCreationUtil:
             _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
             _pickle.unlink()
 
+    def read_stored_config(self, ext: str = "yaml"):
+        _sub_configs = {"graph": {}, "cluster": {}}
+        _file_name = f"{self.process_name}_{self.process_step}_config.{ext}"
+        _file = Path(self._file_storage / _file_name)
+        if not _file.exists():
+            return self.process_step, {}
+        config_yaml = yaml.safe_load(_file.open('rb'))
+        for key, value in config_yaml.copy().items():
+            _sub_key_split = key.split("_")
+            if len(_sub_key_split) > 1 and _sub_key_split[0] in _sub_configs.keys():
+                _sub_configs[_sub_key_split[0]]["_".join(_sub_key_split[1:])] = value
+                config_yaml.pop(key)
+        config_yaml.update(_sub_configs)
+        return self.process_step, config_yaml
+
     def start_process(self, cache_name, process_factory, process_tracker, exclusion_ids=None):
         sent_emb = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_embedding.pickle"))
         cluster_obj = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_clustering.pickle"))
@@ -91,6 +122,11 @@ class GraphCreationUtil:
                 cluster_exclusion_ids=exclusion_ids
             ).create_concept_graph_clustering()
 
+            # ToDo: should this go everywhere?
+            _valid_config = getfullargspec(concept_graph_clustering.build_document_concept_matrix).args
+            for _arg in config.copy().keys():
+                if _arg not in _valid_config:
+                    config.pop(_arg)
             concept_graphs = concept_graph_clustering.build_document_concept_matrix(
                 break_after_graph_creation=True,
                 **config
