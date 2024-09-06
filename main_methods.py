@@ -55,9 +55,9 @@ def parse_config_json(response_json) -> pipeline_json_config:
 
 def read_config_json(app, processor, process_type, process_name, config, language):
     app.logger.info(f"Reading config ({process_type}) ...")
+    _language = config.get("language", language)
     processor.read_config(config=config, process_name=config.get("name", process_name),
-                          language=config.get("language", language) if process_type in [StepsName.DATA,
-                                                                                        StepsName.EMBEDDING] else None)
+                          language=_language if process_type in [StepsName.DATA, StepsName.EMBEDDING] else None)
     app.logger.info(f"Parsed the following arguments for {processor}:\n\t{processor.config}")
     processor.set_file_storage_path(process_name)
     processor.process_name = process_name
@@ -67,6 +67,8 @@ def read_config_json(app, processor, process_type, process_name, config, languag
             pathlib.Path(f"{process_name}_{process_type}_config.yaml")
     ).open('w') as config_save:
         try:
+            if _language is not None:
+                processor.config["language"] = _language
             yaml.safe_dump(processor.config, config_save)
         except RepresenterError:
             yaml.safe_dump(processor.serializable_config, config_save)
@@ -362,6 +364,8 @@ def read_config(app: flask.Flask, processor, process_type, process_name=None, co
             pathlib.Path(f"{process_name}_{process_type}_config.yaml")
     ).open('w') as config_save:
         try:
+            if language is not None:
+                processor.config["language"] = language
             yaml.safe_dump(processor.config, config_save)
         except RepresenterError:
             yaml.safe_dump(processor.serializable_config, config_save)
@@ -369,19 +373,26 @@ def read_config(app: flask.Flask, processor, process_type, process_name=None, co
 
 
 def load_configs(app: flask.app, process_name: str, path_to_configs: Union[pathlib.Path, str], ext: str = "yaml"):
-    final_config = {}
+    final_config = {"config": {}}
     processes = [
         (StepsName.DATA, PreprocessingUtil,),
         (StepsName.EMBEDDING, PhraseEmbeddingUtil,),
         (StepsName.CLUSTERING, ClusteringUtil,),
         (StepsName.GRAPH, graph_creation_util.GraphCreationUtil,)
     ]
+    _language = set()
     for _step, _proc in processes:
         process_obj = _proc(app=app, file_storage=path_to_configs)
         process_obj.process_name = process_name
         process_obj.set_file_storage_path(process_name)
         key, val = process_obj.read_stored_config()
-        final_config[key] = val
+        _language.add(val.pop('language', 'en'))
+        final_config["config"][key] = val
+    if len(_language) == 1:
+        _language = _language.pop()
+    else:
+        _language = 'en'
+    final_config["language"] = _language
     return final_config
 
 
