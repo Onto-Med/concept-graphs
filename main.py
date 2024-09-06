@@ -419,7 +419,8 @@ def get_pipeline_default_configuration():
             logging.info(f"Returning configuration for '{process}' pipeline.")
             try:
                 _config = load_configs(app=app, process_name=process, path_to_configs=FILE_STORAGE_TMP)
-                return jsonify(name=process, language=language, config=_config), int(HTTPResponses.OK)
+                return (jsonify(name=process, language=_config.get("language", "en"), config=_config.get("config", {})),
+                        int(HTTPResponses.OK))
             except Exception as e:
                 logging.error(e)
             return jsonify(message=f"Couldn't find/read configuration for '{process}'."), int(HTTPResponses.NOT_FOUND)
