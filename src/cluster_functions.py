@@ -491,7 +491,7 @@ class WordEmbeddingClustering:
                             self._document_concept_matrix[all_docs, j] += _w_sum / len(path)
                         _connected_nodes[node].add(target)
 
-        def build_document_concept_matrix(
+        def build_concept_graphs(
                 self,
                 cluster_distance: float = 0.6,
                 cluster_min_size: Union[float, int] = 1,
@@ -499,17 +499,15 @@ class WordEmbeddingClustering:
                 graph_cosine_weight: float = .5,
                 graph_merge_threshold: float = .95,
                 graph_weight_cut_off: float = .5,  # edges where weight is smaller than this value are cut
-                graph_unroll: bool = True,
                 graph_simplify: Optional[float] = .5,
                 graph_simplify_alg: str = 'weight',  # ToDo: class enumeration for simplify alg
+                graph_unroll: bool = True,
                 graph_sub_clustering: Union[float, bool] = False,
-                graph_distance_cutoff: float = .5,
                 connection_distance: int = 2,
                 restrict_to_cluster: bool = False,
                 filter_min_df: Union[int, float] = 1,
                 filter_max_df: Union[int, float] = 1.,
                 filter_stop: Optional[list] = None,
-                break_after_graph_creation: bool = False
         ):
             filter_stop = filter_stop if filter_stop is not None else []
             if (self._data_proc.tfidf_filter is not None and (
@@ -535,12 +533,21 @@ class WordEmbeddingClustering:
 
             if graph_simplify is not None:
                 logging.info(f"Cutting edges ({graph_simplify_alg})...")
-            _concept_graphs = self._graph_list(graph_simplify=graph_simplify, graph_unroll=graph_unroll,
-                                               graph_simplify_alg=graph_simplify_alg,
-                                               graph_sub_clustering=True if isinstance(graph_sub_clustering,
-                                                                                       float) else False)
-            if break_after_graph_creation:
-                return _concept_graphs
+            return self._graph_list(graph_simplify=graph_simplify, graph_unroll=graph_unroll,
+                                    graph_simplify_alg=graph_simplify_alg,
+                                    graph_sub_clustering=True if isinstance(graph_sub_clustering, float) else False)
+
+        def build_document_concept_matrix(
+                self,
+                graph_unroll: bool = True,
+                graph_sub_clustering: Union[float, bool] = False,
+                graph_distance_cutoff: float = .5,
+                **kwargs
+        ):
+            kwargs["graph_unroll"] = graph_unroll
+            kwargs["graph_sub_clustering"] = graph_sub_clustering
+            kwargs["graph_distance_cutoff"] = graph_distance_cutoff
+            _concept_graphs = self.build_concept_graphs(**kwargs)
 
             self._document_concept_matrix = np.zeros((self._data_proc.documents_n, len(_concept_graphs)))
             sub_cluster_reward = graph_sub_clustering if isinstance(graph_sub_clustering, float) else (
@@ -744,3 +751,8 @@ class PhraseClusterFactory:
                 self._concept_cluster = self._cluster_obj(**self._cluster_alg_kwargs).fit(
                     _cluster_embeddings
                 )
+
+
+class ClusterNumberDetector:
+    def __init__(self):
+        pass

@@ -123,14 +123,11 @@ class GraphCreationUtil:
             ).create_concept_graph_clustering()
 
             # ToDo: should this go everywhere?
-            _valid_config = getfullargspec(concept_graph_clustering.build_document_concept_matrix).args
+            _valid_config = getfullargspec(concept_graph_clustering.build_concept_graphs).args
             for _arg in config.copy().keys():
                 if _arg not in _valid_config:
                     config.pop(_arg)
-            concept_graphs = concept_graph_clustering.build_document_concept_matrix(
-                break_after_graph_creation=True,
-                **config
-            )
+            concept_graphs = concept_graph_clustering.build_concept_graphs(**config)
             with pathlib.Path(self._file_storage / f"{cache_name}_{self.process_step}.pickle").open("wb") as graphs_out:
                 pickle.dump(concept_graphs, graphs_out)
             add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.FINISHED, process_tracker)
