@@ -1,3 +1,4 @@
+import enum
 import io
 import itertools
 import pathlib
@@ -10,6 +11,11 @@ from collections import Counter
 import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans, AgglomerativeClustering
+
+
+class ClusterNumberDetection(enum.Enum):
+    ELBOW = 1
+    SILHOUETTE = 2
 
 
 class SingletonMeta(type):

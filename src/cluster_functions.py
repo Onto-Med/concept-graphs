@@ -31,7 +31,7 @@ from pruning import unimodal
 
 from embedding_functions import SentenceEmbeddingsFactory, top_k_cosine
 from graph_functions import GraphCreator, unroll_graph, simplify_graph_naive, sub_clustering
-from util_functions import load_pickle, save_pickle, pairwise, NoneDownScaleObj
+from util_functions import load_pickle, save_pickle, pairwise, NoneDownScaleObj, ClusterNumberDetection
 
 logging.basicConfig()
 logging.root.setLevel(logging.INFO)
@@ -754,5 +754,8 @@ class PhraseClusterFactory:
 
 
 class ClusterNumberDetector:
-    def __init__(self):
-        pass
+    def __init__(
+            self,
+            algorithm: ClusterNumberDetection
+    ):
+        self.algorithm = algorithm
