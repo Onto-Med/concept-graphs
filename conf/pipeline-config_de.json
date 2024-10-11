@@ -38,7 +38,9 @@
             "downscale": "umap",
             "missing_as_recommended": true,
             "scaling": {
-
+                "n_neighbors": 10,
+                "min_dist": 0.1,
+                "n_components": 100
             },
             "clustering": {
 

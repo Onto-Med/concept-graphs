@@ -673,23 +673,29 @@ class PhraseClusterFactory:
                 cluster_by_down_scale: bool = True,
                 **kwargs
         ):
+            self._clustering_estimators_ref = {"kmeans": KMeans,
+                                               "kmeans-mb": MiniBatchKMeans,
+                                               "affinity-prop": AffinityPropagation}
             self._cluster_alg_kwargs = {"_".join(key.split("_")[1:]): val for key, val in kwargs.items()
                                         if len(key.split("_")) > 1 and key.split("_")[0] == "cluster"}
             self._down_scale_alg_kwargs = {"_".join(key.split("_")[1:]): val for key, val in kwargs.items()
                                            if len(key.split("_")) > 1 and key.split("_")[0] == "scaling"}
             self._kelbow_alg_kwargs = {"_".join(key.split("_")[1:]): val for key, val in kwargs.items()
                                        if len(key.split("_")) > 1 and key.split("_")[0] == "kelbow"}
+            if self._kelbow_alg_kwargs.get("estimator", False):
+                if self._kelbow_alg_kwargs.get("estimator") != "affinity-prop":
+                    self._kelbow_alg_kwargs["estimator"] = self._clustering_estimators_ref.get(self._kelbow_alg_kwargs.get("estimator"))
+                else:
+                    self._kelbow_alg_kwargs.pop("estimator")
             self._sentence_emb = sentence_embeddings.sentence_embeddings if not isinstance(sentence_embeddings,
                                                                                            np.ndarray) else sentence_embeddings
             self._cluster_alg = (cluster_algorithm if cluster_algorithm in ["kmeans", "kmeans-mb", "affinity-prop"]
                                  else "kmeans")
-            self._cluster_obj = {"kmeans": KMeans,
-                                 "kmeans-mb": MiniBatchKMeans,
-                                 "affinity-prop": AffinityPropagation}[self._cluster_alg]
+            self._cluster_obj = self._clustering_estimators_ref[self._cluster_alg]
             self._down_scale_alg = down_scale_algorithm
 
             if self._down_scale_alg_kwargs.get("n_neighbors", False) and isinstance(self._down_scale_alg_kwargs.get("n_neighbors"), float):
-                _n_neighbors = self._down_scale_alg_kwargs["n_neighbors"] * self._sentence_emb.shape[0]
+                _n_neighbors = min(self._down_scale_alg_kwargs["n_neighbors"] * self._sentence_emb.shape[0], 100)
                 self._down_scale_alg_kwargs["n_neighbors"] = int(_n_neighbors)
 
             self._down_scale_obj = {"umap": umap.UMAP, None: NoneDownScaleObj}[down_scale_algorithm](**self._down_scale_alg_kwargs)
@@ -725,17 +731,32 @@ class PhraseClusterFactory:
                 logging.info(f"{self._down_scale_alg.upper()} arguments: {self._down_scale_obj.get_params()}")
                 _cluster_embeddings = self._down_scale_obj.fit_transform(self._sentence_emb)
 
-            if self._cluster_alg != "affinity-prop":
+            if (("estimator" in self._kelbow_alg_kwargs and (self._kelbow_alg_kwargs.get("estimator") != AffinityPropagation))
+                    or ("estimator" not in self._kelbow_alg_kwargs and self._cluster_alg != "affinity-prop")):
                 logging.info("-- Calculating K-Elbow ...")
                 logging.info(f"---- shape of embeddings: ({_cluster_embeddings.shape})")
                 logging.info(f"---- Arguments: {self._kelbow_alg_kwargs}")
+                if "estimator" not in self._kelbow_alg_kwargs:
+                    _obj = self._cluster_obj
+                else:
+                    _obj = self._kelbow_alg_kwargs.pop("estimator", KMeans)
+
+                if _obj in [KMeans, MiniBatchKMeans]:
+                    _model = _obj(n_init='auto')
+                else:
+                    _model = _obj()
+
                 self._kelbow = kelbow_visualizer(
-                    model=self._cluster_obj(), X=_cluster_embeddings, **self._kelbow_alg_kwargs
+                    model=_model,
+                    X=_cluster_embeddings,
+                    **self._kelbow_alg_kwargs
                 )
 
                 _cluster_args = self._cluster_alg_kwargs.copy()
                 if "n_clusters" in _cluster_args.keys():
                     _cluster_args.pop("n_clusters")
+                if self._cluster_obj in [KMeans, MiniBatchKMeans] and "n_init" not in _cluster_args.keys():
+                    _cluster_args["n_init"] = 'auto'
 
                 logging.info("-- Clustering ...")
                 logging.info(f" ({self._cluster_alg}) with Arguments: {_cluster_args}\n"
