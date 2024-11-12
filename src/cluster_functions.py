@@ -731,8 +731,9 @@ class PhraseClusterFactory:
                 logging.info(f"{self._down_scale_alg.upper()} arguments: {self._down_scale_obj.get_params()}")
                 _cluster_embeddings = self._down_scale_obj.fit_transform(self._sentence_emb)
 
-            if (("estimator" in self._kelbow_alg_kwargs and (self._kelbow_alg_kwargs.get("estimator") != AffinityPropagation))
-                    or ("estimator" not in self._kelbow_alg_kwargs and self._cluster_alg != "affinity-prop")):
+            _estimator = self._kelbow_alg_kwargs.get("estimator", False)
+            if ((_estimator and (_estimator != AffinityPropagation)) or
+                    (not _estimator and self._cluster_alg != "affinity-prop" and _estimator is not None)):
                 logging.info("-- Calculating K-Elbow ...")
                 logging.info(f"---- shape of embeddings: ({_cluster_embeddings.shape})")
                 logging.info(f"---- Arguments: {self._kelbow_alg_kwargs}")
