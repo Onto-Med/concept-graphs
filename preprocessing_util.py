@@ -177,6 +177,7 @@ class PreprocessingUtil:
         return self.process_step, config_yaml
 
     def start_process(self, cache_name, process_factory, process_tracker):
+        # ToDo: need to check! if model is not available process still crashes (it downloads the model but doesnt resume)
         config = self.config.copy()
         default_args = inspect.getfullargspec(process_factory.create)[0]
         _model = config.pop("spacy_model", DEFAULT_SPACY_MODEL)
