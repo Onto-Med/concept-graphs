@@ -9,6 +9,7 @@ import spacy
 import yaml
 from munch import Munch, unmunchify
 from werkzeug.datastructures import FileStorage
+from waiting import wait, TimeoutExpired
 
 from main_utils import ProcessStatus, StepsName, add_status_to_running_process, get_bool_expression, NegspacyConfig
 from src.negspacy.utils import FeaturesOfInterest
@@ -177,7 +178,6 @@ class PreprocessingUtil:
         return self.process_step, config_yaml
 
     def start_process(self, cache_name, process_factory, process_tracker):
-        # ToDo: need to check! if model is not available process still crashes (it downloads the model but doesnt resume)
         config = self.config.copy()
         default_args = inspect.getfullargspec(process_factory.create)[0]
         _model = config.pop("spacy_model", DEFAULT_SPACY_MODEL)
@@ -190,11 +190,11 @@ class PreprocessingUtil:
                     spacy_language = spacy.load(DEFAULT_SPACY_MODEL)
                 except IOError as e:
                     self._app.logger.error(f"{e}\ntrying to download default model {DEFAULT_SPACY_MODEL}.")
-                    spacy.cli.download(DEFAULT_SPACY_MODEL)
+                    self.wait_for_download(DEFAULT_SPACY_MODEL)
                     spacy_language = spacy.load(DEFAULT_SPACY_MODEL)
             else:
                 self._app.logger.error(f"{e}\ntrying to download default model {DEFAULT_SPACY_MODEL}.")
-                spacy.cli.download(DEFAULT_SPACY_MODEL)
+                self.wait_for_download(DEFAULT_SPACY_MODEL)
                 spacy_language = spacy.load(DEFAULT_SPACY_MODEL)
 
         for x in list(config.keys()):
@@ -218,3 +218,12 @@ class PreprocessingUtil:
             self._app.logger.error(e)
 
         return _process
+
+    def wait_for_download(self, model: str, time_out: int = 30):
+        spacy.cli.download(model)
+        wait_pred = lambda: model in spacy.util.get_installed_models()
+        try:
+            wait(wait_pred, timeout_seconds=time_out)
+        except TimeoutExpired as e:
+            self._app.logger.warning(f"TimeOut while waiting >{time_out} seconds for download to finish."
+                                     f" Hopefully this is just due to installed models not refreshing.")
