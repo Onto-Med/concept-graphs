@@ -185,13 +185,18 @@ class PreprocessingUtil:
             spacy_language = spacy.load(_model)
         except IOError as e:
             if _model != DEFAULT_SPACY_MODEL:
-                self._app.logger.error(f"{e}\nUsing default model {DEFAULT_SPACY_MODEL}.")
-                try:
-                    spacy_language = spacy.load(DEFAULT_SPACY_MODEL)
-                except IOError as e:
-                    self._app.logger.error(f"{e}\ntrying to download default model {DEFAULT_SPACY_MODEL}.")
-                    self.wait_for_download(DEFAULT_SPACY_MODEL)
-                    spacy_language = spacy.load(DEFAULT_SPACY_MODEL)
+                if self.is_valid_spacy_model(_model):
+                    self._app.logger.info(f"Model '{_model}' doesn't seem to be installed; trying to download model.")
+                    self.wait_for_download(_model)
+                    spacy_language = spacy.load(_model)
+                else:
+                    self._app.logger.error(f"{e}\nUsing default model {DEFAULT_SPACY_MODEL}.")
+                    try:
+                        spacy_language = spacy.load(DEFAULT_SPACY_MODEL)
+                    except IOError as e:
+                        self._app.logger.error(f"{e}\ntrying to download default model {DEFAULT_SPACY_MODEL}.")
+                        self.wait_for_download(DEFAULT_SPACY_MODEL)
+                        spacy_language = spacy.load(DEFAULT_SPACY_MODEL)
             else:
                 self._app.logger.error(f"{e}\ntrying to download default model {DEFAULT_SPACY_MODEL}.")
                 self.wait_for_download(DEFAULT_SPACY_MODEL)
@@ -218,6 +223,14 @@ class PreprocessingUtil:
             self._app.logger.error(e)
 
         return _process
+
+    def is_valid_spacy_model(self, model: str):
+        from spacy.cli.download import get_compatibility
+        if model in get_compatibility():
+            return True
+        self._app.logger.error(f"'{model}' is not a valid model name.")
+        return False
+
 
     def wait_for_download(self, model: str, time_out: int = 30):
         spacy.cli.download(model)

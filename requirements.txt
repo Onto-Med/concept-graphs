@@ -28,4 +28,4 @@ waitress==3.0.0
 dataclass-wizard==0.22.3
 munch==4.0.0
 waiting==1.5.0
-urllib3==2.3.0
+urllib3
