@@ -19,7 +19,7 @@ from yaml.representer import RepresenterError
 from clustering_util import ClusteringUtil
 from embedding_util import PhraseEmbeddingUtil
 from main_utils import ProcessStatus, HTTPResponses, StepsName, pipeline_query_params, steps_relation_dict, \
-    add_status_to_running_process, PipelineLanguage, get_bool_expression, StoppableThread
+    add_status_to_running_process, PipelineLanguage, get_bool_expression, StoppableThread, string_conformity
 from preprocessing_util import PreprocessingUtil
 
 sys.path.insert(0, "src")
@@ -33,7 +33,7 @@ pipeline_json_config = namedtuple("pipeline_json_config",
 def parse_config_json(response_json) -> pipeline_json_config:
     config = Munch.fromDict(response_json)
     try:
-        return pipeline_json_config(config.get("name", None),
+        return pipeline_json_config(string_conformity(config.get("name", None)),
                                     config.get("language", None),
                                     config.get("document_server", None),
                                     config.config.get("data", Munch()),
@@ -43,7 +43,7 @@ def parse_config_json(response_json) -> pipeline_json_config:
                                     )
     except AttributeError as e:
         logging.error(f"Json body/configuration seems to be malformed: no 'config' entry was provided.\n{e}")
-        return pipeline_json_config(config.get("name", None),
+        return pipeline_json_config(string_conformity(config.get("name", None)),
                                     config.get("language", None),
                                     config.get("document_server", None),
                                     Munch(),
@@ -54,6 +54,7 @@ def parse_config_json(response_json) -> pipeline_json_config:
 
 
 def read_config_json(app, processor, process_type, process_name, config, language):
+    process_name = string_conformity(process_name)
     app.logger.info(f"Reading config ({process_type}) ...")
     _language = config.get("language", language)
     processor.read_config(config=config, process_name=config.get("name", process_name),
@@ -82,9 +83,9 @@ def get_pipeline_query_params(
         config_obj_json: pipeline_json_config
 ) -> Union[pipeline_query_params, tuple]:
     if config_obj_json is not None and config_obj_json.name is not None:
-        corpus = config_obj_json.name
+        corpus = string_conformity(config_obj_json.name)
     else:
-        corpus = flask_request.args.get("process", "default").lower()
+        corpus = string_conformity(flask_request.args.get("process", "default"))
     if corpus_status := running_processes.get(corpus, False):
         if any([v.get("status", None) == ProcessStatus.RUNNING for v in corpus_status.get("status", [])]):
             return jsonify(
