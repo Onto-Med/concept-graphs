@@ -21,7 +21,7 @@
             "negspacy": {
                 "enabled": true,
                 "configuration": {
-                    "chunk_prefix": ["kein", "keine", "keinen"],
+                    "chunk_prefix": ["kein", "keine", "keinen", "ohne", "keinerlei"],
                     "neg_termset_file": "./conf/negex_files/negex_trigger_german_biotxtm_2016_extended.txt",
                     "scope": 1,
                     "language": "de",
