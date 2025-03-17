@@ -367,12 +367,17 @@ algorithm: kmeans
 downscale: umap
 # Whether the recommended settings for 'clustering', 'downscaling' & 'cluster number deduction' shall be used if nothing else is stated
 missing_as_recommended: True
+# Arguments for deducing the number of clusters prefixed with 'deduction_'
+deduction_enabled: true
+deduction_k_min: 2
+deduction_k_max: 100
+deduction_n_samples: 15
+deduction_sample_fraction: 25
+deduction_regression_poly_degree: 5
 # UMAP arguments prefixed with 'scaling_' (see umap-learn.readthedocs.io)
 scaling_*
 # Clustering arguments prefixed with 'clustering_' (dependent on algorithm used: see scikit-learn)
 clustering_*
-# KElbow method arguments for deducing the number of clusters prefixed with 'kelbow_' (see scikit-yb.org)
-kelbow_*
 ```
 
 ### `/graph/creation`

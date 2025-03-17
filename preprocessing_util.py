@@ -153,6 +153,13 @@ class PreprocessingUtil:
             base_config["negspacy_config"] = _neg_config
             base_config["omit_negated_chunks"] = _enabled
 
+        if base_config.get("tfidf_filter", False):
+            _conf = base_config.pop("tfidf_filter")
+            if _conf.get("enabled", True):
+                base_config["filter_min_df"] = _conf.get("min_df", 1)
+                base_config["filter_max_df"] = _conf.get("max_df", 1.0)
+                base_config["filter_stop"] = _conf.get("stop", None)
+
         self.config = base_config
 
     def read_labels(self, labels):

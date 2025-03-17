@@ -40,13 +40,13 @@ class ClusteringUtil:
     def read_config(self, config: Optional[Union[FileStorage, dict]], process_name=None, language=None):
         base_config = {"algorithm": "kmeans", "downscale": "umap", "scaling_n_neighbors": 10, "scaling_min_dist": 0.1,
                        "scaling_n_components": 100, "scaling_metric": 'euclidean', "scaling_random_state": 42,
-                       "kelbow_k": (10, 100), "kelbow_show": False}
+                       "deduction_k_min": 2, "deduction_k_max": 100}
         if isinstance(config, dict):
             if isinstance(config, Munch):
                 _config = unmunchify(config)
             else:
                 _config = config
-            for _type in ["scaling", "clustering", "kelbow"]:
+            for _type in ["scaling", "clustering", "deduction"]:
                 _sub_config = _config.get(_type, {}).copy()
                 for k, v in _sub_config.items():
                     _config[f"{_type}_{k}"] = v
@@ -87,7 +87,7 @@ class ClusteringUtil:
             _pickle.unlink()
 
     def read_stored_config(self, ext: str = "yaml"):
-        _sub_configs = {"kelbow": {}, "scaling": {}, "clustering": {}}
+        _sub_configs = {"deduction": {}, "scaling": {}, "clustering": {}}
         _file_name = f"{self.process_name}_{self.process_step}_config.{ext}"
         _file = Path(self._file_storage / _file_name)
         if not _file.exists():

@@ -14,8 +14,9 @@ from sklearn.cluster import KMeans, AgglomerativeClustering
 
 
 class ClusterNumberDetection(enum.Enum):
-    ELBOW = 1
+    DISTORTION = 1
     SILHOUETTE = 2
+    CALINSKI_HARABASZ = 3
 
 
 class SingletonMeta(type):

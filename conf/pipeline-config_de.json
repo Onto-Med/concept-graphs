@@ -15,7 +15,7 @@
                 "enabled": false,
                 "min_df": 1,
                 "max_df": 1.0,
-                "stop": false
+                "stop": null
             },
             "disable": null,
             "negspacy": {
@@ -43,10 +43,15 @@
                 "n_components": 100
             },
             "clustering": {
-
+                "n_clusters": 50
             },
-            "kelbow": {
-                
+            "deduction": {
+                "enabled": true,
+                "k_min": 2,
+                "k_max": 100,
+                "n_samples": 15,
+                "sample_fraction": 25,
+                "regression_poly_degree": 5
             }
         },
         "graph": {
@@ -56,8 +61,8 @@
             },
             "graph": {
                 "cosine_weight": 0.6,
-                "merge_threshold": 0.95,
-                "graph_weight_cut_off": 0.5,
+                "merge_threshold": 0.90,
+                "graph_weight_cut_off": 0.6,
                 "unroll": false,
                 "simplify": 0.5,
                 "simplify_alg": "significance",

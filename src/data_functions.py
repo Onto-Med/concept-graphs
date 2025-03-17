@@ -299,7 +299,7 @@ class DataProcessingFactory:
                 self
         ) -> Optional[tfidfVec]:
             if self._tfidf_filter is None:
-                if self._filter_min_df != 1 or self._filter_max_df != 1.0 or self._filter_stop is not None:
+                if self._filter_min_df != 1 or self._filter_max_df != 1.0 or self._filter_stop not in [None, False] or (isinstance(self._filter_stop, list) and len(self._filter_stop) != 0):
                     filter_stop = self._filter_stop if self._filter_stop is not None else []
                     self._tfidf_filter = tfidfVec(
                         min_df=self._filter_min_df, max_df=self._filter_max_df, stop_words=filter_stop,
