@@ -35,6 +35,7 @@ from pruning import unimodal
 
 from embedding_functions import SentenceEmbeddingsFactory, top_k_cosine
 from graph_functions import GraphCreator, unroll_graph, simplify_graph_naive, sub_clustering
+# from src.util_functions import CVAEMantle
 from util_functions import load_pickle, save_pickle, pairwise, NoneDownScaleObj, ClusterNumberDetection
 
 logging.basicConfig()
@@ -53,7 +54,7 @@ class WordEmbeddingClustering:
     def __init__(
             self,
             sentence_embedding_obj: SentenceEmbeddingsFactory.SentenceEmbeddings,
-            cluster_obj: Optional[KMeans] = None,
+            cluster_obj: Optional['PhraseClusterFactory.PhraseCluster'] = None,
             cluster_exclusion_ids: Optional[Iterable[int]] = None,
             text_field_value: str = 'text',
             lemma_field_value: str = 'lemma',
@@ -128,8 +129,8 @@ class WordEmbeddingClustering:
         ) -> list:
             return [
                 " ".join([self._data_proc.data_chunk_sets[i][self._outer_instance._text_field_value]
-                          for i, j in enumerate(self._outer_instance._cluster_obj.labels_ == n) if j])
-                for n in range(self._outer_instance._cluster_obj.n_clusters) if
+                          for i, j in enumerate(self._outer_instance._cluster_obj.concept_cluster.labels_ == n) if j])
+                for n in range(self._outer_instance._cluster_obj.concept_cluster.n_clusters) if
                 n not in (self._outer_instance._exclusion_ids if exclusion_ids is None else exclusion_ids)
             ]
 
@@ -263,12 +264,12 @@ class WordEmbeddingClustering:
             tfidf_filter = self._data_proc.tfidf_filter
             if tfidf_filter is not None: # ToDo need to check whether filtering is enabled!
                 logging.info("Filtering phrases")
-            for i, _center in enumerate(self._outer_instance._cluster_obj.cluster_centers_):
+            for i, _center in enumerate(self._outer_instance._cluster_obj.cluster_center):
                 if i in (self._outer_instance._exclusion_ids if exclusion_ids is None else exclusion_ids):
                     continue
                 if restrict_to_cluster:  # ToDo: results in worse figures when using same parameters...
                     # restrict embeddings to those that are in the cluster
-                    _idx = np.where(self._outer_instance._cluster_obj.labels_ == i)
+                    _idx = np.where(self._outer_instance._cluster_obj.concept_cluster.labels_ == i)
                     _meaningful_clusters.append(
                         self._filter_entries(
                             _idx[0][  # get the original indices
@@ -526,7 +527,7 @@ class WordEmbeddingClustering:
                                              filter_stop=filter_stop)
             logging.info(f"Building Document Concept Matrix with following arguments:\n{locals()}")
             _exclusion = self._outer_instance._exclusion_ids if cluster_exclusion_ids is None else cluster_exclusion_ids
-            _tqdm_sum = (len(self._outer_instance._cluster_obj.cluster_centers_) - len(_exclusion))
+            _tqdm_sum = (len(self._outer_instance._cluster_obj.cluster_center) - len(_exclusion))
             logging.info(f"Building Concept Graphs... (exclusion_ids: {_exclusion})")
             self._concept_graphs = [
                 self._build_graph(tuple(_c), graph_cosine_weight, graph_merge_threshold, graph_weight_cut_off)
@@ -696,17 +697,28 @@ class PhraseClusterFactory:
             self._cluster_alg = (cluster_algorithm if cluster_algorithm in ["kmeans", "kmeans-mb", "affinity-prop"]
                                  else "kmeans")
             self._cluster_obj = self._clustering_estimators_ref[self._cluster_alg]
-            self._down_scale_alg = down_scale_algorithm
+            self._down_scale_alg = down_scale_algorithm.lower()
 
             if self._down_scale_alg_kwargs.get("n_neighbors", False) and isinstance(self._down_scale_alg_kwargs.get("n_neighbors"), float):
                 _n_neighbors = min(self._down_scale_alg_kwargs["n_neighbors"] * self._sentence_emb.shape[0], 100)
                 self._down_scale_alg_kwargs["n_neighbors"] = int(_n_neighbors)
 
-            self._down_scale_obj = {"umap": umap.UMAP, None: NoneDownScaleObj}[down_scale_algorithm](**self._down_scale_alg_kwargs)
+            self._down_scale_obj = {
+                "umap": umap.UMAP,
+                # "cvae": CVAEMantle,
+                None: NoneDownScaleObj
+            }[down_scale_algorithm.lower()](**self._down_scale_alg_kwargs)
             self._concept_cluster = None
             self._kelbow = None
+            self._cluster_center = None
 
             self._build_concept_cluster(cluster_by_down_scale)
+
+        @property
+        def cluster_center(
+                self
+        ):
+            return self._cluster_center
 
         @property
         def concept_cluster(
@@ -731,11 +743,17 @@ class PhraseClusterFactory:
             logging.info("Building Concept Cluster ...")
             _cluster_embeddings = self._sentence_emb
 
-            if cluster_by_down_scale and not isinstance(self._down_scale_obj, NoneDownScaleObj):
+            _is_downscaling = cluster_by_down_scale and not isinstance(self._down_scale_obj, NoneDownScaleObj)
+            if _is_downscaling:
                 logging.info(f"{self._down_scale_alg.upper()} arguments: {self._down_scale_obj.get_params()}")
                 _cluster_embeddings = self._down_scale_obj.fit_transform(self._sentence_emb)
 
             _estimator = self._kelbow_alg_kwargs.get("estimator", False)
+            logging.info("-- Clustering ...")
+            if _is_downscaling and self._down_scale_alg != "cvae":
+                logging.info("Using downscaled embeddings for clustering is only allowed for 'cvae' algorithm.\n"
+                             "Cluster number deduction will be performed on downscaled embeddings but clustering needs to be done on the original embeddings!")
+
             if ((_estimator and (_estimator != AffinityPropagation)) or
                     (not _estimator and self._cluster_alg != "affinity-prop" and _estimator is not None)):
 
@@ -752,22 +770,24 @@ class PhraseClusterFactory:
                     )
                     cnd.estimate_cluster_number(_cluster_embeddings)
                 else:
-                    #ToDo: her some default value not hard coded
+                    #ToDo: here some default value -> not hard coded
                     self._cluster_alg_kwargs['n_clusters'] = _n_clusters_given if _n_clusters_given else 50
 
-                logging.info("-- Clustering ...")
                 logging.info(f" ({self._cluster_alg}) with Arguments: {self._cluster_alg_kwargs}\n"
                              f"Number of Clusters: {self._cluster_alg_kwargs['n_clusters']}\n")
                 self._concept_cluster = self._cluster_obj(**self._cluster_alg_kwargs).fit(
-                    # self._sentence_emb #ToDo: why did I have this here (the original sentence embeddings and not the down-scaled ones)
-                    _cluster_embeddings
+                    _cluster_embeddings if (_is_downscaling and self._down_scale_alg == "cvae") else self._sentence_emb,
                 )
             else:
-                logging.info("-- Clustering ...")
                 logging.info(f" ({self._cluster_alg}) with Arguments: {self._cluster_alg_kwargs}")
                 self._concept_cluster = self._cluster_obj(**self._cluster_alg_kwargs).fit(
-                    _cluster_embeddings
+                    _cluster_embeddings if (_is_downscaling and self._down_scale_alg == "cvae") else self._sentence_emb,
                 )
+
+            if _is_downscaling and self._down_scale_alg == "cvae":
+                self._cluster_center = self._down_scale_obj.inverse_transform(self._concept_cluster.cluster_centers_)
+            else:
+                self._cluster_center = self._concept_cluster.cluster_centers_
 
 
 class ClusterNumberDetector:

@@ -118,7 +118,7 @@ class GraphCreationUtil:
         try:
             concept_graph_clustering = process_factory(
                 sentence_embedding_obj=sent_emb,
-                cluster_obj=cluster_obj.concept_cluster,
+                cluster_obj=cluster_obj,
                 cluster_exclusion_ids=exclusion_ids
             ).create_concept_graph_clustering()
 

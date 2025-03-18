@@ -42,7 +42,7 @@ RUN apt-get update --yes && \
 RUN curl -sS https://bootstrap.pypa.io/get-pip.py | ${PYTHON}
 
 COPY requirements.txt ${REST_API_WORKDIR}
-RUN --mount=type=cache,target=/root/.cache/pip ${PYTHON} -m pip install -r requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip ${PYTHON} -m pip install --no-deps -r requirements.txt
 
 RUN ${PYTHON} -m spacy download de_core_news_sm && \
     ${PYTHON} -m spacy download de_dep_news_trf
