@@ -599,22 +599,30 @@ def clean_span(
     if offset is not None:
         _begin, _end = offset
     for i, _token in enumerate(chunk):
+        # 'idx' is char offset relative to the whole doc (here, the line)
+        _relative_token_offset = 0
+        _space_between = 0
+        _len_last_token = 0
+        if _last_token is not None:
+            _len_last_token = len(_last_token.text)
+            _relative_token_offset = _token.idx - _last_token.idx
+            _space_between = _relative_token_offset - _len_last_token
+
         _token_text = _token.text.strip().replace("\t", "")
         if ((not _token.is_alpha) or _token.is_stop or _token.is_punct or _token.like_num or
                 _token.pos_ in ["DET", "PRON"] or _token_text.isspace()):
             # or (prepend_head and _token_text == _chunk_root_text)):
             if offset is not None and i == _i:
-                # 'idx' is char offset relative the whole doc (here, the line)
-                _remove_begin_from_last += len(_token.text) + ((_token.idx - _last_token.idx - len(_last_token.text))
-                                                               if _last_token is not None and ((_token.i - _last_token.i) <= 1) else 0)
+                _remove_begin_from_last += (_space_between + _len_last_token)
                 _i += 1
             elif offset is not None and i == len(chunk) - 1:
                 _remove_end_from_last = len(_token.text)
-            _last_token = _token
-            continue
-        _text.append(_token_text)
-        _lemma.append(_token.lemma_.strip().replace("\t", ""))
-        _pos.append(_token.pos_)
+        else:
+            _text.append(_token_text)
+            _lemma.append(_token.lemma_.strip().replace("\t", ""))
+            _pos.append(_token.pos_)
+        _last_token = _token
+
     if offset is not None and _token is not None:
         _begin += (_remove_begin_from_last + ((_token.idx - _last_token.idx - len(_last_token.text))
                                               if (_last_token is not None and ((_token.i - _last_token.i) <= 1) and _remove_begin_from_last != 0) else 0))
