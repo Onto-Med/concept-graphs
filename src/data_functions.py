@@ -37,6 +37,28 @@ def _set_extensions(
         Doc.set_extension("doc_name", default=None)
     if not Doc.has_extension("doc_topic"):
         Doc.set_extension("doc_topic", default=None)
+    if not Doc.has_extension("offset_in_doc"):
+        Doc.set_extension("offset_in_doc", default=None)
+
+
+def _populate_chunk_set_dict_with_doc(
+        dict2populate: dict, text: str, offset:tuple[int, int], noun_chunk_dict: dict
+):
+    _docs: list = dict2populate[text]["doc"]  # _docs = [{"id": doc_id, "offsets": [offset_of_nc_in_doc]}, ...]
+    _id = noun_chunk_dict["doc_id"]
+    _added_offset = False
+    for _d in _docs:
+        _d: dict
+        if _id == _d.get("id", None):
+            _d.get("offsets", []).append(offset)
+            _added_offset = True
+            break
+    if not _added_offset:
+        _docs.append({"id": _id, "offsets": [offset]})
+    dict2populate[text]["count"] += 1
+
+    # _docs.add(noun_chunk_dict["doc_id"])
+    # dict2populate[text]["doc"] = list(_docs)
 
 
 class DataProcessingFactory:
@@ -280,13 +302,18 @@ class DataProcessingFactory:
             # ToDo: utilize blacklist for noun chunks that should not be included [sie, er, die, etc.] - or check if later on this is done and switch accordingly
             #  because here every superfluous chunk will be run through negex and slows process down and probably  induces errors
             for doc in self._processed_docs:
+                _offset_in_doc = doc._.offset_in_doc
                 for ch in doc.noun_chunks:
+                    ch: spacy.tokens.Span
                     _negated = not (not hasattr(ch, "_") or
                                     (hasattr(ch, "_") and not getattr(getattr(ch, "_"), "negex", True)))
-                    if not (re.match(r"\W", ch.text) and len(ch.text) == 1):
-                        if self._view is None or doc._.doc_topic in self._view['labels']:
-                            yield {"spacy_chunk": ch, "doc_id": doc._.doc_id, "doc_index": doc._.doc_index,
-                                   "doc_name": doc._.doc_name, "doc_topic": doc._.doc_topic, "negated": _negated}
+                    if len(ch.text) == 1 and re.match(r"\W", ch.text):
+                        _offset_in_doc += 1
+                        continue
+                    if self._view is None or doc._.doc_topic in self._view['labels']:
+                        yield {"spacy_chunk": ch, "doc_id": doc._.doc_id, "doc_index": doc._.doc_index,
+                               "doc_name": doc._.doc_name, "doc_topic": doc._.doc_topic, "negated": _negated,
+                               "offset": (ch.start_char + _offset_in_doc, ch.end_char + _offset_in_doc, )}
 
         @property
         def document_chunk_matrix(
@@ -421,7 +448,8 @@ class DataProcessingFactory:
                     raise KeyError(f"'{','.join(_missing)}' are not in current view.")
 
         def _build_data_tuples(
-                self
+                self,
+                split_on: str = "\n"
         ) -> None:
             if len(self._data_corpus_tuples) == 0:
                 _labels_count = 0
@@ -432,12 +460,19 @@ class DataProcessingFactory:
                         _labels_count += 1
                     self._true_labels.append(_label)
                     self._text_id_to_doc_name[i] = d.get("name", "no_name")
-                    for line in d.get("content", "").split('\n'):
-                        if not (line.isspace() or len(line) == 0):
+                    _offset = 0
+                    for line in d.get("content", "").split(split_on):
+                        if line.isspace():
+                            _offset += (len(line) +len(split_on))
+                        elif len(line) == 0:
+                            _offset += len(split_on)
+                        else:
                             self._data_corpus_tuples.append(
                                 (line, {"doc_id": d.get("id", i), "doc_index": i,
-                                        "doc_name": d.get("name", "no_name"), "doc_topic": _label})
+                                        "doc_name": d.get("name", "no_name"), "doc_topic": _label,
+                                        "offset_in_doc": _offset})
                             )
+                            _offset += (len(line) +len(split_on))
 
         def _build_chunk_set_dicts(
                 self,
@@ -453,28 +488,27 @@ class DataProcessingFactory:
                 _csdt = {}
                 self._document_chunk_matrix = ["" for i in range(self.documents_n)]
                 for i, ch in enumerate(self.noun_chunks_corpus):
-                    _chunk_dict = clean_span(ch["spacy_chunk"])
-                    _negated_chunk = ch["negated"]
+                    ch: dict
+                    _chunk_dict = clean_span(ch["spacy_chunk"], ch["offset"])
+                    _negated_chunk: bool = ch["negated"]
                     # return value looks like this:
                     #   {'head_idx': _head_idx (int), 'lemma': _lemma (list), 'text': _text (list), 'pos': _pos (list)}
                     if _chunk_dict is None:
                         continue
 
                     _text = get_actual_str(_chunk_dict, _key, case_sensitive=case_sensitive)
+                    _offset = _chunk_dict["offset"]
                     if not (_negated_chunk and omit_negated_chunks):
                         self._document_chunk_matrix[ch["doc_index"]] += f"{self._chunk_boundary}{_text}"
 
                     if _csdt.get(_text, False) and not (_negated_chunk and omit_negated_chunks):
-                        _docs = set(_csdt[_text]["doc"])
-                        _docs.add(ch["doc_id"])
-                        _csdt[_text]["doc"] = list(_docs)
-                        _csdt[_text]["count"] += 1
+                        _populate_chunk_set_dict_with_doc(_csdt, _text, _offset, ch)
                     else:
-                        _csdt[_text] = ({"doc": [ch["doc_id"]], "count": 1}
+                        _csdt[_text] = ({"doc": [{"id": ch["doc_id"], "offsets": [_offset]}], "count": 1}
                                         if not (_negated_chunk and omit_negated_chunks) else {"doc": [], "count": 0})
 
                 self._chunk_set_dicts = [{"text": _t, "doc": _ch["doc"], "count": _ch["count"]}
-                                         for _t, _ch in _csdt.items()]
+                                         for _t, _ch in _csdt.items()] #ToDo: omit chunks that have a doc count of 0?
 
         def _process_documents(
                 self,
@@ -505,6 +539,7 @@ class DataProcessingFactory:
                     _doc._.doc_index = _ctx.get("doc_index", None)
                     _doc._.doc_name = _ctx.get("doc_name", None)
                     _doc._.doc_topic = _ctx.get("doc_topic", None)
+                    _doc._.offset_in_doc = _ctx.get("offset_in_doc", None)
                     self._processed_docs.append(_doc)
                     if _pipe_trf_type:
                         _doc._.trf_data = None  # clears cache and saves ram when using trf_pipelines
@@ -544,7 +579,8 @@ def validate_negspacy_config(config) -> dict:
 
 
 def clean_span(
-        chunk
+        chunk: spacy.tokens.Span,
+        offset: tuple[int, int] = None,
 ) -> Optional[dict]:
     _chunk_root_text = chunk.root.text.strip().replace("\t", "")
     # _chunk_root_lemma_text = chunk.root.lemma_.strip()
@@ -555,21 +591,48 @@ def clean_span(
     #     _lemma.append(_chunk_root_lemma_text)
 
     # if not head_only:
+    _i = 0
+    _last_token = None
+    _token = None
+    _remove_begin_from_last = 0
+    _remove_end_from_last = 0
+    if offset is not None:
+        _begin, _end = offset
     for i, _token in enumerate(chunk):
         _token_text = _token.text.strip().replace("\t", "")
-        if _token.is_stop or _token.pos_ in ["DET", "PRON"] or _token.like_num or _token.text.isspace():
+        if ((not _token.is_alpha) or _token.is_stop or _token.is_punct or _token.like_num or
+                _token.pos_ in ["DET", "PRON"] or _token_text.isspace()):
             # or (prepend_head and _token_text == _chunk_root_text)):
+            if offset is not None and i == _i:
+                # 'idx' is char offset relative the whole doc (here, the line)
+                _remove_begin_from_last += len(_token.text) + ((_token.idx - _last_token.idx - len(_last_token.text))
+                                                               if _last_token is not None and ((_token.i - _last_token.i) <= 1) else 0)
+                _i += 1
+            elif offset is not None and i == len(chunk) - 1:
+                _remove_end_from_last = len(_token.text)
+            _last_token = _token
             continue
         _text.append(_token_text)
         _lemma.append(_token.lemma_.strip().replace("\t", ""))
         _pos.append(_token.pos_)
+    if offset is not None and _token is not None:
+        _begin += (_remove_begin_from_last + ((_token.idx - _last_token.idx - len(_last_token.text))
+                                              if (_last_token is not None and ((_token.i - _last_token.i) <= 1) and _remove_begin_from_last != 0) else 0))
+        _end -= (_remove_end_from_last + ((_token.idx - _last_token.idx - len(_last_token.text))
+                                          if (_last_token is not None and ((_token.i - _last_token.i) <= 1) and _remove_end_from_last != 0) else 0))
 
     # _new_noun_phrase = " ".join([t for t in _text])
     # _new_noun_phrase_lemma = " ".join([t for t in _lemma])
 
     try:
         _head_idx = _text.index(_chunk_root_text)
-        return {'head_idx': _head_idx, 'lemma': _lemma, 'text': _text, 'pos': _pos}
+        return {
+            'head_idx': _head_idx,
+            'lemma': _lemma,
+            'text': _text,
+            'pos': _pos,
+            'offset': (_begin, _end,) if offset is not None else None
+        }
     except ValueError:
         return None
     # if len(_new_noun_phrase) > 0 and not _new_noun_phrase.isspace():
