@@ -583,54 +583,39 @@ def clean_span(
         offset: tuple[int, int] = None,
 ) -> Optional[dict]:
     _chunk_root_text = chunk.root.text.strip().replace("\t", "")
-    # _chunk_root_lemma_text = chunk.root.lemma_.strip()
     _text, _lemma, _pos = [], [], []
-
-    # if head_only or prepend_head:
-    #     _text.append(_chunk_root_text)
-    #     _lemma.append(_chunk_root_lemma_text)
-
-    # if not head_only:
-    _i = 0
-    _last_token = None
-    _token = None
-    _remove_begin_from_last = 0
-    _remove_end_from_last = 0
     if offset is not None:
         _begin, _end = offset
-    for i, _token in enumerate(chunk):
-        # 'idx' is char offset relative to the whole doc (here, the line)
-        _relative_token_offset = 0
-        _space_between = 0
-        _len_last_token = 0
-        if _last_token is not None:
-            _len_last_token = len(_last_token.text)
-            _relative_token_offset = _token.idx - _last_token.idx
-            _space_between = _relative_token_offset - _len_last_token
+
+    _i = 0
+    _global_offset_first = chunk[0].idx
+    # _last_token = None
+    _add_begin_from_last = 0
+    _remove_end_from_last = 0
+    for i in range(len(chunk)):
+        _token = chunk[i]
+        _relative_token_offset = _token.idx - _global_offset_first  # -- '.idx' is char offset relative to the whole doc (here, the line)
+        _space_between_next = 0
+        # if i > 0:
+        #     _last_token = chunk[i - 1]
+        #     _len_last_token = len(_last_token.text)
+        if i < len(chunk) - 1:
+            _next_token = chunk[i + 1]
+            _relative_token_offset_next = _next_token.idx - _global_offset_first
+            _space_between_next = _relative_token_offset_next - _relative_token_offset - len(_token.text)
 
         _token_text = _token.text.strip().replace("\t", "")
         if ((not _token.is_alpha) or _token.is_stop or _token.is_punct or _token.like_num or
                 _token.pos_ in ["DET", "PRON"] or _token_text.isspace()):
-            # or (prepend_head and _token_text == _chunk_root_text)):
-            if offset is not None and i == _i:
-                _remove_begin_from_last += (_space_between + _len_last_token)
+            if offset is not None and i == _i and i < (len(chunk) - 1):
+                _add_begin_from_last += (len(_token.text) + _space_between_next)
                 _i += 1
             elif offset is not None and i == len(chunk) - 1:
-                _remove_end_from_last = len(_token.text)
+                _remove_end_from_last += (len(_token.text) + _space_between_next)
         else:
             _text.append(_token_text)
             _lemma.append(_token.lemma_.strip().replace("\t", ""))
             _pos.append(_token.pos_)
-        _last_token = _token
-
-    if offset is not None and _token is not None:
-        _begin += (_remove_begin_from_last + ((_token.idx - _last_token.idx - len(_last_token.text))
-                                              if (_last_token is not None and ((_token.i - _last_token.i) <= 1) and _remove_begin_from_last != 0) else 0))
-        _end -= (_remove_end_from_last + ((_token.idx - _last_token.idx - len(_last_token.text))
-                                          if (_last_token is not None and ((_token.i - _last_token.i) <= 1) and _remove_end_from_last != 0) else 0))
-
-    # _new_noun_phrase = " ".join([t for t in _text])
-    # _new_noun_phrase_lemma = " ".join([t for t in _lemma])
 
     try:
         _head_idx = _text.index(_chunk_root_text)
@@ -639,15 +624,10 @@ def clean_span(
             'lemma': _lemma,
             'text': _text,
             'pos': _pos,
-            'offset': (_begin, _end,) if offset is not None else None
+            'offset': (_begin + _add_begin_from_last, _end - _remove_end_from_last,) if offset is not None else None
         }
     except ValueError:
         return None
-    # if len(_new_noun_phrase) > 0 and not _new_noun_phrase.isspace():
-    #     return re.sub(r"^[^\w]+", "", _new_noun_phrase), re.sub(r"^[^\w]+", "", _new_noun_phrase_lemma)
-    # else:
-    #     return None, None
-
 
 def get_actual_str(
         chunk_dict: dict,
