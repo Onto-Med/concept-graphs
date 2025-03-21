@@ -18,6 +18,7 @@ from sklearn.cluster import AffinityPropagation
 from tqdm.auto import tqdm
 
 from embedding_functions import cosine_against_collection, cosine
+from util_functions import add_offset_to_documents_dicts_by_id
 
 
 class GraphCreator:
@@ -89,11 +90,7 @@ class GraphCreator:
 
             _adj_matrix_collapsed = np.delete(np.delete(_adj_matrix, _rem_ids, axis=0), _rem_ids, axis=1)
             _cluster_collapsed = sorted(np.delete(_cluster, _rem_ids))
-            _merged_docs_add_id = [
-                set(self.chunk_set_dict[_cluster[_id]][self.doc_text_value] +
-                    self.chunk_set_dict[_cluster[_add_ids[i]]][self.doc_text_value])
-                for i, _id in enumerate(sorted(_rem_ids))
-            ]
+            _merged_docs_add_id = self._combine_docs(_cluster, _add_ids, _rem_ids)
 
             return {'adjacency_matrix': _adj_matrix_collapsed,
                     'sorted_cluster': _cluster_collapsed,
@@ -121,6 +118,24 @@ class GraphCreator:
         # _adj_matrix = _adj_matrix + _adj_matrix.T - np.diag(np.diag(_adj_matrix))
 
         return _adj_matrix
+
+    def _combine_docs(
+            self,
+            cluster: list,
+            add_ids: np.ndarray,
+            rem_ids: np.ndarray
+    ) -> list:
+        return_list = []
+        for i, _id in enumerate(sorted(rem_ids)):
+            _rem_docs: list[dict] = self.chunk_set_dict[cluster[_id]][self.doc_text_value]
+            _add_docs: list[dict] = self.chunk_set_dict[cluster[add_ids[i]]][self.doc_text_value].copy()
+            for doc in _rem_docs:
+                for _offset in doc["offsets"]:
+                    add_offset_to_documents_dicts_by_id(_add_docs, doc["id"], _offset)
+            return_list.append(_add_docs)
+        return return_list
+
+        # return [set(_rem_docs + _add_docs) for i, _id in enumerate(sorted(rem_ids))]
 
     # ToDo: some form of correction parameter?
     #    Right now, for instance, if not the majority of docs for for each phrase share the same cluster,

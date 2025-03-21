@@ -22,7 +22,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer as tfidfVec
 
 from src.negspacy.utils import FeaturesOfInterest
 from src.negspacy.negation import Negex
-from util_functions import load_pickle, save_pickle
+from util_functions import load_pickle, save_pickle, add_offset_to_documents_dicts_by_id
 
 
 # ToDo: this needs to be called whenever a data_proc object is used/loaded by another class
@@ -44,21 +44,8 @@ def _set_extensions(
 def _populate_chunk_set_dict_with_doc(
         dict2populate: dict, text: str, offset:tuple[int, int], noun_chunk_dict: dict
 ):
-    _docs: list = dict2populate[text]["doc"]  # _docs = [{"id": doc_id, "offsets": [offset_of_nc_in_doc]}, ...]
-    _id = noun_chunk_dict["doc_id"]
-    _added_offset = False
-    for _d in _docs:
-        _d: dict
-        if _id == _d.get("id", None):
-            _d.get("offsets", []).append(offset)
-            _added_offset = True
-            break
-    if not _added_offset:
-        _docs.append({"id": _id, "offsets": [offset]})
+    add_offset_to_documents_dicts_by_id(dict2populate[text]["doc"], noun_chunk_dict["doc_id"], offset)
     dict2populate[text]["count"] += 1
-
-    # _docs.add(noun_chunk_dict["doc_id"])
-    # dict2populate[text]["doc"] = list(_docs)
 
 
 class DataProcessingFactory:
@@ -308,7 +295,7 @@ class DataProcessingFactory:
                     _negated = not (not hasattr(ch, "_") or
                                     (hasattr(ch, "_") and not getattr(getattr(ch, "_"), "negex", True)))
                     if len(ch.text) == 1 and re.match(r"\W", ch.text):
-                        _offset_in_doc += 1
+                        # _offset_in_doc += 1
                         continue
                     if self._view is None or doc._.doc_topic in self._view['labels']:
                         yield {"spacy_chunk": ch, "doc_id": doc._.doc_id, "doc_index": doc._.doc_index,
