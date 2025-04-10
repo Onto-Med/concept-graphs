@@ -1,4 +1,5 @@
 import json
+import logging
 import shutil
 
 from typing import Optional
@@ -20,9 +21,13 @@ import embedding_functions
 import cluster_functions
 import util_functions
 
-app = Flask(__name__)
+werkzeug_logger = logging.getLogger("werkzeug")
+werkzeug_logger.setLevel(logging.WARN)
 root = logging.getLogger()
 root.addHandler(default_handler)
+[default_handler.setLevel(h) for h in werkzeug_logger.handlers]
+app = Flask(__name__)
+
 
 FILE_STORAGE_TMP = "./tmp"
 
