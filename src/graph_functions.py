@@ -130,7 +130,7 @@ class GraphCreator:
             _rem_docs: list[dict] = self.chunk_set_dict[cluster[_id]][self.doc_text_value]
             _add_docs: list[dict] = self.chunk_set_dict[cluster[add_ids[i]]][self.doc_text_value].copy()
             for doc in _rem_docs:
-                for _offset in doc["offsets"]:
+                for _offset in doc.get("offsets", []).copy():
                     add_offset_to_documents_dicts_by_id(_add_docs, doc["id"], _offset)
             return_list.append(_add_docs)
         return return_list
