@@ -1,11 +1,13 @@
 services:
   concept-graphs-api:
-    image: imise/top/concept-graphs-api:0.7.1
+    build: .
+    image: concept-graphs-api
     restart: unless-stopped
     ports:
       - 9007:9007
     volumes:
       - results:/rest_api/tmp
+      - .:/rest_api
 
 volumes:
   results:

@@ -1,3 +1,4 @@
+import inspect
 import itertools
 import logging
 import pathlib
@@ -13,6 +14,9 @@ from concurrent.futures import ProcessPoolExecutor
 
 import networkx as nx
 import scipy.sparse.csgraph
+from numpy import ndarray
+from sklearn.linear_model import LinearRegression
+from sklearn.utils._random import sample_without_replacement
 from tqdm.autonotebook import tqdm
 
 import numpy as np
@@ -20,7 +24,7 @@ import pandas as pd
 import umap
 from sklearn.cluster import KMeans, AgglomerativeClustering, MiniBatchKMeans, AffinityPropagation
 from sklearn.metrics import adjusted_rand_score
-from sklearn.preprocessing import normalize, MinMaxScaler
+from sklearn.preprocessing import normalize, MinMaxScaler, PolynomialFeatures
 from yellowbrick.cluster import kelbow_visualizer
 from scipy.sparse.csgraph import shortest_path, construct_dist_matrix, NegativeCycleError
 from sklearn.feature_extraction.text import TfidfVectorizer as tfidfVec
@@ -31,7 +35,8 @@ from pruning import unimodal
 
 from embedding_functions import SentenceEmbeddingsFactory, top_k_cosine
 from graph_functions import GraphCreator, unroll_graph, simplify_graph_naive, sub_clustering
-from util_functions import load_pickle, save_pickle, pairwise, NoneDownScaleObj
+# from src.util_functions import CVAEMantle
+from util_functions import load_pickle, save_pickle, pairwise, NoneDownScaleObj, ClusterNumberDetection
 
 logging.basicConfig()
 logging.root.setLevel(logging.INFO)
@@ -49,7 +54,7 @@ class WordEmbeddingClustering:
     def __init__(
             self,
             sentence_embedding_obj: SentenceEmbeddingsFactory.SentenceEmbeddings,
-            cluster_obj: Optional[KMeans] = None,
+            cluster_obj: Optional['PhraseClusterFactory.PhraseCluster'] = None,
             cluster_exclusion_ids: Optional[Iterable[int]] = None,
             text_field_value: str = 'text',
             lemma_field_value: str = 'lemma',
@@ -124,8 +129,8 @@ class WordEmbeddingClustering:
         ) -> list:
             return [
                 " ".join([self._data_proc.data_chunk_sets[i][self._outer_instance._text_field_value]
-                          for i, j in enumerate(self._outer_instance._cluster_obj.labels_ == n) if j])
-                for n in range(self._outer_instance._cluster_obj.n_clusters) if
+                          for i, j in enumerate(self._outer_instance._cluster_obj.concept_cluster.labels_ == n) if j])
+                for n in range(self._outer_instance._cluster_obj.concept_cluster.n_clusters) if
                 n not in (self._outer_instance._exclusion_ids if exclusion_ids is None else exclusion_ids)
             ]
 
@@ -257,14 +262,14 @@ class WordEmbeddingClustering:
         ) -> Iterable[List[int]]:
             _meaningful_clusters = []
             tfidf_filter = self._data_proc.tfidf_filter
-            if tfidf_filter is not None:
+            if tfidf_filter is not None: # ToDo need to check whether filtering is enabled!
                 logging.info("Filtering phrases")
-            for i, _center in enumerate(self._outer_instance._cluster_obj.cluster_centers_):
+            for i, _center in enumerate(self._outer_instance._cluster_obj.cluster_center):
                 if i in (self._outer_instance._exclusion_ids if exclusion_ids is None else exclusion_ids):
                     continue
                 if restrict_to_cluster:  # ToDo: results in worse figures when using same parameters...
                     # restrict embeddings to those that are in the cluster
-                    _idx = np.where(self._outer_instance._cluster_obj.labels_ == i)
+                    _idx = np.where(self._outer_instance._cluster_obj.concept_cluster.labels_ == i)
                     _meaningful_clusters.append(
                         self._filter_entries(
                             _idx[0][  # get the original indices
@@ -509,7 +514,7 @@ class WordEmbeddingClustering:
                 filter_max_df: Union[int, float] = 1.,
                 filter_stop: Optional[list] = None,
         ):
-            filter_stop = filter_stop if filter_stop is not None else []
+            filter_stop = filter_stop if (filter_stop not in [None, False]) else []
             if (self._data_proc.tfidf_filter is not None and (
                     self._data_proc.tfidf_filter.get_params().get("min_df", -1) != filter_min_df or
                     self._data_proc.tfidf_filter.get_params().get("max_df", -1) != filter_max_df or
@@ -522,7 +527,7 @@ class WordEmbeddingClustering:
                                              filter_stop=filter_stop)
             logging.info(f"Building Document Concept Matrix with following arguments:\n{locals()}")
             _exclusion = self._outer_instance._exclusion_ids if cluster_exclusion_ids is None else cluster_exclusion_ids
-            _tqdm_sum = (len(self._outer_instance._cluster_obj.cluster_centers_) - len(_exclusion))
+            _tqdm_sum = (len(self._outer_instance._cluster_obj.cluster_center) - len(_exclusion))
             logging.info(f"Building Concept Graphs... (exclusion_ids: {_exclusion})")
             self._concept_graphs = [
                 self._build_graph(tuple(_c), graph_cosine_weight, graph_merge_threshold, graph_weight_cut_off)
@@ -662,7 +667,7 @@ class PhraseClusterFactory:
         """
 
         **kwargs for the cluster algorithm, the scaling algorithm and the k-elbow algorithm have to be prefixed
-        with 'cluster_', 'scaling_' & 'kelbow_' respectively
+        with 'clustering_', 'scaling_' & 'kelbow_' respectively
         """
 
         def __init__(
@@ -673,30 +678,47 @@ class PhraseClusterFactory:
                 cluster_by_down_scale: bool = True,
                 **kwargs
         ):
+            self._clustering_estimators_ref = {"kmeans": KMeans,
+                                               "kmeans-mb": MiniBatchKMeans,
+                                               "affinity-prop": AffinityPropagation}
             self._cluster_alg_kwargs = {"_".join(key.split("_")[1:]): val for key, val in kwargs.items()
-                                        if len(key.split("_")) > 1 and key.split("_")[0] == "cluster"}
+                                        if len(key.split("_")) > 1 and key.split("_")[0] == "clustering"}
             self._down_scale_alg_kwargs = {"_".join(key.split("_")[1:]): val for key, val in kwargs.items()
                                            if len(key.split("_")) > 1 and key.split("_")[0] == "scaling"}
             self._kelbow_alg_kwargs = {"_".join(key.split("_")[1:]): val for key, val in kwargs.items()
-                                       if len(key.split("_")) > 1 and key.split("_")[0] == "kelbow"}
+                                       if len(key.split("_")) > 1 and key.split("_")[0] == "deduction"}
+            # if self._kelbow_alg_kwargs.get("estimator", False):
+            #     if self._kelbow_alg_kwargs.get("estimator") != "affinity-prop":
+            #         self._kelbow_alg_kwargs["estimator"] = self._clustering_estimators_ref.get(self._kelbow_alg_kwargs.get("estimator"))
+            #     else:
+            #         self._kelbow_alg_kwargs.pop("estimator")
             self._sentence_emb = sentence_embeddings.sentence_embeddings if not isinstance(sentence_embeddings,
                                                                                            np.ndarray) else sentence_embeddings
             self._cluster_alg = (cluster_algorithm if cluster_algorithm in ["kmeans", "kmeans-mb", "affinity-prop"]
                                  else "kmeans")
-            self._cluster_obj = {"kmeans": KMeans,
-                                 "kmeans-mb": MiniBatchKMeans,
-                                 "affinity-prop": AffinityPropagation}[self._cluster_alg]
-            self._down_scale_alg = down_scale_algorithm
+            self._cluster_obj = self._clustering_estimators_ref[self._cluster_alg]
+            self._down_scale_alg = down_scale_algorithm.lower()
 
             if self._down_scale_alg_kwargs.get("n_neighbors", False) and isinstance(self._down_scale_alg_kwargs.get("n_neighbors"), float):
-                _n_neighbors = self._down_scale_alg_kwargs["n_neighbors"] * self._sentence_emb.shape[0]
+                _n_neighbors = min(self._down_scale_alg_kwargs["n_neighbors"] * self._sentence_emb.shape[0], 100)
                 self._down_scale_alg_kwargs["n_neighbors"] = int(_n_neighbors)
 
-            self._down_scale_obj = {"umap": umap.UMAP, None: NoneDownScaleObj}[down_scale_algorithm](**self._down_scale_alg_kwargs)
+            self._down_scale_obj = {
+                "umap": umap.UMAP,
+                # "cvae": CVAEMantle,
+                None: NoneDownScaleObj
+            }[down_scale_algorithm.lower()](**self._down_scale_alg_kwargs)
             self._concept_cluster = None
             self._kelbow = None
+            self._cluster_center = None
 
             self._build_concept_cluster(cluster_by_down_scale)
+
+        @property
+        def cluster_center(
+                self
+        ):
+            return self._cluster_center
 
         @property
         def concept_cluster(
@@ -711,7 +733,7 @@ class PhraseClusterFactory:
             return {
                 f"scaling ({self._down_scale_alg})": self._down_scale_alg_kwargs,
                 f"cluster ({self._cluster_alg})": self._cluster_alg_kwargs,
-                f"kelbow ({self._kelbow.metric})": self._kelbow_alg_kwargs
+                f"deduction": self._kelbow_alg_kwargs
             }
 
         def _build_concept_cluster(
@@ -721,38 +743,138 @@ class PhraseClusterFactory:
             logging.info("Building Concept Cluster ...")
             _cluster_embeddings = self._sentence_emb
 
-            if cluster_by_down_scale and not isinstance(self._down_scale_obj, NoneDownScaleObj):
+            _is_downscaling = cluster_by_down_scale and not isinstance(self._down_scale_obj, NoneDownScaleObj)
+            if _is_downscaling:
                 logging.info(f"{self._down_scale_alg.upper()} arguments: {self._down_scale_obj.get_params()}")
                 _cluster_embeddings = self._down_scale_obj.fit_transform(self._sentence_emb)
 
-            if self._cluster_alg != "affinity-prop":
-                logging.info("-- Calculating K-Elbow ...")
-                logging.info(f"---- shape of embeddings: ({_cluster_embeddings.shape})")
-                logging.info(f"---- Arguments: {self._kelbow_alg_kwargs}")
-                self._kelbow = kelbow_visualizer(
-                    model=self._cluster_obj(), X=_cluster_embeddings, **self._kelbow_alg_kwargs
-                )
+            _estimator = self._kelbow_alg_kwargs.get("estimator", False)
+            logging.info("-- Clustering ...")
+            if _is_downscaling and self._down_scale_alg != "cvae":
+                logging.info("Using downscaled embeddings for clustering is only allowed for 'cvae' algorithm.\n"
+                             "Cluster number deduction will be performed on downscaled embeddings but clustering needs to be done on the original embeddings!")
 
-                _cluster_args = self._cluster_alg_kwargs.copy()
-                if "n_clusters" in _cluster_args.keys():
-                    _cluster_args.pop("n_clusters")
+            if ((_estimator and (_estimator != AffinityPropagation)) or
+                    (not _estimator and self._cluster_alg != "affinity-prop" and _estimator is not None)):
 
-                logging.info("-- Clustering ...")
-                logging.info(f" ({self._cluster_alg}) with Arguments: {_cluster_args}\n"
-                             f"Number of Clusters: {self._kelbow.elbow_value_}")
-                self._concept_cluster = self._cluster_obj(n_clusters=self._kelbow.elbow_value_, **_cluster_args).fit(
-                    self._sentence_emb
+                _n_clusters_given = self._cluster_alg_kwargs.get("n_clusters", False)
+                if self._kelbow_alg_kwargs.get("enabled", False):
+                    _deduction_kwargs = self._kelbow_alg_kwargs.copy()
+                    _default_args = inspect.getfullargspec(ClusterNumberDetector).args
+                    for _k in _deduction_kwargs.copy().keys():
+                        if _k not in _default_args:
+                            _deduction_kwargs.pop(_k, None)
+                    cnd = ClusterNumberDetector(
+                        self,
+                        **_deduction_kwargs
+                    )
+                    cnd.estimate_cluster_number(_cluster_embeddings)
+                else:
+                    #ToDo: here some default value -> not hard coded
+                    self._cluster_alg_kwargs['n_clusters'] = _n_clusters_given if _n_clusters_given else 50
+
+                logging.info(f" ({self._cluster_alg}) with Arguments: {self._cluster_alg_kwargs}\n"
+                             f"Number of Clusters: {self._cluster_alg_kwargs['n_clusters']}\n")
+                self._concept_cluster = self._cluster_obj(**self._cluster_alg_kwargs).fit(
+                    _cluster_embeddings if (_is_downscaling and self._down_scale_alg == "cvae") else self._sentence_emb,
                 )
-                _cluster_args.update({"n_clusters": self._kelbow.elbow_value_})
-                self._cluster_alg_kwargs = _cluster_args
             else:
-                logging.info("-- Clustering ...")
                 logging.info(f" ({self._cluster_alg}) with Arguments: {self._cluster_alg_kwargs}")
                 self._concept_cluster = self._cluster_obj(**self._cluster_alg_kwargs).fit(
-                    _cluster_embeddings
+                    _cluster_embeddings if (_is_downscaling and self._down_scale_alg == "cvae") else self._sentence_emb,
                 )
+
+            if _is_downscaling and self._down_scale_alg == "cvae":
+                self._cluster_center = self._down_scale_obj.inverse_transform(self._concept_cluster.cluster_centers_)
+            else:
+                self._cluster_center = self._concept_cluster.cluster_centers_
 
 
 class ClusterNumberDetector:
-    def __init__(self):
-        pass
+    def __init__(
+            self,
+            owner: PhraseClusterFactory.PhraseCluster,
+            algorithm: ClusterNumberDetection = ClusterNumberDetection.SILHOUETTE,
+            k_min: int = 2,
+            k_max: int = 100,
+            n_samples: int = 15,
+            sample_fraction: int = 25,
+            regression_poly_degree: int = 5
+    ):
+        self._owner = owner
+        self._algorithm = algorithm
+        self._k_min = k_min
+        self._k_max = k_max
+        self._n_samples = n_samples
+        self._sample_fraction = sample_fraction
+        self._regression_poly_degree = regression_poly_degree
+
+    def _fit_regression(self, x_reg, y_reg):
+        poly = PolynomialFeatures(degree=self._regression_poly_degree)
+        x_poly = poly.fit_transform(np.asarray(x_reg).reshape(-1, 1))
+
+        model = LinearRegression()
+        model.fit(x_poly, np.asarray(y_reg))
+
+        x_lin = np.linspace(np.asarray(x_reg).min(), np.asarray(x_reg).max(), self._k_max)
+        x_out = poly.transform(x_lin.reshape(-1, 1))
+        y_out = model.predict(x_out)
+        x_reg_recalc = list(range(self._k_min)) + x_reg
+        max_reg = np.asarray(x_reg_recalc)[np.argmax(y_out)]
+
+        return x_lin, y_out, max_reg
+
+    def _k_elbow_estimation(self, projection: ndarray):
+        _samples = []
+        _kelbow_array = []
+        _elbow_max = []
+
+        for i in range(self._n_samples):
+            _samples.append(sample_without_replacement(projection.shape[0], int(projection.shape[0] / self._sample_fraction)))
+
+        for _sample in tqdm(_samples):
+            _kelbow = kelbow_visualizer(
+                model=MiniBatchKMeans(n_init='auto'),
+                X=projection[_sample],
+                show=False,
+                k=(self._k_min, self._k_max),
+                metric={
+                    ClusterNumberDetection.SILHOUETTE: 'silhouette',
+                    ClusterNumberDetection.DISTORTION: 'distortion',
+                    ClusterNumberDetection.CALINSKI_HARABASZ: 'calinski_harabasz',
+                }.get(self._algorithm, ClusterNumberDetection.SILHOUETTE),
+            )
+            _kelbow_array.append(_kelbow)
+
+        for _kelbow in _kelbow_array:
+            x_vals, y_regression, max_regression = self._fit_regression(_kelbow.k_values_, _kelbow.k_scores_)
+            _elbow_max.append(max_regression)
+
+        return np.average(np.asarray(_elbow_max))
+
+    def estimate_cluster_number(self, projection: ndarray):
+        logging.info("-- Calculating K-Elbow ...")
+        logging.info(f"---- shape of embeddings: ({projection.shape})")
+        logging.info(f"---- Arguments: {self._owner._kelbow_alg_kwargs}")
+
+        # if "estimator" not in self._kelbow_alg_kwargs:
+        #     _obj = self._cluster_obj
+        # else:
+        #     _obj = self._kelbow_alg_kwargs.pop("estimator", KMeans)
+        #
+        # if _obj in [KMeans, MiniBatchKMeans]:
+        #     _model = _obj(n_init='auto')
+        # else:
+        #     _model = _obj()
+
+        # self._kelbow = kelbow_visualizer(
+        #     model=_model,
+        #     X=_cluster_embeddings,
+        #     **self._kelbow_alg_kwargs
+        # )
+
+        # _cluster_args = self._owner._cluster_alg_kwargs.copy()
+        # if "n_clusters" in _cluster_args.keys():
+        self._owner._cluster_alg_kwargs["n_clusters"] = int(self._k_elbow_estimation(projection))
+        # if self._cluster_obj in [KMeans, MiniBatchKMeans] and "n_init" not in _cluster_args.keys():
+        #     _cluster_args["n_init"] = 'auto'

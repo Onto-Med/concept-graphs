@@ -1,3 +1,5 @@
+import enum
+import inspect
 import io
 import itertools
 import pathlib
@@ -7,9 +9,16 @@ from threading import Lock
 
 from collections import Counter
 
+# from cvae import cvae
 import numpy as np
 import pandas as pd
 from sklearn.cluster import KMeans, AgglomerativeClustering
+
+
+class ClusterNumberDetection(enum.Enum):
+    DISTORTION = 1
+    SILHOUETTE = 2
+    CALINSKI_HARABASZ = 3
 
 
 class SingletonMeta(type):
@@ -116,6 +125,22 @@ def cluster_purity(
     if print_df:
         print(df)
     return df.max(axis=1).to_numpy().sum() / df.to_numpy().sum()
+
+
+def add_offset_to_documents_dicts_by_id(
+        documents: list[dict],
+        doc_id: str,
+        offset: tuple[int, int]
+):
+    # ---> _docs = [{"id": doc_id, "offsets": [offset_of_nc_in_doc]}, ...]
+    _added_offset = False
+    for doc in documents:
+        if doc_id == doc.get("id", None):
+            doc.get("offsets", []).append(offset)
+            _added_offset = True
+            break
+    if not _added_offset:
+        documents.append({"id": doc_id, "offsets": [offset]})
 
 
 def pick_color(cname=None):
@@ -272,3 +297,45 @@ class NoneDownScaleObj:
 
     def __str__(self):
         return "None"
+
+
+# class CVAEMantle:
+#     def __init__(self, **kwargs):
+#         self._cvae = None
+#         self._extract_args(kwargs)
+#
+#     def _extract_args(self, kwargs):
+#         _default_init_args = inspect.getfullargspec(cvae.CompressionVAE.__init__).args
+#         _default_train_args = inspect.getfullargspec(cvae.CompressionVAE.train).args
+#         _train_kwargs = {}
+#         _init_kwargs = {}
+#         for k, v in kwargs.items():
+#             if k in _default_init_args:
+#                 _init_kwargs[k] = v
+#             if k in _default_train_args:
+#                 _train_kwargs[k] = v
+#         self._init_kwargs = _init_kwargs
+#         self._train_kwargs = _train_kwargs
+#
+#     def fit(self, x: np.ndarray):
+#         self._cvae = cvae.CompressionVAE(
+#             x,
+#             **self._init_kwargs
+#         )
+#         self._cvae.train(**self._train_kwargs)
+#
+#     def fit_transform(self, x: np.ndarray) -> np.ndarray:
+#         self._cvae = cvae.CompressionVAE(
+#             x,
+#             **self._init_kwargs
+#         )
+#         self._cvae.train(**self._train_kwargs)
+#         return self._cvae.X
+#
+#     def inverse_transform(self, x: np.ndarray) -> Optional[np.ndarray]:
+#         if self._cvae is None:
+#             return None
+#         return self._cvae.decode(x)
+#
+#     def get_params(self):
+#         return {'init': self._init_kwargs, 'train': self._train_kwargs}

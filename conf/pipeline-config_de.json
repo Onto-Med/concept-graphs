@@ -15,13 +15,13 @@
                 "enabled": false,
                 "min_df": 1,
                 "max_df": 1.0,
-                "stop": false
+                "stop": null
             },
             "disable": null,
             "negspacy": {
                 "enabled": true,
                 "configuration": {
-                    "chunk_prefix": ["kein", "keine", "keinen"],
+                    "chunk_prefix": ["kein", "keine", "keinen", "ohne", "keinerlei"],
                     "neg_termset_file": "./conf/negex_files/negex_trigger_german_biotxtm_2016_extended.txt",
                     "scope": 1,
                     "language": "de",
@@ -38,13 +38,20 @@
             "downscale": "umap",
             "missing_as_recommended": true,
             "scaling": {
-
+                "n_neighbors": 10,
+                "min_dist": 0.1,
+                "n_components": 100
             },
             "clustering": {
-
+                "n_clusters": 50
             },
-            "kelbow": {
-                
+            "deduction": {
+                "enabled": true,
+                "k_min": 2,
+                "k_max": 100,
+                "n_samples": 15,
+                "sample_fraction": 25,
+                "regression_poly_degree": 5
             }
         },
         "graph": {
@@ -54,8 +61,8 @@
             },
             "graph": {
                 "cosine_weight": 0.6,
-                "merge_threshold": 0.95,
-                "graph_weight_cut_off": 0.5,
+                "merge_threshold": 0.90,
+                "graph_weight_cut_off": 0.6,
                 "unroll": false,
                 "simplify": 0.5,
                 "simplify_alg": "significance",

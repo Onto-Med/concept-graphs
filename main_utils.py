@@ -1,5 +1,6 @@
 import pathlib
 import threading
+import re
 from collections import namedtuple
 from dataclasses import dataclass
 from enum import Enum, IntEnum
@@ -185,3 +186,6 @@ def get_bool_expression(str_bool: str, default: Union[bool, str] = False) -> boo
         }.get(str_bool.lower(), default)
     else:
         return False
+
+def string_conformity(s: str):
+    return re.sub(r"\s+", "_", s.lower())
