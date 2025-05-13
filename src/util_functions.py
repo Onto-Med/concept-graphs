@@ -1,10 +1,11 @@
+import abc
 import enum
 import inspect
 import io
 import itertools
 import pathlib
 import pickle
-from typing import Callable, Any, Optional, Union
+from typing import Callable, Any, Optional, Union, Iterable, Generator
 from threading import Lock
 
 from collections import Counter
@@ -298,6 +299,37 @@ class NoneDownScaleObj:
     def __str__(self):
         return "None"
 
+
+class EmbeddingStore(metaclass=abc.ABCMeta):
+    @classmethod
+    def __subclasshook__(cls, subclass):
+        return (hasattr(subclass, 'store_embedding') and
+                callable(subclass.store_embedding) and
+                hasattr(subclass, 'store_embeddings') and
+                callable(subclass.store_embeddings) or
+                hasattr(subclass, 'get_embedding') and
+                callable(subclass.get_embedding) or
+                hasattr(subclass, 'get_embeddings') and
+                callable(subclass.get_embeddings) or
+                NotImplemented)
+
+    @abc.abstractmethod
+    def store_embedding(self, embedding_id, embedding, **kwargs) -> str:
+        """Store the embedding and return its id"""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def store_embeddings(self, embedding_dicts: Iterable, vector_name: str) -> Iterable:
+        """Store the embeddings and return their ids"""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_embedding(self, embedding_id: str):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_embeddings(self, embedding_ids: Iterable):
+        raise NotImplementedError
 
 # class CVAEMantle:
 #     def __init__(self, **kwargs):

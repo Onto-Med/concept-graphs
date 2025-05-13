@@ -489,6 +489,7 @@ class DataProcessingFactory:
                         self._document_chunk_matrix[ch["doc_index"]] += f"{self._chunk_boundary}{_text}"
 
                     if _csdt.get(_text, False) and not (_negated_chunk and omit_negated_chunks):
+                        #ToDo: maybe string similarity check already here to merge similar phrases
                         _populate_chunk_set_dict_with_doc(_csdt, _text, _offset, ch)
                     else:
                         _csdt[_text] = ({"doc": [{"id": ch["doc_id"], "offsets": [_offset]}], "count": 1}
