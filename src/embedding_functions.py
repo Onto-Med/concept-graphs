@@ -11,6 +11,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.cluster import KMeans
 
 from data_functions import DataProcessingFactory
+from src.MarqoEmbedding import MarqoEmbeddingExternal
 from src.util_functions import NoneDownScaleObj
 from util_functions import load_pickle, save_pickle
 
@@ -32,12 +33,17 @@ def _set_extensions(
 
 
 class SentenceEmbeddingsFactory:
+    storage_options = {
+        'pickle': save_pickle,
+        'vector_store': MarqoEmbeddingExternal,
+    }
 
     @staticmethod
     def load(
             data_obj_path: Union[pathlib.Path, str],
             embeddings_path: Union[pathlib.Path, str],
             view_from_topics: Optional[Iterable[str]] = None,
+            storage_method: tuple[str, Optional[dict]] = ('pickle', None,),
     ):
         _set_extensions()
         _data_obj: DataProcessingFactory.DataProcessing = load_pickle(
@@ -45,13 +51,34 @@ class SentenceEmbeddingsFactory:
         )
         if view_from_topics is not None:
             _data_obj.set_view_by_labels(view_from_topics)
-        _embeddings_obj: SentenceEmbeddingsFactory.SentenceEmbeddings = load_pickle(
-            pathlib.Path(embeddings_path).absolute()
-        )
-        _sent_emb = SentenceEmbeddingsFactory.SentenceEmbeddings(data_obj=_data_obj)
-        _sent_emb._embeddings = _embeddings_obj.sentence_embeddings
+
+        _file_path = pathlib.Path(embeddings_path).absolute()
+        _loaded_obj = load_pickle(_file_path)
+        _embeddings_obj: SentenceEmbeddingsFactory.SentenceEmbeddings
+
+        if storage_method[0].lower() == "pickle":
+             _embeddings_obj = _loaded_obj
+        elif storage_method[0].lower() == "vector_store":
+            _config: dict = load_pickle(_file_path)
+            vector_store = SentenceEmbeddingsFactory.storage_options["vector_store"](
+                client_url=_config.get("client_url", "http://localhost:8882"),
+                index_name=_config.get("index_name", "_".join(_file_path.stem.split("_")[:-1])),
+                create_index=False,
+            )
+            _embeddings_obj = SentenceEmbeddingsFactory.SentenceEmbeddings(
+                model_name=_config.get("model_name", None),
+                data_obj=_data_obj,
+            )
+            _embeddings_obj._embeddings = vector_store.get_embeddings()
+        else:
+            logging.error("Unknown storage method")
+            return None
+
+        # _sent_emb = SentenceEmbeddingsFactory.SentenceEmbeddings(data_obj=_data_obj)
+        # _sent_emb._embeddings = _embeddings_obj.sentence_embeddings
         assert _data_obj.chunk_sets_n == _embeddings_obj.sentence_embeddings.shape[0]
-        return _sent_emb
+        # return _sent_emb
+        return _embeddings_obj
 
     @staticmethod
     def create(
@@ -63,6 +90,7 @@ class SentenceEmbeddingsFactory:
             view_from_topics: Optional[Iterable[str]] = None,
             down_scale_algorithm: Optional[str] = None,
             head_only: bool = False,
+            storage_method: tuple[str, Optional[dict]] = ('pickle', None,),
             **kwargs
     ):
         _down_scale_alg_kwargs = {"_".join(key.split("_")[1:]): val for key, val in kwargs.items()
@@ -81,7 +109,25 @@ class SentenceEmbeddingsFactory:
             head_only=head_only
         )
         _sent_emb._encode_data(n_process, **kwargs)
-        save_pickle(_sent_emb, (cache_path / pathlib.Path(f"{cache_name}.pickle")))
+        _file_path = (cache_path / pathlib.Path(f"{cache_name}.pickle"))
+
+        if storage_method[0].lower() == "pickle":
+            SentenceEmbeddingsFactory.storage_options["pickle"](_sent_emb, _file_path)
+        elif storage_method[0].lower() == "vector_store":
+            _client_url = storage_method[1].get("client_url", "http://localhost:8882")
+            _index_name = storage_method[1].get("index_name", cache_name)
+            vector_store = SentenceEmbeddingsFactory.storage_options["vector_store"](
+                client_url=_client_url,
+                index_name=_index_name,
+                create_index=True,
+                vector_dim=_sent_emb.embedding_dim
+            )
+            vector_store.store_embeddings(_sent_emb.sentence_embeddings)
+            save_pickle({
+                "client_url": _client_url,
+                "index_name": _index_name,
+                "model_name": model_name,
+            }, _file_path)
         return _sent_emb
 
     class SentenceEmbeddings:

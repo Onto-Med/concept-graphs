@@ -314,7 +314,7 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
                 NotImplemented)
 
     @abc.abstractmethod
-    def store_embedding(self, embedding_id, embedding, **kwargs) -> str:
+    def store_embedding(self, embedding, **kwargs) -> str:
         """Store the embedding and return its id"""
         raise NotImplementedError
 
@@ -328,7 +328,7 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_embeddings(self, embedding_ids: Iterable):
+    def get_embeddings(self, embedding_ids: Optional[Iterable]):
         raise NotImplementedError
 
 # class CVAEMantle:
