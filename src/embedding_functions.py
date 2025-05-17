@@ -90,14 +90,17 @@ class SentenceEmbeddingsFactory:
             view_from_topics: Optional[Iterable[str]] = None,
             down_scale_algorithm: Optional[str] = None,
             head_only: bool = False,
-            storage_method: tuple[str, Optional[dict]] = ('pickle', None,),
+            storage_method: tuple[str, Optional[dict]] = ('pickle', None,), # dict for vectorstore configures the url and index name (things that shouldn't go to config params in yaml)
             **kwargs
     ):
         _down_scale_alg_kwargs = {"_".join(key.split("_")[1:]): val for key, val in kwargs.items()
                                   if len(key.split("_")) > 1 and key.split("_")[0] == "scaling"}
+        _vector_store_kwargs = {"_".join(key.split("_")[1:]): val for key, val in kwargs.items()
+                                  if len(key.split("_")) > 1 and key.split("_")[0] == "vectorstore"}
         _down_scale_obj = {"umap": umap.UMAP, None: NoneDownScaleObj}[down_scale_algorithm](**_down_scale_alg_kwargs)
-        for key in _down_scale_alg_kwargs.keys():
-            kwargs.pop(f"scaling_{key}")
+        for add_ in [("scaling", _down_scale_alg_kwargs,), ("vectorstore", _vector_store_kwargs,)]:
+            for key in add_[1].keys():
+                kwargs.pop(f"{add_[0]}_{key}")
         if view_from_topics is not None:
             data_obj.set_view_by_labels(view_from_topics)
 
@@ -120,9 +123,13 @@ class SentenceEmbeddingsFactory:
                 client_url=_client_url,
                 index_name=_index_name,
                 create_index=True,
-                vector_dim=_sent_emb.embedding_dim
+                vector_dim=_sent_emb.embedding_dim,
+                additional_index_settings=_vector_store_kwargs
             )
-            vector_store.store_embeddings(_sent_emb.sentence_embeddings)
+            vector_store.store_embeddings(
+                embeddings=_sent_emb.sentence_embeddings,
+                embeddings_repr=[dcs['text'] for dcs in data_obj.data_chunk_sets]
+            )
             save_pickle({
                 "client_url": _client_url,
                 "index_name": _index_name,

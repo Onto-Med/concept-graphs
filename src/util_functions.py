@@ -319,7 +319,7 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def store_embeddings(self, embedding_dicts: Iterable, vector_name: str) -> Iterable:
+    def store_embeddings(self, embeddings: Iterable, embeddings_repr: Iterable, vector_name: str) -> Iterable:
         """Store the embeddings and return their ids"""
         raise NotImplementedError
 

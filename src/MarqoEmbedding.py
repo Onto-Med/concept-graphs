@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, Union, Optional
+from typing import Iterable, Union, Optional, Tuple
 
 import marqo
 import numpy as np
@@ -56,6 +56,7 @@ class MarqoEmbeddingExternal(EmbeddingStore):
                     "dimensions": self._vector_dim,
                     "type": "no_model",
                 },
+                "normalizeEmbeddings": False,
             }
         return self._settings
 
@@ -86,16 +87,22 @@ class MarqoEmbeddingExternal(EmbeddingStore):
 
     def store_embedding(
             self,
-            embedding: Union[list, np.ndarray],
+            embedding: Union[Tuple[str, list], Tuple[str, np.ndarray], Union[list, np.ndarray]],
             **kwargs
     ) -> str:
         _id = str(self.store_size)
+        if isinstance(embedding, tuple):
+            content, embedding = embedding
+        else:
+            content = None
         _doc = {
             "_id": _id,
             self._vector_name: {
                 "vector": embedding.tolist() if isinstance(embedding, np.ndarray) else embedding
             }
         }
+        if content is not None:
+            _doc["phrase"] = content
         _doc.update(kwargs)
         _result = self.marqo_index.add_documents(
             documents=[_doc],
@@ -111,23 +118,38 @@ class MarqoEmbeddingExternal(EmbeddingStore):
 
     def store_embeddings(
             self,
-            embeddings: Union[Iterable[Union[dict, list[float]]], np.ndarray],
+            embeddings: Union[Iterable[Union[dict, list, Union[Tuple[str, list], Tuple[str, np.ndarray]]]], np.ndarray],
+            embeddings_repr: list[str] = None,
             vector_name: Optional[str] = None
     ) -> Iterable:
+        def _doc_representation(did: Union[str, int], vec: Union[list, np.ndarray], cont: Optional[str]):
+            _d = {
+                "_id": str(did),
+                self._vector_name: {
+                    "vector": vec.tolist() if isinstance(vec, np.ndarray) else vec
+                }
+            }
+            if cont is not None:
+                _d["phrase"] = cont
+            return _d
+
         _vector_name = vector_name if vector_name is not None else self._vector_name
         _offset = self.store_size
+        _embeddings = []
         if not isinstance(embeddings, np.ndarray) and isinstance(list(embeddings)[0], dict):
             for i, _dict in enumerate(embeddings):
                 _dict["_id"] = str(_offset + i)
+        elif not isinstance(embeddings, np.ndarray) and isinstance(list(embeddings)[0], tuple):
+            for i, _tuple in enumerate(embeddings):
+                _embeddings.append(_doc_representation(i, _tuple[1], _tuple[0]))
+            embeddings = _embeddings
         else:
-            _embeddings = []
-            for i, _list in enumerate(embeddings):
-                _embeddings.append({
-                    "_id": str(i),
-                    self._vector_name: {
-                        "vector": _list.tolist() if isinstance(_list, np.ndarray) else _list
-                    }
-                })
+            if embeddings_repr is None:
+                for i, _list in enumerate(embeddings):
+                    _embeddings.append(_doc_representation(i, _list, None))
+            else:
+                for (i, (content, vector)) in enumerate(zip(embeddings_repr, embeddings)):
+                    _embeddings.append(_doc_representation(i, vector, content))
             embeddings = _embeddings
 
         _result = self.marqo_index.add_documents(
