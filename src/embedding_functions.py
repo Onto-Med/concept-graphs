@@ -11,7 +11,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.cluster import KMeans
 
 from data_functions import DataProcessingFactory
-from src.MarqoEmbedding import MarqoEmbeddingExternal
+from src.MarqoExternalUtils import MarqoEmbeddingStore
 from src.util_functions import NoneDownScaleObj
 from util_functions import load_pickle, save_pickle
 
@@ -35,7 +35,7 @@ def _set_extensions(
 class SentenceEmbeddingsFactory:
     storage_options = {
         'pickle': save_pickle,
-        'vector_store': MarqoEmbeddingExternal,
+        'vector_store': MarqoEmbeddingStore,
     }
 
     @staticmethod

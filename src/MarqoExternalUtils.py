@@ -5,10 +5,9 @@ import marqo
 import numpy as np
 from marqo.errors import MarqoWebError
 
-from util_functions import EmbeddingStore
+from util_functions import EmbeddingStore, DocumentStore
 
-#ToDo: right now, embeddings will be normalized
-class MarqoEmbeddingExternal(EmbeddingStore):
+class MarqoEmbeddingStore(EmbeddingStore):
     def __init__(
             self,
             client_url: str,
@@ -41,6 +40,22 @@ class MarqoEmbeddingExternal(EmbeddingStore):
             index_settings: Union[dict, Iterable[str]]
     ):
         self.index_settings.update(index_settings)
+
+    def _doc_representation(
+            self,
+            did: Union[str, int],
+            vec: Union[list, np.ndarray],
+            cont: Optional[str]
+    ) -> dict:
+        _d = {
+            "_id": str(did),
+            "graph_cluster": [] ,
+            "phrase": cont if cont is not None else "",
+            self._vector_name: {
+                "vector": vec.tolist() if isinstance(vec, np.ndarray) else vec
+            }
+        }
+        return _d
 
     @property
     def marqo_index(self):
@@ -95,14 +110,7 @@ class MarqoEmbeddingExternal(EmbeddingStore):
             content, embedding = embedding
         else:
             content = None
-        _doc = {
-            "_id": _id,
-            self._vector_name: {
-                "vector": embedding.tolist() if isinstance(embedding, np.ndarray) else embedding
-            }
-        }
-        if content is not None:
-            _doc["phrase"] = content
+        _doc = self._doc_representation(_id, embedding, content)
         _doc.update(kwargs)
         _result = self.marqo_index.add_documents(
             documents=[_doc],
@@ -122,17 +130,6 @@ class MarqoEmbeddingExternal(EmbeddingStore):
             embeddings_repr: list[str] = None,
             vector_name: Optional[str] = None
     ) -> Iterable:
-        def _doc_representation(did: Union[str, int], vec: Union[list, np.ndarray], cont: Optional[str]):
-            _d = {
-                "_id": str(did),
-                self._vector_name: {
-                    "vector": vec.tolist() if isinstance(vec, np.ndarray) else vec
-                }
-            }
-            if cont is not None:
-                _d["phrase"] = cont
-            return _d
-
         _vector_name = vector_name if vector_name is not None else self._vector_name
         _offset = self.store_size
         _embeddings = []
@@ -141,15 +138,15 @@ class MarqoEmbeddingExternal(EmbeddingStore):
                 _dict["_id"] = str(_offset + i)
         elif not isinstance(embeddings, np.ndarray) and isinstance(list(embeddings)[0], tuple):
             for i, _tuple in enumerate(embeddings):
-                _embeddings.append(_doc_representation(i, _tuple[1], _tuple[0]))
+                _embeddings.append(self._doc_representation(i, _tuple[1], _tuple[0]))
             embeddings = _embeddings
         else:
             if embeddings_repr is None:
                 for i, _list in enumerate(embeddings):
-                    _embeddings.append(_doc_representation(i, _list, None))
+                    _embeddings.append(self._doc_representation(i, _list, None))
             else:
                 for (i, (content, vector)) in enumerate(zip(embeddings_repr, embeddings)):
-                    _embeddings.append(_doc_representation(i, vector, content))
+                    _embeddings.append(self._doc_representation(i, vector, content))
             embeddings = _embeddings
 
         _result = self.marqo_index.add_documents(
@@ -200,3 +197,17 @@ class MarqoEmbeddingExternal(EmbeddingStore):
         except MarqoWebError as e:
             logging.error(e)
         return np.array([])
+
+class MarqoDocumentStore(DocumentStore):
+    def __init__(
+        self,
+    ):
+        pass
+
+    def add_document(self, document):
+        pass
+
+    def suggest_graph_cluster(self, document):
+        pass
+
+

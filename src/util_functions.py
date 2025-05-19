@@ -331,6 +331,18 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
     def get_embeddings(self, embedding_ids: Optional[Iterable]):
         raise NotImplementedError
 
+
+class DocumentStore(metaclass=abc.ABCMeta):
+
+    @abc.abstractmethod
+    def add_document(self, document):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def suggest_graph_cluster(self, document):
+        raise NotImplementedError
+
+
 # class CVAEMantle:
 #     def __init__(self, **kwargs):
 #         self._cvae = None
