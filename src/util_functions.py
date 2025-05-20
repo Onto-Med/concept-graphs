@@ -5,10 +5,11 @@ import io
 import itertools
 import pathlib
 import pickle
+from functools import lru_cache
 from typing import Callable, Any, Optional, Union, Iterable, Generator
 from threading import Lock
 
-from collections import Counter
+from collections import Counter, defaultdict
 
 # from cvae import cvae
 import numpy as np
@@ -301,18 +302,6 @@ class NoneDownScaleObj:
 
 
 class EmbeddingStore(metaclass=abc.ABCMeta):
-    @classmethod
-    def __subclasshook__(cls, subclass):
-        return (hasattr(subclass, 'store_embedding') and
-                callable(subclass.store_embedding) and
-                hasattr(subclass, 'store_embeddings') and
-                callable(subclass.store_embeddings) or
-                hasattr(subclass, 'get_embedding') and
-                callable(subclass.get_embedding) or
-                hasattr(subclass, 'get_embeddings') and
-                callable(subclass.get_embeddings) or
-                NotImplemented)
-
     @abc.abstractmethod
     def store_embedding(self, embedding, **kwargs) -> str:
         """Store the embedding and return its id"""
@@ -331,6 +320,10 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
     def get_embeddings(self, embedding_ids: Optional[Iterable]):
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def best_hits_for_field(self, embedding: Union[str, np.ndarray, list[float], dict]):
+        raise NotImplementedError
+
 
 class DocumentStore(metaclass=abc.ABCMeta):
 
@@ -341,6 +334,15 @@ class DocumentStore(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def suggest_graph_cluster(self, document):
         raise NotImplementedError
+
+
+def harmonic_mean(scores: Iterable[tuple[str, float]]) -> list[tuple[str, float]]:
+    _avg = lambda x: sum(x) / len(x)
+    scores_by_class = defaultdict(list)
+    for cls, score in scores:
+        scores_by_class[cls].append(score)
+    return sorted([(cls, 2 * _avg(l) * len(l) / (_avg(l) + len(l)) if (_avg(l) + len(l)) != 0 else 0)
+            for cls, l in scores_by_class.items()], key=lambda x: x[1], reverse=True)
 
 
 # class CVAEMantle:

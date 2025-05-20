@@ -1,11 +1,11 @@
 import logging
-from typing import Iterable, Union, Optional, Tuple
+from typing import Iterable, Union, Optional, Tuple, Generator
 
 import marqo
 import numpy as np
 from marqo.errors import MarqoWebError
 
-from util_functions import EmbeddingStore, DocumentStore
+from util_functions import EmbeddingStore, DocumentStore, harmonic_mean
 
 class MarqoEmbeddingStore(EmbeddingStore):
     def __init__(
@@ -198,11 +198,42 @@ class MarqoEmbeddingStore(EmbeddingStore):
             logging.error(e)
         return np.array([])
 
+    def best_hits_for_field(
+            self,
+            embedding: Union[str, np.ndarray, list[float], tuple[str, np.ndarray], tuple[str, list]],
+            field: str = "graph_cluster",
+    ):
+        if isinstance(embedding, str):
+            try:
+                _result = self.marqo_index.recommend(
+                    documents=[embedding],
+                    tensor_fields=[self._vector_name],
+                    exclude_input_documents=True
+                )
+                _recommendations = []
+                if isinstance(_result, dict):
+                    _recommendations = [
+                        (c, h.get("_score"))
+                        for h in _result.get("hits", []) if h.get(field, False)
+                        for c in ([h.get(field)] if not isinstance(h.get(field), list) else h.get(field))
+                    ]
+                    yield from harmonic_mean(_recommendations)
+            except MarqoWebError as e:
+                logging.error(f"Document/Embedding with id '{embedding}' is not present in the index.")
+        else:
+            _id = self.store_embedding(embedding)
+            _gen = self.best_hits_for_field(str(_id), field)
+            if _gen is not None:
+                yield from _gen
+        return None
+
+
 class MarqoDocumentStore(DocumentStore):
     def __init__(
-        self,
+            self,
+            embedding_store: EmbeddingStore
     ):
-        pass
+        self._embedding_store = embedding_store
 
     def add_document(self, document):
         pass
