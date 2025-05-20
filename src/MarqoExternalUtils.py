@@ -202,30 +202,40 @@ class MarqoEmbeddingStore(EmbeddingStore):
             self,
             embedding: Union[str, np.ndarray, list[float], tuple[str, np.ndarray], tuple[str, list]],
             field: str = "graph_cluster",
+            score_frac: float = 0.5,
+            delete_if_not_similar: bool = True,
+            force_delete_after: bool = False,
     ):
         if isinstance(embedding, str):
             try:
                 _result = self.marqo_index.recommend(
                     documents=[embedding],
                     tensor_fields=[self._vector_name],
-                    exclude_input_documents=True
+                    exclude_input_documents=False
                 )
                 _recommendations = []
-                if isinstance(_result, dict):
+                if _hits := _result.get("hits", []):
+                    if len(_hits) < 2:
+                        return []
+                    _true_doc_score = _hits[0].get("_score", 0.0)
                     _recommendations = [
                         (c, h.get("_score"))
-                        for h in _result.get("hits", []) if h.get(field, False)
+                        for h in _hits[1:] if h.get(field, False)
                         for c in ([h.get(field)] if not isinstance(h.get(field), list) else h.get(field))
                     ]
-                    yield from harmonic_mean(_recommendations)
+                    if len(_recommendations) > 0:
+                        return harmonic_mean([x for x in _recommendations if x[1] >= _true_doc_score * score_frac])
             except MarqoWebError as e:
                 logging.error(f"Document/Embedding with id '{embedding}' is not present in the index.")
         else:
             _id = self.store_embedding(embedding)
-            _gen = self.best_hits_for_field(str(_id), field)
-            if _gen is not None:
-                yield from _gen
-        return None
+            _gen = list(self.best_hits_for_field(str(_id), field))
+            if (delete_if_not_similar and len(_gen) == 0) or force_delete_after:
+                self.marqo_index.delete_documents([_id])
+            else:
+                self.marqo_index.update_documents([{"_id": _id, field: [_gen[0][0]]}])
+            return _gen
+        return []
 
 
 class MarqoDocumentStore(DocumentStore):
@@ -242,3 +252,8 @@ class MarqoDocumentStore(DocumentStore):
         pass
 
 
+if __name__ == "__main__":
+    mqs = MarqoEmbeddingStore("http://localhost:8882", "grascco_lokal_test")
+    print(mqs.store_size)
+    print(list(mqs.best_hits_for_field(("handchirurgen", mqs.get_embedding("238")), force_delete_after=True)))
+    print(mqs.store_size)
