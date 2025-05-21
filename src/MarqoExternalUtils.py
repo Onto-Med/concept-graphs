@@ -1,11 +1,37 @@
 import logging
+from abc import ABC
 from typing import Iterable, Union, Optional, Tuple, Generator
 
 import marqo
 import numpy as np
 from marqo.errors import MarqoWebError
 
-from util_functions import EmbeddingStore, DocumentStore, harmonic_mean
+from util_functions import EmbeddingStore, DocumentStore, Document, harmonic_mean
+
+
+class MarqoDocument(Document):
+    def __init__(
+            self,
+            phrases: list[str],
+            embeddings: list[Union[list, np.ndarray]]
+    ):
+        if len(phrases) != len(embeddings):
+            raise ValueError(f"Phrases (len={len(phrases)}) and embeddings (len={len(embeddings)}) must have same length")
+        self._embeddings = embeddings
+        self._phrases = phrases
+
+    @property
+    def embeddings(self) -> list[Union[np.ndarray, list]]:
+        return self._embeddings
+
+    @property
+    def phrases(self) -> list[str]:
+        return self._phrases
+
+    @property
+    def as_tuples(self) -> list[tuple[str, Union[list, np.ndarray]]]:
+        return list(zip(self.phrases, self.embeddings))
+
 
 class MarqoEmbeddingStore(EmbeddingStore):
     def __init__(
@@ -198,6 +224,31 @@ class MarqoEmbeddingStore(EmbeddingStore):
             logging.error(e)
         return np.array([])
 
+    def delete_embedding(
+            self,
+            embedding_id: str
+    ) -> bool:
+        try:
+            self.marqo_index.get_document(embedding_id)
+        except MarqoWebError as e:
+            logging.warning(f"Id doesn't exist '{embedding_id}'.")
+            return False
+        self.marqo_index.delete_documents([embedding_id])
+        return True
+
+    def delete_embeddings(
+                self,
+                embedding_ids: Iterable[str]
+        ) -> bool:
+        _ids = sorted(embedding_ids)
+        try:
+            self.marqo_index.get_document(_ids[0])
+        except MarqoWebError as e:
+            logging.warning(f"Already first id doesn't exist '{_ids[0]}'.")
+            return False
+        self.marqo_index.delete_documents(_ids)
+        return True
+
     def best_hits_for_field(
             self,
             embedding: Union[str, np.ndarray, list[float], tuple[str, np.ndarray], tuple[str, list]],
@@ -205,7 +256,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
             score_frac: float = 0.5,
             delete_if_not_similar: bool = True,
             force_delete_after: bool = False,
-    ):
+    ) -> list[tuple[str, float]]:
         if isinstance(embedding, str):
             try:
                 _result = self.marqo_index.recommend(
@@ -237,18 +288,45 @@ class MarqoEmbeddingStore(EmbeddingStore):
             return _gen
         return []
 
-
 class MarqoDocumentStore(DocumentStore):
     def __init__(
             self,
-            embedding_store: EmbeddingStore
+            embedding_store: MarqoEmbeddingStore
     ):
         self._embedding_store = embedding_store
 
-    def add_document(self, document):
-        pass
+    def add_document(self, document: MarqoDocument):
+        _ids = self._embedding_store.store_embeddings(
+            embeddings=document.as_tuples
+        )
+        if len(list(_ids)) == 0:
+            return
 
-    def suggest_graph_cluster(self, document):
+        _first_id = list(_ids)[0]
+        _gcs = []
+        for _id in _ids:
+            _res = self._embedding_store.best_hits_for_field(_id)
+            if _res:
+                _gcs.append(_res[0][0])
+            else:
+                _gcs.append(False)
+        if not any(_gcs):
+            self._embedding_store.delete_embeddings(_ids)
+            return
+
+
+
+
+    def suggest_graph_cluster(self, document: MarqoDocument) -> Optional[str]:
+        # _graph_cluster = self._embedding_store.best_hits_for_field(
+        #     embedding=document.embedding,
+        #     field="graph_cluster",
+        #     score_frac=0.5,
+        #     force_delete_after=True
+        # )
+        # if len(_graph_cluster) == 0:
+        #     return None
+        # return _graph_cluster[0][0]
         pass
 
 

@@ -301,6 +301,16 @@ class NoneDownScaleObj:
         return "None"
 
 
+class Document(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def embeddings(self) -> list[Union[np.ndarray, list]]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def phrases(self) -> list[str]:
+        raise NotImplementedError
+
+
 class EmbeddingStore(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def store_embedding(self, embedding, **kwargs) -> str:
@@ -321,6 +331,15 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
+    def delete_embedding(self, embedding_id: str) -> bool:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def delete_embeddings(self, embedding_ids: Iterable) -> bool:
+        raise NotImplementedError
+
+
+    @abc.abstractmethod
     def best_hits_for_field(self, embedding: Union[str, np.ndarray, list[float], dict]):
         raise NotImplementedError
 
@@ -328,11 +347,11 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
 class DocumentStore(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
-    def add_document(self, document):
+    def add_document(self, document: Document):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def suggest_graph_cluster(self, document):
+    def suggest_graph_cluster(self, document: Document):
         raise NotImplementedError
 
 
