@@ -1,12 +1,10 @@
+import itertools
 import logging
-from abc import ABC
-from typing import Iterable, Union, Optional, Tuple, Generator
-
 import marqo
 import numpy as np
+from typing import Iterable, Union, Optional, Tuple
 from marqo.errors import MarqoWebError
-
-from util_functions import EmbeddingStore, DocumentStore, Document, harmonic_mean
+from src.util_functions import EmbeddingStore, DocumentStore, Document, harmonic_mean
 
 
 class MarqoDocument(Document):
@@ -31,7 +29,6 @@ class MarqoDocument(Document):
     @property
     def as_tuples(self) -> list[tuple[str, Union[list, np.ndarray]]]:
         return list(zip(self.phrases, self.embeddings))
-
 
 class MarqoEmbeddingStore(EmbeddingStore):
     def __init__(
@@ -126,11 +123,55 @@ class MarqoEmbeddingStore(EmbeddingStore):
             )
         return self.client
 
+    def _check_for_same_embedding(self, check_id: Union[str, Iterable[str]]):
+        _field = "graph_cluster"
+        _check_id_iter = lambda x: check_id if isinstance(check_id, Iterable) else [check_id]
+        # _return_ids = []
+        _additions = []
+        _docs_to_add = []
+        for _cid in _check_id_iter(check_id):
+            _cid = str(_cid)
+            # returns the added vector and the next similar;
+            # if the embeddings are nearly the same (float scores are turned to int) the new one will be deleted
+            _rec_result = self.marqo_index.recommend(
+                documents=[_cid],
+                tensor_fields=["phrase_vector"],
+                limit=2,
+                exclude_input_documents=False
+            ).get("hits", [])
+            if len(_rec_result) >= 2:
+                _that, _this = _rec_result
+                if int(_this.get("_score", 0)) == int(_that.get("_score", -1)):
+                    _old_id = _that.get("_id") if _that.get("_id") != _cid else _this.get("_id")
+                    # _return_ids.append(_old_id)
+                    logging.info(f"For id '{_cid}' the same embedding is already in the index with id '{_old_id}'.")
+                else:
+                    # {'_id': '11',
+                    #  'phrase': 'li',
+                    #  '_highlights': [{'phrase_vector': ''}],
+                    #  '_score': 436.94110107421875},
+                    _additions.append(_that if _that.get("_id") == _cid else _this)
+                    # _return_ids.append(_cid)
+        # for i, d in enumerate(_additions):
+            # _recs = self.best_hits_for_field(d["_id"], delete_if_not_similar=False)
+            # _doc = self._doc_representation(did=i, vec=self.get_embedding(d["_id"]), cont=d["phrase"])
+            # if _recs:
+            #     _doc[_field] = [_recs[0][0]]
+            # _docs_to_add.append(_doc)
+        self.delete_embeddings(_check_id_iter(check_id))
+        # self.store_embeddings(_docs_to_add)
+        return self.store_embeddings(
+            [self._doc_representation(did=i, vec=self.get_embedding(d["_id"]), cont=d["phrase"])
+             for i, d in enumerate(_additions)]
+        )
+        # return _return_ids
+
     def store_embedding(
             self,
             embedding: Union[Tuple[str, list], Tuple[str, np.ndarray], Union[list, np.ndarray]],
+            check_for_same: bool = False,
             **kwargs
-    ) -> str:
+    ) -> Iterable[str]:
         _id = str(self.store_size)
         if isinstance(embedding, tuple):
             content, embedding = embedding
@@ -148,31 +189,33 @@ class MarqoEmbeddingStore(EmbeddingStore):
                 }
             },
         )
-        return _id
+        return self._check_for_same_embedding(_id) if check_for_same else [_id]
 
     def store_embeddings(
             self,
             embeddings: Union[Iterable[Union[dict, list, Union[Tuple[str, list], Tuple[str, np.ndarray]]]], np.ndarray],
             embeddings_repr: list[str] = None,
-            vector_name: Optional[str] = None
-    ) -> Iterable:
+            vector_name: Optional[str] = None,
+            check_for_same: bool = False,
+    ) -> Iterable[str]:
         _vector_name = vector_name if vector_name is not None else self._vector_name
         _offset = self.store_size
+        _new_id = lambda x: str(_offset + x)
         _embeddings = []
         if not isinstance(embeddings, np.ndarray) and isinstance(list(embeddings)[0], dict):
             for i, _dict in enumerate(embeddings):
-                _dict["_id"] = str(_offset + i)
+                _dict["_id"] = _new_id(i)
         elif not isinstance(embeddings, np.ndarray) and isinstance(list(embeddings)[0], tuple):
             for i, _tuple in enumerate(embeddings):
-                _embeddings.append(self._doc_representation(i, _tuple[1], _tuple[0]))
+                _embeddings.append(self._doc_representation(_new_id(i), _tuple[1], _tuple[0]))
             embeddings = _embeddings
         else:
             if embeddings_repr is None:
                 for i, _list in enumerate(embeddings):
-                    _embeddings.append(self._doc_representation(i, _list, None))
+                    _embeddings.append(self._doc_representation(_new_id(i), _list, None))
             else:
                 for (i, (content, vector)) in enumerate(zip(embeddings_repr, embeddings)):
-                    _embeddings.append(self._doc_representation(i, vector, content))
+                    _embeddings.append(self._doc_representation(_new_id(i), vector, content))
             embeddings = _embeddings
 
         _result = self.marqo_index.add_documents(
@@ -188,13 +231,14 @@ class MarqoEmbeddingStore(EmbeddingStore):
         _ids = []
         for batch in _result:
             for item in batch['items']:
-                _ids.append(item['_id'])
-        return _ids
+                if item.get('status', -1) == 200:
+                    _ids.append(item['_id'])
+        return self._check_for_same_embedding(_ids) if check_for_same else _ids
 
     def get_embedding(
             self,
             embedding_id: str
-    ) -> np.ndarray:
+    ) -> Optional[np.ndarray]:
         try:
             return np.asarray(
                 self.marqo_index.get_document(embedding_id, expose_facets=True)
@@ -202,12 +246,12 @@ class MarqoEmbeddingStore(EmbeddingStore):
             )
         except MarqoWebError as e:
             logging.error(e)
-            return np.array([])
+            return None
 
     def get_embeddings(
             self,
             embedding_ids: Optional[Iterable[str]] = None
-    ) -> np.ndarray:
+    ) -> Optional[np.ndarray]:
         if embedding_ids is None:
             embedding_ids = [str(_id) for _id in range(self.store_size)]
             if len(embedding_ids) == 0:
@@ -222,7 +266,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
             )
         except MarqoWebError as e:
             logging.error(e)
-        return np.array([])
+        return None
 
     def delete_embedding(
             self,
@@ -296,26 +340,35 @@ class MarqoDocumentStore(DocumentStore):
         self._embedding_store = embedding_store
 
     def add_document(self, document: MarqoDocument):
-        _ids = self._embedding_store.store_embeddings(
-            embeddings=document.as_tuples
+        _field = "graph_cluster"
+        _last_store_id: int = self._embedding_store.store_size - 1
+        _ids: Iterable[str] = self._embedding_store.store_embeddings(
+            embeddings=document.as_tuples,
+            check_for_same=True
         )
-        if len(list(_ids)) == 0:
+        if not any(_ids):
             return
 
-        _first_id = list(_ids)[0]
+        _added_ids = [(idx, i) for idx, i in enumerate(_ids) if int(i) > _last_store_id]
         _gcs = []
-        for _id in _ids:
-            _res = self._embedding_store.best_hits_for_field(_id)
+        for _id_tuple in _added_ids:
+            _res = self._embedding_store.best_hits_for_field(
+                embedding=_id_tuple[1],
+                field=_field,
+                delete_if_not_similar=False
+            )
             if _res:
                 _gcs.append(_res[0][0])
             else:
                 _gcs.append(False)
-        if not any(_gcs):
-            self._embedding_store.delete_embeddings(_ids)
-            return
 
-
-
+        _updated_docs = []
+        for _id_tuple in itertools.compress(_added_ids, _gcs):
+            _updated_docs.append({
+                "_id": _id_tuple[1],
+                _field: _gcs[_id_tuple[0]],
+            })
+        self._embedding_store.marqo_index.update_documents(_updated_docs, client_batch_size=128)
 
     def suggest_graph_cluster(self, document: MarqoDocument) -> Optional[str]:
         # _graph_cluster = self._embedding_store.best_hits_for_field(

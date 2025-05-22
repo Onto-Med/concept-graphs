@@ -10,10 +10,9 @@ import umap
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import KMeans
 
-from data_functions import DataProcessingFactory
+from src.data_functions import DataProcessingFactory
 from src.MarqoExternalUtils import MarqoEmbeddingStore
-from src.util_functions import NoneDownScaleObj
-from util_functions import load_pickle, save_pickle
+from src.util_functions import NoneDownScaleObj, load_pickle, save_pickle
 
 
 # ToDo: somewhere else
@@ -47,7 +46,7 @@ class SentenceEmbeddingsFactory:
     ):
         _set_extensions()
         _data_obj: DataProcessingFactory.DataProcessing = load_pickle(
-            pathlib.Path(data_obj_path).absolute()
+            pathlib.Path(data_obj_path).resolve()
         )
         if view_from_topics is not None:
             _data_obj.set_view_by_labels(view_from_topics)

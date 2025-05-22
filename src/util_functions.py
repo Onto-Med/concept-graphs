@@ -313,12 +313,12 @@ class Document(metaclass=abc.ABCMeta):
 
 class EmbeddingStore(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def store_embedding(self, embedding, **kwargs) -> str:
+    def store_embedding(self, embedding: Any, check_for_same: bool, **kwargs) -> Iterable[str]:
         """Store the embedding and return its id"""
         raise NotImplementedError
 
     @abc.abstractmethod
-    def store_embeddings(self, embeddings: Iterable, embeddings_repr: Iterable, vector_name: str) -> Iterable:
+    def store_embeddings(self, embeddings: Iterable, embeddings_repr: Iterable, vector_name: str, check_for_same: bool) -> Iterable[str]:
         """Store the embeddings and return their ids"""
         raise NotImplementedError
 

@@ -22,7 +22,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer as tfidfVec
 
 from src.negspacy.utils import FeaturesOfInterest
 from src.negspacy.negation import Negex
-from util_functions import load_pickle, save_pickle, add_offset_to_documents_dicts_by_id
+from src.util_functions import load_pickle, save_pickle, add_offset_to_documents_dicts_by_id
 
 
 # ToDo: this needs to be called whenever a data_proc object is used/loaded by another class
