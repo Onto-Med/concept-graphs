@@ -158,12 +158,11 @@ class MarqoEmbeddingStore(EmbeddingStore):
             # if _recs:
             #     _doc[_field] = [_recs[0][0]]
             # _docs_to_add.append(_doc)
+        _documents = [self._doc_representation(did=i, vec=self.get_embedding(d["_id"]), cont=d["phrase"])
+                     for i, d in enumerate(_additions)]
         self.delete_embeddings(_check_id_iter(check_id))
         # self.store_embeddings(_docs_to_add)
-        return self.store_embeddings(
-            [self._doc_representation(did=i, vec=self.get_embedding(d["_id"]), cont=d["phrase"])
-             for i, d in enumerate(_additions)]
-        )
+        return self.store_embeddings(_documents)
         # return _return_ids
 
     def store_embedding(
