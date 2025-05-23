@@ -18,6 +18,7 @@ from main_utils import ProcessStatus, StepsName, add_status_to_running_process
 
 sys.path.insert(0, "src")
 import util_functions
+import embedding_functions
 
 
 class GraphCreationUtil:
@@ -109,6 +110,12 @@ class GraphCreationUtil:
 
     def start_process(self, cache_name, process_factory, process_tracker, exclusion_ids=None):
         sent_emb = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_embedding.pickle"))
+        if isinstance(sent_emb, dict):
+            sent_emb = embedding_functions.SentenceEmbeddingsFactory.load(
+                data_obj_path=Path(self._file_storage / f"{cache_name}_data.pickle"),
+                embeddings_path=Path(self._file_storage / f"{cache_name}_embedding.pickle"),
+                storage_method=('vector_store', {},),
+            )
         cluster_obj = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_clustering.pickle"))
 
         config = self.config.copy()

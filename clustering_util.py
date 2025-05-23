@@ -109,6 +109,12 @@ class ClusteringUtil:
         # _ = [config.pop(x, None) for x in list(config.keys()) if x not in default_args]
 
         emb_obj = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_embedding.pickle"))
+        if isinstance(emb_obj, dict):
+            emb_obj = embedding_functions.SentenceEmbeddingsFactory.load(
+                data_obj_path=Path(self._file_storage / f"{cache_name}_data.pickle"),
+                embeddings_path=Path(self._file_storage / f"{cache_name}_embedding.pickle"),
+                storage_method=('vector_store', {},),
+            )
 
         add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.RUNNING, process_tracker)
         cluster_obj = None

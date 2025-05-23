@@ -68,7 +68,7 @@ class SentenceEmbeddingsFactory:
                 model_name=_config.get("model_name", None),
                 data_obj=_data_obj,
             )
-            _embeddings_obj._embeddings = vector_store.get_embeddings()
+            _embeddings_obj.sentence_embeddings = vector_store.get_embeddings()
         else:
             logging.error("Unknown storage method")
             return None
@@ -155,6 +155,10 @@ class SentenceEmbeddingsFactory:
                 self
         ) -> np.ndarray:
             return self._embeddings
+
+        @sentence_embeddings.setter
+        def sentence_embeddings(self, value: np.ndarray):
+            self._embeddings = value.astype(np.double)
 
         @property
         def data_processing_obj(
