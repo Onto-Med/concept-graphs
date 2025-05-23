@@ -1,6 +1,6 @@
 import pathlib
 from itertools import islice
-from typing import Union
+from typing import Union, Optional
 
 from spacy.language import Language
 from spacy.tokens import Doc, Span, SpanGroup
@@ -23,7 +23,7 @@ default_ts = termset("en_clinical").get_patterns()
         "neg_termset_file": None,
         "feat_of_interest": FeaturesOfInterest.NAMED_ENTITIES,
         "scope": None,
-        "language": "en"
+        "language": None
     },
 )
 class Negex:
@@ -72,7 +72,7 @@ class Negex:
             neg_termset_file: Union[pathlib.Path, str, None],
             feat_of_interest: list[str],
             scope: Union[str, int, bool, None],
-            language: str
+            language: Optional[str]
     ):
         # if not termset_lang in LANGUAGES:
         #     raise KeyError(
@@ -151,7 +151,7 @@ class Negex:
         self.extension_name = extension_name
         self.features_of_interest = feat_of_interest
         self.scope = scope
-        self.language = language
+        self.language = language if language is not None else (nlp.lang if nlp.lang is not None else "en")
         self.chunk_prefix = list(nlp.tokenizer.pipe(chunk_prefix))
         self.build_patterns()
 

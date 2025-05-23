@@ -5,6 +5,7 @@ import os
 import pathlib
 import re
 import itertools
+import sys
 import zipfile
 from collections import defaultdict
 from random import sample
@@ -292,8 +293,9 @@ class DataProcessingFactory:
                 _offset_in_doc = doc._.offset_in_doc
                 for ch in doc.noun_chunks:
                     ch: spacy.tokens.Span
-                    _negated = not (not hasattr(ch, "_") or
-                                    (hasattr(ch, "_") and not getattr(getattr(ch, "_"), "negex", True)))
+                    # _negated = not (not hasattr(ch, "_") or
+                    #                 (hasattr(ch, "_") and not getattr(getattr(ch, "_"), "negex", True)))
+                    _negated = hasattr(ch, "_") and getattr(getattr(ch, "_"), "negex", False)
                     if len(ch.text) == 1 and re.match(r"\W", ch.text):
                         # _offset_in_doc += 1
                         continue
@@ -546,13 +548,13 @@ def validate_negspacy_config(config) -> dict:
         "neg_termset_file": None,
         "feat_of_interest": FeaturesOfInterest.NOUN_CHUNKS,
         "scope": None,
-        "language": "en"
+        "language": None
     }
     _foi = {"nc": FeaturesOfInterest.NOUN_CHUNKS, "ne": FeaturesOfInterest.NAMED_ENTITIES, "both": FeaturesOfInterest.BOTH}
     _return_dict = {}
 
     for k, v in _val_dict.items():
-        v_alt = getattr(config, k, None)
+        v_alt = getattr(config, k, None) if not isinstance(config, dict) else config.get(k, None)
         if k == "feat_of_interest":
             v_alt = _foi.get(v_alt.lower(), FeaturesOfInterest.NOUN_CHUNKS) if isinstance(v_alt, str) else (
                 v_alt if isinstance(v_alt, list) else FeaturesOfInterest.NOUN_CHUNKS
@@ -644,7 +646,10 @@ def get_actual_str(
 
 if __name__ == "__main__":
     _data = None
-    with zipfile.ZipFile("C:/Users/fra3066mat/Documents/Corpora/grassco.zip", mode='r') as archive:
+    _zip_path = pathlib.Path("C:/Users/fra3066mat/Documents/Corpora/grascco.zip")
+    if not _zip_path.exists():
+        sys.exit("zip doesnt exist")
+    with zipfile.ZipFile(_zip_path.resolve(), mode='r') as archive:
         _data = [{"name": pathlib.Path(f.filename).stem,
                   "content": archive.read(f.filename).decode('utf-8'),
                   "label": None
@@ -652,6 +657,11 @@ if __name__ == "__main__":
                  (not f.is_dir()) and (pathlib.Path(f.filename).suffix.lstrip('.') == 'txt')]
     data_proc = DataProcessingFactory.create(
         pipeline=spacy.load("de_dep_news_trf"),
-        base_data=_data[1:3],
-        save_to_file=False
+        base_data=_data[5:10],
+        save_to_file=False,
+        negspacy_config={
+            "neg_termset_file": "C:/Users/fra3066mat/PycharmProjects/concept-graphs/conf/negex_files/negex_trigger_german_biotxtm_2016_extended.txt",
+            "chunk_prefix": ["kein", "keine", "keinen"],
+            "scope": 2
+        }
     )

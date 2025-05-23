@@ -11,7 +11,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.cluster import KMeans
 
 from src.data_functions import DataProcessingFactory
-from src.MarqoExternalUtils import MarqoEmbeddingStore
+from src.marqo_external_utils import MarqoEmbeddingStore
 from src.util_functions import NoneDownScaleObj, load_pickle, save_pickle
 
 
