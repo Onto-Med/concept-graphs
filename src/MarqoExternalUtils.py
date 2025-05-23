@@ -294,7 +294,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
 
     def best_hits_for_field(
             self,
-            embedding: Union[str, np.ndarray, list[float], tuple[str, np.ndarray], tuple[str, list]],
+            embedding: Union[str, np.ndarray, list[float], tuple[str, np.ndarray], tuple[str, list[float]]],
             field: str = "graph_cluster",
             score_frac: float = 0.5,
             delete_if_not_similar: bool = True,
@@ -365,7 +365,7 @@ class MarqoDocumentStore(DocumentStore):
         for _id_tuple in itertools.compress(_added_ids, _gcs):
             _updated_docs.append({
                 "_id": _id_tuple[1],
-                _field: _gcs[_id_tuple[0]],
+                _field: [_gcs[_id_tuple[0]]],
             })
         self._embedding_store.marqo_index.update_documents(_updated_docs, client_batch_size=128)
 
