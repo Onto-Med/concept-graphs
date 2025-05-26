@@ -1,12 +1,11 @@
 import abc
 import enum
-import inspect
 import io
 import itertools
+import json
 import pathlib
 import pickle
-from functools import lru_cache
-from typing import Callable, Any, Optional, Union, Iterable, Generator
+from typing import Callable, Any, Optional, Union, Iterable
 from threading import Lock
 
 from collections import Counter, defaultdict
@@ -14,8 +13,21 @@ from collections import Counter, defaultdict
 # from cvae import cvae
 import numpy as np
 import pandas as pd
+import yaml
 from sklearn.cluster import KMeans, AgglomerativeClustering
 
+
+class ConfigLoadMethods:
+    @staticmethod
+    def get(file_ending: str):
+        return {
+            "pickle": pickle.load,
+            "pckl": pickle.load,
+            "json": json.load,
+            "jsn": json.load,
+            "yaml": yaml.load,
+            "yml": yaml.load,
+        }.get(file_ending[1:] if file_ending[0] == "." else file_ending, json.load)
 
 class ClusterNumberDetection(enum.Enum):
     DISTORTION = 1
@@ -40,6 +52,20 @@ class SingletonMeta(type):
                 cls._instances[cls] = instance
         return cls._instances[cls]
 
+# ToDo: this needs to be called whenever a data_proc object is used/loaded by another class
+def set_spacy_extensions(
+) -> None:
+    from spacy.tokens import Doc
+    if not Doc.has_extension("doc_id"):
+        Doc.set_extension("doc_id", default=None)
+    if not Doc.has_extension("doc_index"):
+        Doc.set_extension("doc_index", default=None)
+    if not Doc.has_extension("doc_name"):
+        Doc.set_extension("doc_name", default=None)
+    if not Doc.has_extension("doc_topic"):
+        Doc.set_extension("doc_topic", default=None)
+    if not Doc.has_extension("offset_in_doc"):
+        Doc.set_extension("offset_in_doc", default=None)
 
 def pairwise(iterable):
     a, b = itertools.tee(iterable)
@@ -312,6 +338,12 @@ class Document(metaclass=abc.ABCMeta):
 
 
 class EmbeddingStore(metaclass=abc.ABCMeta):
+    @classmethod
+    @abc.abstractmethod
+    def existing_from_config(cls, config: Union[dict, pathlib.Path, str]):
+        """Instantiates an object from a config"""
+        raise NotImplementedError
+
     @abc.abstractmethod
     def store_embedding(self, embedding: Any, check_for_same: bool, **kwargs) -> Iterable[str]:
         """Store the embedding and return its id"""

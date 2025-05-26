@@ -60,7 +60,7 @@ def load_embedding_clustering_factory(
 ) -> cluster_functions.WordEmbeddingClustering:
     sent_emb = embedding_functions.SentenceEmbeddingsFactory.load(
         data_obj_path=data_obj_path,
-        embeddings_path=embeddings_obj_path,
+        embeddings_obj_path=embeddings_obj_path,
         view_from_topics=view_from_topics
     )
 

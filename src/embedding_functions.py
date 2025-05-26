@@ -12,23 +12,7 @@ from sklearn.cluster import KMeans
 
 from src.data_functions import DataProcessingFactory
 from src.marqo_external_utils import MarqoEmbeddingStore
-from src.util_functions import NoneDownScaleObj, load_pickle, save_pickle
-
-
-# ToDo: somewhere else
-def _set_extensions(
-) -> None:
-    from spacy.tokens import Doc
-    if not Doc.has_extension("doc_id"):
-        Doc.set_extension("doc_id", default=None)
-    if not Doc.has_extension("doc_index"):
-        Doc.set_extension("doc_index", default=None)
-    if not Doc.has_extension("doc_name"):
-        Doc.set_extension("doc_name", default=None)
-    if not Doc.has_extension("doc_topic"):
-        Doc.set_extension("doc_topic", default=None)
-    if not Doc.has_extension("offset_in_doc"):
-            Doc.set_extension("offset_in_doc", default=None)
+from src.util_functions import NoneDownScaleObj, load_pickle, save_pickle, set_spacy_extensions
 
 
 class SentenceEmbeddingsFactory:
@@ -37,36 +21,34 @@ class SentenceEmbeddingsFactory:
         'vector_store': MarqoEmbeddingStore,
     }
 
-    @staticmethod
+    @classmethod
     def load(
-            data_obj_path: Union[pathlib.Path, str],
-            embeddings_path: Union[pathlib.Path, str],
+            cls,
+            embeddings_obj_path: Union[pathlib.Path, str],
+            data_obj: DataProcessingFactory.DataProcessing,
             view_from_topics: Optional[Iterable[str]] = None,
             storage_method: tuple[str, Optional[dict]] = ('pickle', None,),
     ):
-        _set_extensions()
-        _data_obj: DataProcessingFactory.DataProcessing = load_pickle(
-            pathlib.Path(data_obj_path).resolve()
-        )
+        try:
+            _ = data_obj.data_chunk_sets
+        except AttributeError:
+            raise AssertionError(f"The provided object '{data_obj}' is not a DataProcessing object.")
+        set_spacy_extensions()
         if view_from_topics is not None:
-            _data_obj.set_view_by_labels(view_from_topics)
+            data_obj.set_view_by_labels(view_from_topics)
 
-        _file_path = pathlib.Path(embeddings_path).absolute()
+        _file_path = pathlib.Path(embeddings_obj_path).absolute()
         _loaded_obj = load_pickle(_file_path)
-        _embeddings_obj: SentenceEmbeddingsFactory.SentenceEmbeddings
 
         if storage_method[0].lower() == "pickle":
-             _embeddings_obj = _loaded_obj
+             _embeddings_obj: SentenceEmbeddingsFactory.SentenceEmbeddings = _loaded_obj
+             _embeddings_obj.data_processing_obj = data_obj
         elif storage_method[0].lower() == "vector_store":
             _config: dict = load_pickle(_file_path)
-            vector_store = SentenceEmbeddingsFactory.storage_options["vector_store"](
-                client_url=_config.get("client_url", "http://localhost:8882"),
-                index_name=_config.get("index_name", "_".join(_file_path.stem.split("_")[:-1])),
-                create_index=False,
-            )
+            vector_store = MarqoEmbeddingStore.existing_from_config(_config)
             _embeddings_obj = SentenceEmbeddingsFactory.SentenceEmbeddings(
                 model_name=_config.get("model_name", None),
-                data_obj=_data_obj,
+                data_obj=data_obj,
             )
             _embeddings_obj.sentence_embeddings = vector_store.get_embeddings()
         else:
@@ -115,6 +97,7 @@ class SentenceEmbeddingsFactory:
         _file_path = (cache_path / pathlib.Path(f"{cache_name}.pickle"))
 
         if storage_method[0].lower() == "pickle":
+            _sent_emb.data_processing_obj = None
             SentenceEmbeddingsFactory.storage_options["pickle"](_sent_emb, _file_path)
         elif storage_method[0].lower() == "vector_store":
             _client_url = storage_method[1].get("client_url", "http://localhost:8882")
@@ -168,6 +151,10 @@ class SentenceEmbeddingsFactory:
         ):
             return self._data_obj
 
+        @data_processing_obj.setter
+        def data_processing_obj(self, value: DataProcessingFactory.DataProcessing):
+            self._data_obj = value
+
         @property
         def embedding_dim(
                 self
@@ -192,13 +179,13 @@ class SentenceEmbeddingsFactory:
                 logging.info(f"Using {n_process} processes.")
                 pool = self._model.start_multi_process_pool([device]*n_process if isinstance(device, str) else device)
                 self._embeddings = self._model.encode_multi_process(
-                    sentences=[dcs['text'] for dcs in self._data_obj.data_chunk_sets],
+                    sentences=[dcs['text'] for dcs in self.data_processing_obj.data_chunk_sets],
                     pool=pool,
                     **kwargs
                 )
             else:
                 self._embeddings = self._model.encode(
-                    sentences=[dcs['text'] for dcs in self._data_obj.data_chunk_sets],
+                    sentences=[dcs['text'] for dcs in self.data_processing_obj.data_chunk_sets],
                     convert_to_numpy=True,
                     **kwargs
                 )

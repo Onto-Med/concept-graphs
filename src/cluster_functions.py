@@ -652,15 +652,24 @@ class PhraseClusterFactory:
             cluster_by_down_scale=cluster_by_down_scale,
             **kwargs
         )
+        _cluster_obj.sentence_embedding = None
         save_pickle(_cluster_obj, (cache_path / pathlib.Path(f"{cache_name}.pickle")))
         return _cluster_obj
 
-    @staticmethod
+    @classmethod
     def load(
-            data_obj_path: Union[pathlib.Path, str],
+            cls,
+            cluster_obj_path: Union[pathlib.Path, str],
+            embedding_obj: SentenceEmbeddingsFactory.SentenceEmbeddings
     ):
-        _data = load_pickle(pathlib.Path(data_obj_path).resolve())
-        assert isinstance(_data, PhraseClusterFactory.PhraseCluster)
+        _data = load_pickle(pathlib.Path(cluster_obj_path).resolve())
+        if not isinstance(_data, cls.PhraseCluster):
+            raise RuntimeError(f"The loaded object '{_data}' is not a PhraseCluster object.")
+        try:
+            _ = embedding_obj.sentence_embeddings
+        except AttributeError:
+            raise AssertionError(f"The provided object '{embedding_obj}' is not a SentenceEmbeddings object.")
+        _data.sentence_embedding = embedding_obj
         return _data
 
     class PhraseCluster:
@@ -692,8 +701,7 @@ class PhraseClusterFactory:
             #         self._kelbow_alg_kwargs["estimator"] = self._clustering_estimators_ref.get(self._kelbow_alg_kwargs.get("estimator"))
             #     else:
             #         self._kelbow_alg_kwargs.pop("estimator")
-            self._sentence_emb = sentence_embeddings.sentence_embeddings if not isinstance(sentence_embeddings,
-                                                                                           np.ndarray) else sentence_embeddings
+            self.sentence_embedding = sentence_embeddings
             self._cluster_alg = (cluster_algorithm if cluster_algorithm in ["kmeans", "kmeans-mb", "affinity-prop"]
                                  else "kmeans")
             self._cluster_obj = self._clustering_estimators_ref[self._cluster_alg]
@@ -725,6 +733,14 @@ class PhraseClusterFactory:
                 self
         ):
             return self._concept_cluster
+
+        @property
+        def sentence_embedding(self):
+            return self._sentence_emb
+
+        @sentence_embedding.setter
+        def sentence_embedding(self, value):
+            self._sentence_emb = value.sentence_embeddings if isinstance(value, SentenceEmbeddingsFactory.SentenceEmbeddings) else value
 
         @property
         def get_params(

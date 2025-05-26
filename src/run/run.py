@@ -395,7 +395,7 @@ def phrase_embedding_german(cache_path, name_prefix: str, down_scale: bool = Fal
                        "scaling_metric": 'euclidean', "scaling_random_state": 42, }
     embedding_functions.SentenceEmbeddingsFactory.create(
         data_obj=data_functions.DataProcessingFactory.load(
-            file_path=(cache_path / Path(f"{name_prefix}_data-processed{('_' + suffix) if suffix is not None else ''}"))
+            data_obj_path=(cache_path / Path(f"{name_prefix}_data-processed{('_' + suffix) if suffix is not None else ''}"))
         ),
         cache_path=cache_path,
         cache_name=f"{name_prefix}_phrase-embeddings{('_' + suffix) if suffix is not None else ''}",
@@ -415,11 +415,11 @@ def phrase_embedding_english(cache_path, name_prefix: str, view_from_topics=None
 
     if ref_data_str is None:
         data_obj = data_functions.DataProcessingFactory.load(
-            file_path=(cache_path / Path(f"{name_prefix}_data-processed"))
+            data_obj_path=(cache_path / Path(f"{name_prefix}_data-processed"))
         )
     else:
         data_obj = data_functions.DataProcessingFactory.load(
-            file_path=(cache_path / f"{ref_data_str}_data-processed")
+            data_obj_path=(cache_path / f"{ref_data_str}_data-processed")
         )
     embedding_functions.SentenceEmbeddingsFactory.create(
         data_obj=data_obj,
@@ -447,7 +447,7 @@ def phrase_clustering_various(cache_path, name_prefix: str, view_from_topics=Non
     cluster_functions.PhraseClusterFactory.create(
         sentence_embeddings=embedding_functions.SentenceEmbeddingsFactory.load(
             data_obj_path=data_obj,
-            embeddings_path=(cache_path / Path(f"{name_prefix}_phrase-embeddings{('_' + suffix) if suffix is not None else ''}")),
+            embeddings_obj_path=(cache_path / Path(f"{name_prefix}_phrase-embeddings{('_' + suffix) if suffix is not None else ''}")),
             view_from_topics=view_from_topics
         ),
         cache_path=cache_path,

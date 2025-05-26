@@ -23,23 +23,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer as tfidfVec
 
 from src.negspacy.utils import FeaturesOfInterest
 from src.negspacy.negation import Negex
-from src.util_functions import load_pickle, save_pickle, add_offset_to_documents_dicts_by_id
-
-
-# ToDo: this needs to be called whenever a data_proc object is used/loaded by another class
-def _set_extensions(
-) -> None:
-    from spacy.tokens import Doc
-    if not Doc.has_extension("doc_id"):
-        Doc.set_extension("doc_id", default=None)
-    if not Doc.has_extension("doc_index"):
-        Doc.set_extension("doc_index", default=None)
-    if not Doc.has_extension("doc_name"):
-        Doc.set_extension("doc_name", default=None)
-    if not Doc.has_extension("doc_topic"):
-        Doc.set_extension("doc_topic", default=None)
-    if not Doc.has_extension("offset_in_doc"):
-        Doc.set_extension("offset_in_doc", default=None)
+from src.util_functions import load_pickle, save_pickle, add_offset_to_documents_dicts_by_id, set_spacy_extensions
 
 
 def _populate_chunk_set_dict_with_doc(
@@ -51,12 +35,16 @@ def _populate_chunk_set_dict_with_doc(
 
 class DataProcessingFactory:
 
-    @staticmethod
+    @classmethod
     def load(
-            file_path: Union[pathlib.Path, str, io.IOBase]
+            cls,
+            data_obj_path: Union[pathlib.Path, str, io.IOBase]
     ) -> 'DataProcessing':
-        _set_extensions()
-        return load_pickle(file_path)
+        set_spacy_extensions()
+        _data_obj = load_pickle(data_obj_path)
+        if not isinstance(_data_obj, cls.DataProcessing):
+            raise AssertionError(f"The loaded object '{_data_obj}' is not a DataProcessing object.")
+        return _data_obj
 
     @staticmethod
     def create(
@@ -519,7 +507,7 @@ class DataProcessingFactory:
             disable = [] if disable is None else disable
             if len(self._processed_docs) == 0:
                 _pipe_trf_type = True if "trf" in pipeline.meta["name"].split("_") else False
-                _set_extensions()
+                set_spacy_extensions()
                 self._build_data_tuples()
 
                 data_corpus = pipeline.pipe(self._data_corpus_tuples[:], as_tuples=True, n_process=n_process,

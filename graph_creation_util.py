@@ -113,7 +113,7 @@ class GraphCreationUtil:
         if isinstance(sent_emb, dict):
             sent_emb = embedding_functions.SentenceEmbeddingsFactory.load(
                 data_obj_path=Path(self._file_storage / f"{cache_name}_data.pickle"),
-                embeddings_path=Path(self._file_storage / f"{cache_name}_embedding.pickle"),
+                embeddings_obj_path=Path(self._file_storage / f"{cache_name}_embedding.pickle"),
                 storage_method=('vector_store', {},),
             )
         cluster_obj = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_clustering.pickle"))

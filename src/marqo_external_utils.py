@@ -1,10 +1,16 @@
 import itertools
+import json
 import logging
+import pathlib
+import pickle
+
 import marqo
 import numpy as np
 from typing import Iterable, Union, Optional, Tuple
+
+import yaml
 from marqo.errors import MarqoWebError
-from src.util_functions import EmbeddingStore, DocumentStore, Document, harmonic_mean
+from src.util_functions import EmbeddingStore, DocumentStore, Document, harmonic_mean, ConfigLoadMethods
 
 
 class MarqoDocument(Document):
@@ -79,6 +85,23 @@ class MarqoEmbeddingStore(EmbeddingStore):
             }
         }
         return _d
+
+    @classmethod
+    def existing_from_config(cls, config: Union[dict, pathlib.Path, str]):
+        _index = "default"
+        if isinstance(config, str):
+            config = pathlib.Path(config)
+        if isinstance(config, pathlib.Path):
+            _config = ConfigLoadMethods.get(config.suffix)(config.open("r"))
+            _client = _config.get("client_url", "http://localhost:8882")
+            _index = _config.get("index_name", "_".join(config.stem.split("_")[:-1]))
+        else:
+            _client = config.get("client_url", "http://localhost:8882")
+        return cls(
+            client_url=_client,
+            index_name=_index,
+            create_index=False,
+        )
 
     @property
     def marqo_index(self):

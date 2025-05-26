@@ -112,7 +112,7 @@ class ClusteringUtil:
         if isinstance(emb_obj, dict):
             emb_obj = embedding_functions.SentenceEmbeddingsFactory.load(
                 data_obj_path=Path(self._file_storage / f"{cache_name}_data.pickle"),
-                embeddings_path=Path(self._file_storage / f"{cache_name}_embedding.pickle"),
+                embeddings_obj_path=Path(self._file_storage / f"{cache_name}_embedding.pickle"),
                 storage_method=('vector_store', {},),
             )
 
