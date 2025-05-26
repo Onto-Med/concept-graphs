@@ -160,7 +160,7 @@ class SentenceEmbeddingsFactory:
 
         @sentence_embeddings.setter
         def sentence_embeddings(self, value: np.ndarray):
-            self._embeddings = np.asarray(value, dtype='float32')
+            self._embeddings = value.astype(dtype='float32')
 
         @property
         def data_processing_obj(
@@ -253,7 +253,7 @@ def top_k_cosine(
         return tf.math.top_k(_reshaped_cs, k=min(collection_embed.shape[0], top_k),
                              sorted=to_sorted).indices.numpy().tolist()
 
-    _vals = tf.where(tf.math.greater_equal(_reshaped_cs, tf.constant([distance])))
+    _vals = tf.where(tf.math.greater_equal(_reshaped_cs, tf.constant([distance], dtype='float32')))
     _reshaped_vals = tf.reshape(_vals, [_vals.shape[0], ])
 
     if to_sorted:
