@@ -265,6 +265,7 @@ class WordEmbeddingClustering:
             if tfidf_filter is not None: # ToDo need to check whether filtering is enabled!
                 logging.info("Filtering phrases")
             for i, _center in enumerate(self._outer_instance._cluster_obj.cluster_center):
+                _center = np.asarray(_center, dtype='float32')
                 if i in (self._outer_instance._exclusion_ids if exclusion_ids is None else exclusion_ids):
                     continue
                 if restrict_to_cluster:  # ToDo: results in worse figures when using same parameters...
@@ -291,7 +292,6 @@ class WordEmbeddingClustering:
                             tfidf_filter.get_feature_names_out().tolist() if tfidf_filter is not None else None
                         )
                     )
-
             # ToDo: right now works just for int
             return [_cluster for _cluster in _meaningful_clusters if len(_cluster) >= cluster_min_size]
 

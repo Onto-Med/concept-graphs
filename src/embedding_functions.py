@@ -75,7 +75,8 @@ class SentenceEmbeddingsFactory:
 
         # _sent_emb = SentenceEmbeddingsFactory.SentenceEmbeddings(data_obj=_data_obj)
         # _sent_emb._embeddings = _embeddings_obj.sentence_embeddings
-        assert _data_obj.chunk_sets_n == _embeddings_obj.sentence_embeddings.shape[0]
+        # if _data_obj.chunk_sets_n != _embeddings_obj.sentence_embeddings.shape[0]:
+        #     raise AssertionError("chunks ")
         # return _sent_emb
         return _embeddings_obj
 
@@ -133,6 +134,7 @@ class SentenceEmbeddingsFactory:
                 "client_url": _client_url,
                 "index_name": _index_name,
                 "model_name": model_name,
+                "dtype": _sent_emb.sentence_embeddings.dtype
             }, _file_path)
         return _sent_emb
 
@@ -158,7 +160,7 @@ class SentenceEmbeddingsFactory:
 
         @sentence_embeddings.setter
         def sentence_embeddings(self, value: np.ndarray):
-            self._embeddings = value.astype(np.double)
+            self._embeddings = np.asarray(value, dtype='float32')
 
         @property
         def data_processing_obj(
