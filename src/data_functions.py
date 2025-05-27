@@ -42,7 +42,9 @@ class DataProcessingFactory:
     ) -> 'DataProcessing':
         set_spacy_extensions()
         _data_obj = load_pickle(data_obj_path)
-        if not isinstance(_data_obj, cls.DataProcessing):
+        try:
+            _ = _data_obj.data_chunk_sets
+        except AttributeError:
             raise AssertionError(f"The loaded object '{_data_obj}' is not a DataProcessing object.")
         return _data_obj
 

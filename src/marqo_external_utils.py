@@ -88,15 +88,15 @@ class MarqoEmbeddingStore(EmbeddingStore):
 
     @classmethod
     def existing_from_config(cls, config: Union[dict, pathlib.Path, str]):
-        _index = "default"
         if isinstance(config, str):
             config = pathlib.Path(config)
-        if isinstance(config, pathlib.Path):
-            _config = ConfigLoadMethods.get(config.suffix)(config.open("r"))
-            _client = _config.get("client_url", "http://localhost:8882")
-            _index = _config.get("index_name", "_".join(config.stem.split("_")[:-1]))
+        if not isinstance(config, dict):
+            config = ConfigLoadMethods.get(config.suffix)(config.open("r"))
+            _index = config.get("index_name", config.stem)
         else:
-            _client = config.get("client_url", "http://localhost:8882")
+            _index = config.get("index_name", "default")
+        _client = config.get("client_url", "http://localhost:8882")
+
         return cls(
             client_url=_client,
             index_name=_index,

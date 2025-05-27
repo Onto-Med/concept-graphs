@@ -10,6 +10,7 @@ from munch import Munch, unmunchify
 from werkzeug.datastructures import FileStorage
 
 from main_utils import ProcessStatus, StepsName, add_status_to_running_process
+from src import data_functions
 
 sys.path.insert(0, "src")
 import util_functions
@@ -111,8 +112,8 @@ class ClusteringUtil:
         emb_obj = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_embedding.pickle"))
         if isinstance(emb_obj, dict):
             emb_obj = embedding_functions.SentenceEmbeddingsFactory.load(
-                data_obj_path=Path(self._file_storage / f"{cache_name}_data.pickle"),
                 embeddings_obj_path=Path(self._file_storage / f"{cache_name}_embedding.pickle"),
+                data_obj=data_functions.DataProcessingFactory.load(Path(self._file_storage / f"{cache_name}_data.pickle")),
                 storage_method=('vector_store', {},),
             )
 
