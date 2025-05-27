@@ -266,6 +266,7 @@ def complete_pipeline():
     data = request.files.get("data", False)
     data_upload = False
     document_server_config = request.files.get("document_server_config", False)
+    vector_store_config = request.files.get("vectorstore_server_config", False)
     replace_keys = None
     label_getter = None
     labels = None
@@ -283,6 +284,7 @@ def complete_pipeline():
 
     if content_type_json:
         _document_server = config_object_json.document_server
+        vector_store_config = config_object_json.vectorstore_server if config_object_json.vectorstore_server is not None else {"url": "http://localhost", "port": 8882}
         if _document_server is not None:
             replace_keys = _document_server.get("replace_keys", {"text": "content"})
             label_getter = _document_server.get("label_key", None)
@@ -298,6 +300,13 @@ def complete_pipeline():
         _graph_config = config_object_json.graph
 
     else:
+        if vector_store_config:
+            if isinstance(vector_store_config, FileStorage):
+                vector_store_config = yaml.safe_load(vector_store_config.stream)
+            else:
+                vector_store_config = None
+        else:
+            vector_store_config = None
         if not data and not document_server_config:
             return jsonify(
                 name=query_params.process_name,
@@ -322,6 +331,10 @@ def complete_pipeline():
         _clustering_config = request.files.get(f"{StepsName.CLUSTERING}_config", None)
         _graph_config = request.files.get(f"{StepsName.GRAPH}_config", None)
 
+    if vector_store_config is not None:
+        _url = vector_store_config.pop("url", "http://localhost")
+        _port = str(vector_store_config.pop("port", 8882))
+        vector_store_config["client_url"] = f"{_url}:{_port}"
     if not data_upload:
         ds_base_config = get_data_server_config(document_server_config, app)
         if not check_data_server(url=ds_base_config["url"], port=ds_base_config["port"], index=ds_base_config["index"]):
@@ -368,6 +381,8 @@ def complete_pipeline():
         if _name == StepsName.DATA:
             process_obj.read_labels(labels if label_getter is None else label_getter)
             process_obj.read_data(data, replace_keys=replace_keys, label_getter=label_getter)
+        if _name == StepsName.EMBEDDING:
+            process_obj.storage_method = ("vectorstore" if vector_store_config is not None else "pickle", vector_store_config, )
 
         processes_threading.append((process_obj, _fact, _name, ))
 

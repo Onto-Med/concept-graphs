@@ -4,7 +4,13 @@ corpus_name: default
 model: Sahajtomar/German-semantic
 # Number of processes that will be spawned (how many cores will be utilized)
 n_process: 1
+# ...
+storage_method: "vectorstore"
+vectorstore_normalizeEmbeddings: false
+vectorstore_annParameters:
+  spaceType: "dotproduct"
+  parameters:
+      efConstruction: 1024
+      m: 16
 # With the prefix 'scaling_' you can tune the various parameters for the 'down_scale_algorithm' if desired
 #scaling_*
-# With the prefix 'vectorstore_' you can tune the vector store index settings (i.e. Marqo) if desired
-#vectorstore_*

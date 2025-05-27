@@ -27,7 +27,7 @@ import graph_creation_util
 import cluster_functions
 
 pipeline_json_config = namedtuple("pipeline_json_config",
-                                  ["name", "language", "document_server", "data", "embedding", "clustering", "graph"])
+                                  ["name", "language", "document_server", "vectorstore_server", "data", "embedding", "clustering", "graph"])
 
 
 def parse_config_json(response_json) -> pipeline_json_config:
@@ -36,6 +36,7 @@ def parse_config_json(response_json) -> pipeline_json_config:
         return pipeline_json_config(string_conformity(config.get("name", None)),
                                     config.get("language", None),
                                     config.get("document_server", None),
+                                    config.get("vectorstore_server", None),
                                     config.config.get("data", Munch()),
                                     config.config.get("embedding", Munch()),
                                     config.config.get("clustering", Munch()),
@@ -46,6 +47,7 @@ def parse_config_json(response_json) -> pipeline_json_config:
         return pipeline_json_config(string_conformity(config.get("name", None)),
                                     config.get("language", None),
                                     config.get("document_server", None),
+                                    config.get("vectorstore_server", None),
                                     Munch(),
                                     Munch(),
                                     Munch(),

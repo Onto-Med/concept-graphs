@@ -26,6 +26,7 @@ class PhraseEmbeddingUtil:
         self._file_storage = Path(file_storage)
         self._process_step = step_name
         self._process_name = None
+        self._storage_method = None
         self.config = None
 
     @property
@@ -37,12 +38,20 @@ class PhraseEmbeddingUtil:
         self._process_name = name
 
     @property
+    def storage_method(self):
+        return self._storage_method
+
+    @storage_method.setter
+    def storage_method(self, method: tuple[str, Optional[dict]]):
+        self._storage_method = method
+
+    @property
     def process_step(self):
         return self._process_step
 
     def read_config(self, config: Optional[Union[FileStorage, dict]], process_name=None, language=None):
         _language_model_map = {"en": DEFAULT_EMBEDDING_MODEL, "de": "Sahajtomar/German-semantic"}
-        base_config = {'model': DEFAULT_EMBEDDING_MODEL, 'down_scale_algorithm': None}
+        base_config = {'model': DEFAULT_EMBEDDING_MODEL, 'down_scale_algorithm': None, 'storage': {'method': 'pickle'}}
         if isinstance(config, dict):
             if isinstance(config, Munch):
                 base_config = unmunchify(config)
@@ -52,6 +61,18 @@ class PhraseEmbeddingUtil:
             for k, v in _scaling.items():
                 base_config[f"scaling_{k}"] = v
             base_config.pop("scaling", None)
+
+            _storage = base_config.pop("storage", None)
+            if _storage is not None and isinstance(_storage, dict):
+                base_config["storage_method"] = _storage.get("method", ("pickle", None,))
+                if isinstance(base_config["storage_method"], tuple) and base_config["storage_method"][0] == "pickle":
+                    pass
+                else:
+                    for k, v in _storage.get("config", {}).items():
+                        base_config[f"vectorstore_{k}"] = v
+            else:
+                base_config["storage_method"] = ('pickle', None,)
+
         elif isinstance(config, FileStorage):
             try:
                 base_config = yaml.safe_load(config.stream)
@@ -65,6 +86,9 @@ class PhraseEmbeddingUtil:
             if language is not None:
                 base_config["model"] = _language_model_map.get(language, DEFAULT_EMBEDDING_MODEL)
 
+        # _storage = base_config.get("storage", None)
+        # if _storage is None:
+        #     base_config[""]
         if language is not None and not base_config.get("model", False):
             base_config["model"] = _language_model_map.get(language, DEFAULT_EMBEDDING_MODEL)
 
@@ -106,12 +130,17 @@ class PhraseEmbeddingUtil:
 
         add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.RUNNING, process_tracker)
         _process = None
+        if self.storage_method is None and config.get("storage_method", False):
+            self.storage_method = config.pop("storage_method", ("pickle", None,))
+        else:
+            _ = config.pop("storage_method", None)
         try:
             _process = process_factory.create(
                 data_obj=data_obj,
                 cache_path=self._file_storage,
                 cache_name=f"{cache_name}_{self.process_step}",
                 model_name=config.pop("model", DEFAULT_EMBEDDING_MODEL),
+                storage_method=self.storage_method,
                 **config
             )
             add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.FINISHED, process_tracker)

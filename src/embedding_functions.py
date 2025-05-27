@@ -19,6 +19,7 @@ class SentenceEmbeddingsFactory:
     storage_options = {
         'pickle': save_pickle,
         'vector_store': MarqoEmbeddingStore,
+        'vectorstore': MarqoEmbeddingStore,
     }
 
     @classmethod
@@ -96,13 +97,16 @@ class SentenceEmbeddingsFactory:
         _sent_emb._encode_data(n_process, **kwargs)
         _file_path = (cache_path / pathlib.Path(f"{cache_name}.pickle"))
 
-        if storage_method[0].lower() == "pickle":
+        _storage_method = storage_method[0].lower()
+        if _storage_method == "pickle":
             _sent_emb.data_processing_obj = None
-            SentenceEmbeddingsFactory.storage_options["pickle"](_sent_emb, _file_path)
-        elif storage_method[0].lower() == "vector_store":
-            _client_url = storage_method[1].get("client_url", "http://localhost:8882")
+            SentenceEmbeddingsFactory.storage_options[_storage_method](_sent_emb, _file_path)
+        elif _storage_method in ["vector_store", "vectorstore"]:
+            _url_key = set(k.lower() for k in storage_method[1].keys()).intersection(["client", "client_url", "url"])
+            _url_key = list(_url_key)[0] if len(_url_key) > 0 else "client_url"
+            _client_url = storage_method[1].get(_url_key, "http://localhost:8882")
             _index_name = storage_method[1].get("index_name", cache_name)
-            vector_store = SentenceEmbeddingsFactory.storage_options["vector_store"](
+            vector_store = SentenceEmbeddingsFactory.storage_options[_storage_method](
                 client_url=_client_url,
                 index_name=_index_name,
                 create_index=True,
@@ -117,7 +121,7 @@ class SentenceEmbeddingsFactory:
                 "client_url": _client_url,
                 "index_name": _index_name,
                 "model_name": model_name,
-                "dtype": _sent_emb.sentence_embeddings.dtype
+                "dtype": str(_sent_emb.sentence_embeddings.dtype)
             }, _file_path)
         return _sent_emb
 
