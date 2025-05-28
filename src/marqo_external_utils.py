@@ -392,6 +392,10 @@ class MarqoDocumentStore(DocumentStore):
             })
         self._embedding_store.marqo_index.update_documents(_updated_docs, client_batch_size=128)
 
+    def add_documents(self, documents: Iterable[MarqoDocument]):
+        for document in documents:
+            self.add_document(document)
+
     def suggest_graph_cluster(self, document: MarqoDocument) -> Optional[str]:
         # _graph_cluster = self._embedding_store.best_hits_for_field(
         #     embedding=document.embedding,

@@ -1,3 +1,4 @@
+import importlib
 import logging
 import os
 import sys
@@ -5,7 +6,7 @@ import pathlib
 import pickle
 from collections import OrderedDict, defaultdict, namedtuple
 from time import sleep
-from typing import Union, Iterable
+from typing import Union, Iterable, Optional
 
 import flask
 import networkx as nx
@@ -15,12 +16,15 @@ from flask import request, jsonify, render_template_string, Response
 from munch import Munch
 from werkzeug.datastructures import FileStorage
 from yaml.representer import RepresenterError
+from pydoc import locate
 
 from clustering_util import ClusteringUtil
 from embedding_util import PhraseEmbeddingUtil
 from main_utils import ProcessStatus, HTTPResponses, StepsName, pipeline_query_params, steps_relation_dict, \
     add_status_to_running_process, PipelineLanguage, get_bool_expression, StoppableThread, string_conformity
 from preprocessing_util import PreprocessingUtil
+from src import data_functions
+from src.util_functions import DocumentStore, EmbeddingStore
 
 sys.path.insert(0, "src")
 import graph_creation_util
@@ -28,6 +32,9 @@ import cluster_functions
 
 pipeline_json_config = namedtuple("pipeline_json_config",
                                   ["name", "language", "document_server", "vectorstore_server", "data", "embedding", "clustering", "graph"])
+
+document_adding_json = namedtuple("document_adding_json",
+                                  ["id", "language", "content", "document_server", "vectorstore_server"])
 
 
 def parse_config_json(response_json) -> pipeline_json_config:
@@ -53,6 +60,18 @@ def parse_config_json(response_json) -> pipeline_json_config:
                                     Munch(),
                                     Munch()
                                     )
+
+
+def parse_document_adding_json(response_json) -> document_adding_json:
+    config = Munch.fromDict(response_json)
+    _id_key = list(set(config.keys()).intersection(["id", "_id"]))
+    _id = _id_key[0] if _id_key else "none"
+    return document_adding_json(config.get(_id, None),
+                                config.get("language", None),
+                                config.get("content", None),
+                                config.get("document_server", None),
+                                config.get("vectorstore_server", None))
+
 
 
 def read_config_json(app, processor, process_type, process_name, config, language):
@@ -565,6 +584,34 @@ def get_omit_pipeline_steps(steps: object) -> list[str]:
         steps = steps.strip('([{}])')
         return [s.lower() for s in steps.split(',') if s.lower() in step_set]
     return []
+
+
+def add_documents_to_concept_graphs(
+        docs: Iterable[str],
+        data_processing: Optional[data_functions.DataProcessingFactory.DataProcessing],
+        embedding_processing: Optional[embedding_functions.SentenceEmbeddingFactory.DataProcessing],
+        content: Optional[Iterable[str]] = None,
+        document_store_cls: str = "src.marqo_external_utils.MarqoDocumentStore",
+        embedding_store_cls: str = "src.marqo_external_utils.MarqoEmbeddingStore",
+        document_cls: str = "src.marqo_external_utils.MarqoDocument",
+):
+    document_store = locate(document_store_cls)
+    embedding_store = locate(embedding_store_cls)
+    document = locate(document_cls)
+
+    if content is None :
+        raise NotImplementedError("Need to implement getting text from document server.")
+    embedding_store_impl: EmbeddingStore = embedding_store(
+        client_url="http://localhost:8882",
+        index_name="grascco",
+        create_index= False,
+        vector_dim= 1024
+    )
+    doc_store_impl: DocumentStore  = document_store(
+        embedding_store=embedding_store
+    )
+
+    # doc_store_impl.add_documents([document(doc) for doc in docs])
 
 
 if __name__ == "__main__":

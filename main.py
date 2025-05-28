@@ -227,8 +227,33 @@ def graph_base_endpoint():
                     ]
                 }
             },
+            {
+                "document": {
+                    {
+                        "add": {
+                            get_query_param_help_text("process"),
+                        }
+                    }
+                }
+            }
         ],
     ), HTTPResponses.NOT_FOUND
+
+@app.route("/graph/document/<path_arg>", methods=['POST'])
+def graph_document(path_arg):
+    process = request.args.get("process", "default").lower()
+    content_json = {}
+    if "application/json" == request.headers.get("Content-Type"):
+        content_json = parse_document_adding_json(request.get_json())
+    if path_arg.lower() == "add":
+        if content_json.id is None:
+            return jsonify(f"No '_id' or 'id' key in content json: '{content_json.keys()}'")
+        add_document_to_concept_graphs()
+    elif path_arg.lower() == "delete":
+        pass
+    else:
+        pass
+    return graph_base_endpoint()
 
 
 @app.route("/graph/<path_arg>", methods=['POST', 'GET'])
