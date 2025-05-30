@@ -142,7 +142,7 @@ class WordEmbeddingClustering:
             _dw_matrix = defaultdict(list)
             _outer = self._outer_instance
             _text_field = _outer._text_field_value if not use_lemma else _outer._lemma_field_value
-            for _d in self._data_proc.noun_chunks_corpus:
+            for _d in self._data_proc.noun_chunks_corpus():
                 _chunk_dict = clean_span(_d["spacy_chunk"])
 
                 _text = ""
@@ -261,9 +261,9 @@ class WordEmbeddingClustering:
                 restrict_to_cluster: bool = False,
         ) -> Iterable[List[int]]:
             _meaningful_clusters = []
-            tfidf_filter = self._data_proc.tfidf_filter
-            if tfidf_filter is not None: # ToDo need to check whether filtering is enabled!
-                logging.info("Filtering phrases")
+            # tfidf_filter = self._data_proc.tfidf_filter
+            # if tfidf_filter is not None: # ToDo need to check whether filtering is enabled!
+            #     logging.info("Filtering phrases")
             for i, _center in enumerate(self._outer_instance._cluster_obj.cluster_center):
                 _center = np.asarray(_center, dtype='float32')
                 if i in (self._outer_instance._exclusion_ids if exclusion_ids is None else exclusion_ids):
@@ -279,7 +279,8 @@ class WordEmbeddingClustering:
                                     distance=cluster_distance, vector_dim=self._sentence_embed.embedding_dim
                                 )
                             ],
-                            tfidf_filter.get_feature_names_out().tolist() if tfidf_filter is not None else None
+                            # tfidf_filter.get_feature_names_out().tolist() if (tfidf_filter is not None and tfidf_filter.vocabulary is not None) else None
+                            None
                         )
                     )
                 else:
@@ -289,7 +290,8 @@ class WordEmbeddingClustering:
                                 _center, self._sentence_embed.sentence_embeddings,
                                 distance=cluster_distance, vector_dim=self._sentence_embed.embedding_dim
                             ),
-                            tfidf_filter.get_feature_names_out().tolist() if tfidf_filter is not None else None
+                            # tfidf_filter.get_feature_names_out().tolist() if tfidf_filter is not None else None
+                            None
                         )
                     )
             # ToDo: right now works just for int
@@ -510,21 +512,21 @@ class WordEmbeddingClustering:
                 graph_sub_clustering: Union[float, bool] = False,
                 connection_distance: int = 2,
                 restrict_to_cluster: bool = False,
-                filter_min_df: Union[int, float] = 1,
-                filter_max_df: Union[int, float] = 1.,
-                filter_stop: Optional[list] = None,
+                # filter_min_df: Union[int, float] = 1,
+                # filter_max_df: Union[int, float] = 1.,
+                # filter_stop: Optional[list] = None,
         ):
-            filter_stop = filter_stop if (filter_stop not in [None, False]) else []
-            if (self._data_proc.tfidf_filter is not None and (
-                    self._data_proc.tfidf_filter.get_params().get("min_df", -1) != filter_min_df or
-                    self._data_proc.tfidf_filter.get_params().get("max_df", -1) != filter_max_df or
-                    self._data_proc.tfidf_filter.get_params().get("stop_words", -1) != filter_stop)) or (
-                    self._data_proc.tfidf_filter is None and (
-                    filter_min_df != 1 or filter_max_df != 1. or filter_stop is not None)):
-                logging.info(
-                    f"Resetting tfidf filter with min_df: {filter_min_df}, max_df: {filter_max_df}, stopwords: {filter_stop}")
-                self._data_proc.reset_filter(filter_min_df=filter_min_df, filter_max_df=filter_max_df,
-                                             filter_stop=filter_stop)
+            # filter_stop = filter_stop if (filter_stop not in [None, False]) else []
+            # if (self._data_proc.tfidf_filter is not None and (
+            #         self._data_proc.tfidf_filter.get_params().get("min_df", -1) != filter_min_df or
+            #         self._data_proc.tfidf_filter.get_params().get("max_df", -1) != filter_max_df or
+            #         self._data_proc.tfidf_filter.get_params().get("stop_words", -1) != filter_stop)) or (
+            #         self._data_proc.tfidf_filter is None and (
+            #         filter_min_df != 1 or filter_max_df != 1. or filter_stop is not None)):
+            #     logging.info(
+            #         f"Resetting tfidf filter with min_df: {filter_min_df}, max_df: {filter_max_df}, stopwords: {filter_stop}")
+            #     self._data_proc.reset_filter(filter_min_df=filter_min_df, filter_max_df=filter_max_df,
+            #                                  filter_stop=filter_stop)
             logging.info(f"Building Document Concept Matrix with following arguments:\n{locals()}")
             _exclusion = self._outer_instance._exclusion_ids if cluster_exclusion_ids is None else cluster_exclusion_ids
             _tqdm_sum = (len(self._outer_instance._cluster_obj.cluster_center) - len(_exclusion))

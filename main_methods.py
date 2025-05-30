@@ -1,4 +1,3 @@
-import importlib
 import logging
 import os
 import sys
@@ -20,15 +19,15 @@ from pydoc import locate
 
 from clustering_util import ClusteringUtil
 from embedding_util import PhraseEmbeddingUtil
+from preprocessing_util import PreprocessingUtil
+from graph_creation_util import GraphCreationUtil, visualize_graph
 from main_utils import ProcessStatus, HTTPResponses, StepsName, pipeline_query_params, steps_relation_dict, \
     add_status_to_running_process, PipelineLanguage, get_bool_expression, StoppableThread, string_conformity
-from preprocessing_util import PreprocessingUtil
-from src import data_functions
+sys.path.insert(0, "src")
+from src import data_functions, cluster_functions, embedding_functions
 from src.util_functions import DocumentStore, EmbeddingStore
 
-sys.path.insert(0, "src")
-import graph_creation_util
-import cluster_functions
+
 
 pipeline_json_config = namedtuple("pipeline_json_config",
                                   ["name", "language", "document_server", "vectorstore_server", "data", "embedding", "clustering", "graph"])
@@ -400,7 +399,7 @@ def load_configs(app: flask.app, process_name: str, path_to_configs: Union[pathl
         (StepsName.DATA, PreprocessingUtil,),
         (StepsName.EMBEDDING, PhraseEmbeddingUtil,),
         (StepsName.CLUSTERING, ClusteringUtil,),
-        (StepsName.GRAPH, graph_creation_util.GraphCreationUtil,)
+        (StepsName.GRAPH, GraphCreationUtil,)
     ]
     _language = set()
     for _step, _proc in processes:
@@ -519,7 +518,7 @@ def graph_get_specific(process, graph_nr, path: str, draw=False):
             else:
                 templates_path = pathlib.Path(store_path)
                 templates_path.mkdir(exist_ok=True)
-                graph_path = graph_creation_util.visualize_graph(
+                graph_path = visualize_graph(
                     graph=graph_list[graph_nr], store=str(pathlib.Path(templates_path / "graph.html").resolve()),
                     height="800px"
                 )
@@ -536,7 +535,7 @@ def graph_create(app: flask.Flask, path: str):
     # ToDo: files read doesn't work...
     # exclusion_ids_files = read_exclusion_ids(request.files.get("exclusion_ids", "[]"))
     if request.method in ["POST", "GET"]:
-        graph_create = graph_creation_util.GraphCreationUtil(app, path)
+        graph_create = GraphCreationUtil(app, path)
 
         process_name = read_config(graph_create, StepsName.GRAPH)
 
@@ -589,7 +588,7 @@ def get_omit_pipeline_steps(steps: object) -> list[str]:
 def add_documents_to_concept_graphs(
         docs: Iterable[str],
         data_processing: Optional[data_functions.DataProcessingFactory.DataProcessing],
-        embedding_processing: Optional[embedding_functions.SentenceEmbeddingFactory.DataProcessing],
+        embedding_processing: Optional[embedding_functions.SentenceEmbeddingsFactory.SentenceEmbeddings],
         content: Optional[Iterable[str]] = None,
         document_store_cls: str = "src.marqo_external_utils.MarqoDocumentStore",
         embedding_store_cls: str = "src.marqo_external_utils.MarqoEmbeddingStore",

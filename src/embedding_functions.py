@@ -27,7 +27,8 @@ class SentenceEmbeddingsFactory:
             model_name: str,
             data_processing_obj: DataProcessingFactory.DataProcessing,
     ):
-
+        #Todo: !
+        pass
 
     @classmethod
     def load(

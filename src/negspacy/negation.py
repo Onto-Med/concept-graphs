@@ -60,6 +60,10 @@ class Negex:
          to the number of dependent children under scrutiny. If set to true, scope is 1
     language: str
     """
+    @classmethod
+    def set_extension(cls, ext_name: str):
+        if not Span.has_extension(ext_name):
+            Span.set_extension(ext_name, default=False, force=True)
 
     def __init__(
             self,
@@ -81,9 +85,7 @@ class Negex:
         #         "your own termsets when initializing Negex."
         #     )
         # termsets = LANGUAGES[termset_lang]
-        if not Span.has_extension(extension_name):
-            Span.set_extension(extension_name, default=False, force=True)
-
+        Negex.set_extension(extension_name)
         ts = neg_termset
         if neg_termset_file is not None:
             rules = None
