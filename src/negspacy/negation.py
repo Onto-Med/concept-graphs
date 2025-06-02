@@ -16,7 +16,7 @@ default_ts = termset("en_clinical").get_patterns()
 @Language.factory(
     "negex",
     default_config={
-        "neg_termset": default_ts,
+        "neg_termset": None,
         "feat_types": list(),
         "extension_name": "negex",
         "chunk_prefix": list(),
@@ -69,7 +69,7 @@ class Negex:
             self,
             nlp: Language,
             name: str,
-            neg_termset: dict,
+            neg_termset: Optional[dict],
             feat_types: list,
             extension_name: str,
             chunk_prefix: list,
@@ -86,7 +86,7 @@ class Negex:
         #     )
         # termsets = LANGUAGES[termset_lang]
         Negex.set_extension(extension_name)
-        ts = neg_termset
+        ts = neg_termset if neg_termset is not None else default_ts
         if neg_termset_file is not None:
             rules = None
             if isinstance(neg_termset_file, str):
@@ -118,6 +118,8 @@ class Negex:
             "following_negations",
             "termination",
         ]
+        if neg_termset is not None and neg_termset_file is not None:
+            ts.update(neg_termset)
         if len(set(ts.keys()).intersection(expected_keys)) != len(expected_keys):
             raise KeyError(
                 f"Missing keys in 'neg_termset', expected: {expected_keys}, instead got: {list(ts.keys())}"
@@ -292,7 +294,8 @@ class Negex:
                     if self.feature_types:
                         if ft.label_ not in self.feature_types:
                             continue
-                    if self.chunk_prefix:
+                    # ft shouldn't be the same as something from the chunk_prefix list
+                    if self.chunk_prefix and not any([(s[1] == ft.start and s[2] == ft.end) for s in sub_preceding]):
                         if self.scope is not None and self.scope > 0:
                             if set(f.text.lower() for f in islice(ft.root.lefts, self.scope)).intersection(
                                     cp.text.lower() for cp in self.chunk_prefix):

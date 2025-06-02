@@ -5,8 +5,6 @@ import os
 import pathlib
 import re
 import itertools
-import sys
-import zipfile
 from collections import defaultdict
 from random import sample
 
@@ -21,6 +19,7 @@ from functools import lru_cache
 from spacy import Language
 from sklearn.feature_extraction.text import TfidfVectorizer as tfidfVec
 
+from main_utils import load_spacy_model, get_default_spacy_model
 from src.negspacy.utils import FeaturesOfInterest
 from src.negspacy.negation import Negex
 from src.util_functions import load_pickle, save_pickle, add_offset_to_documents_dicts_by_id, set_spacy_extensions
@@ -533,7 +532,11 @@ class DataProcessingFactory:
 
             if self.document_process_config is None and external is None:
                 self.document_process_config = {
-                    "pipeline": pipeline,
+                    "pipeline": {
+                        "name": pipeline.meta.get("name", None),
+                        "lang": pipeline.meta.get("lang", None),
+                        "version": pipeline.meta.get("version", None),
+                    },
                     "n_process": n_process,
                     "case_sensitive": case_sensitive,
                     "disable": disable,
@@ -541,9 +544,16 @@ class DataProcessingFactory:
                     "negspacy_config": _negspacy_config
                 }
             else:
-                case_sensitive, disable, n_process, pipeline = [
+                case_sensitive, disable, n_process = [
                     kv[1] for kv in sorted(self.document_process_config.items(),
-                                           key=lambda x: x[0]) if kv[0] not in ["negspacy_config", "omit_negated_chunks"]]
+                                           key=lambda x: x[0]) if kv[0] not in ["negspacy_config", "omit_negated_chunks", "pipeline"]]
+                pipeline = load_spacy_model(
+                    f"{self.document_process_config['pipeline']['lang']}_{self.document_process_config['pipeline']['name']}",
+                    logging.getLogger(__name__),
+                    get_default_spacy_model()
+                )
+                if omit_negated_chunks and (_negspacy_config is not None):
+                    pipeline.add_pipe(_negspacy_config.get("extension_name", "negex"), last=True, config=_negspacy_config)
 
             if (len(self._processed_docs) == 0 and external is None) or external is not None:
                 _pipe_trf_type = True if "trf" in pipeline.meta["name"].split("_") else False
@@ -706,8 +716,8 @@ if __name__ == "__main__":
     #     }
     # )
 
-    data_proc = DataProcessingFactory.load(pathlib.Path("C:/Users/fra3066mat/PycharmProjects/concept-graphs/tmp/grascco_test/grascco_test_data.pickle"))
+    data_proc = DataProcessingFactory.load(pathlib.Path("C:/Users/fra3066mat/PycharmProjects/concept-graphs/tmp/grascco/grascco_data.pickle"))
     res = data_proc.process_external_docs([{"name": "test",
-                                            "content": "Das ist ein Test Dokument. Es hat ein paar Nomen Chunks; vielleicht. Auch hat es keinerlei Sinn.",
+                                            "content": "Das ist ein Test Dokument. Es hat ein paar Nomen Chunks; vielleicht. Auch gab es keinen Nachweis für einen Sinn. Aber es wurd ein Sinn nicht gesehen.",
                                             "label": None}])
     print(res)

@@ -5,16 +5,13 @@ from types import GeneratorType
 from typing import List, Dict, Union, Generator, Optional
 
 import flask.app
-import spacy
 import yaml
 from munch import Munch, unmunchify
 from werkzeug.datastructures import FileStorage
-from waiting import wait, TimeoutExpired
 
-from main_utils import ProcessStatus, StepsName, add_status_to_running_process, get_bool_expression, NegspacyConfig
+from main_utils import ProcessStatus, StepsName, add_status_to_running_process, get_bool_expression, NegspacyConfig, \
+    load_spacy_model, get_default_spacy_model
 from src.negspacy.utils import FeaturesOfInterest
-
-DEFAULT_SPACY_MODEL = "en_core_web_trf"
 
 
 class PreprocessingUtil:
@@ -97,8 +94,8 @@ class PreprocessingUtil:
             self._app.logger.error(f"Something went wrong with data file reading: {e}")
 
     def read_config(self, config: Optional[Union[FileStorage, dict]], process_name=None, language=None):
-        base_config = {'spacy_model': DEFAULT_SPACY_MODEL, 'file_encoding': 'utf-8', "omit_negated_chunks": False}
-        _language_model_map = {"en": DEFAULT_SPACY_MODEL, "de": "de_dep_news_trf"}
+        base_config = {'spacy_model': get_default_spacy_model(), 'file_encoding': 'utf-8', "omit_negated_chunks": False}
+        _language_model_map = {"en": get_default_spacy_model(), "de": "de_dep_news_trf"}
 
         if isinstance(config, dict):
             if isinstance(config, Munch):
@@ -113,10 +110,10 @@ class PreprocessingUtil:
         else:
             self._app.logger.info("No config file provided; using default values")
             if language is not None:
-                base_config["spacy_model"] = _language_model_map.get(language, DEFAULT_SPACY_MODEL)
+                base_config["spacy_model"] = _language_model_map.get(language, get_default_spacy_model())
 
         if language is not None and not base_config.get("spacy_model", False):
-            base_config["spacy_model"] = _language_model_map.get(language, DEFAULT_SPACY_MODEL)
+            base_config["spacy_model"] = _language_model_map.get(language, get_default_spacy_model())
 
         base_config["corpus_name"] = process_name.lower() if process_name is not None else base_config["corpus_name"].lower()
         # ToDo: Since n_process > 1 would induce Multiprocessing and this doesn't work with the Threading approach
@@ -187,27 +184,8 @@ class PreprocessingUtil:
     def start_process(self, cache_name, process_factory, process_tracker):
         config = self.config.copy()
         default_args = inspect.getfullargspec(process_factory.create)[0]
-        _model = config.pop("spacy_model", DEFAULT_SPACY_MODEL)
-        try:
-            spacy_language = spacy.load(_model)
-        except IOError as e:
-            if _model != DEFAULT_SPACY_MODEL:
-                if self.is_valid_spacy_model(_model):
-                    self._app.logger.info(f"Model '{_model}' doesn't seem to be installed; trying to download model.")
-                    self.wait_for_download(_model)
-                    spacy_language = spacy.load(_model)
-                else:
-                    self._app.logger.error(f"{e}\nUsing default model {DEFAULT_SPACY_MODEL}.")
-                    try:
-                        spacy_language = spacy.load(DEFAULT_SPACY_MODEL)
-                    except IOError as e:
-                        self._app.logger.error(f"{e}\ntrying to download default model {DEFAULT_SPACY_MODEL}.")
-                        self.wait_for_download(DEFAULT_SPACY_MODEL)
-                        spacy_language = spacy.load(DEFAULT_SPACY_MODEL)
-            else:
-                self._app.logger.error(f"{e}\ntrying to download default model {DEFAULT_SPACY_MODEL}.")
-                self.wait_for_download(DEFAULT_SPACY_MODEL)
-                spacy_language = spacy.load(DEFAULT_SPACY_MODEL)
+        _model = config.pop("spacy_model", get_default_spacy_model())
+        spacy_language = load_spacy_model(_model, self._app.logger, get_default_spacy_model())
 
         for x in list(config.keys()):
             if x not in default_args:
@@ -230,20 +208,3 @@ class PreprocessingUtil:
             self._app.logger.error(e)
 
         return _process
-
-    def is_valid_spacy_model(self, model: str):
-        from spacy.cli.download import get_compatibility
-        if model in get_compatibility():
-            return True
-        self._app.logger.error(f"'{model}' is not a valid model name.")
-        return False
-
-
-    def wait_for_download(self, model: str, time_out: int = 30):
-        spacy.cli.download(model)
-        wait_pred = lambda: model in spacy.util.get_installed_models()
-        try:
-            wait(wait_pred, timeout_seconds=time_out)
-        except TimeoutExpired as e:
-            self._app.logger.warning(f"TimeOut while waiting >{time_out} seconds for download to finish."
-                                     f" Hopefully this is just due to installed models not refreshing.")
