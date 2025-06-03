@@ -74,7 +74,12 @@ class ClusteringUtil:
         base_config["corpus_name"] = process_name.lower() if process_name is not None else base_config["corpus_name"].lower()
         self.config = base_config
 
-    def set_file_storage_path(self, sub_path):
+    @property
+    def file_storage_path(self):
+        return self._file_storage
+
+    @file_storage_path.setter
+    def file_storage_path(self, sub_path):
         self._file_storage = Path(self._file_storage / sub_path)
         self._file_storage.mkdir(exist_ok=True)  # ToDo: warning when folder exists
 

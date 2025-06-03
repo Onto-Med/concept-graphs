@@ -80,11 +80,11 @@ def read_config_json(app, processor, process_type, process_name, config, languag
     processor.read_config(config=config, process_name=config.get("name", process_name),
                           language=_language if process_type in [StepsName.DATA, StepsName.EMBEDDING] else None)
     app.logger.info(f"Parsed the following arguments for {processor}:\n\t{processor.config}")
-    processor.set_file_storage_path(process_name)
+    processor.file_storage_path = process_name
     processor.process_name = process_name
 
     with pathlib.Path(
-            pathlib.Path(processor._file_storage) /
+            pathlib.Path(processor.file_storage_path) /
             pathlib.Path(f"{process_name}_{process_type}_config.yaml")
     ).open('w') as config_save:
         try:

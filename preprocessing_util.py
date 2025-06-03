@@ -46,7 +46,12 @@ class PreprocessingUtil:
     def process_step(self):
         return self._process_step
 
-    def set_file_storage_path(self, sub_path):
+    @property
+    def file_storage_path(self):
+        return self._file_storage
+
+    @file_storage_path.setter
+    def file_storage_path(self, sub_path):
         self._file_storage = Path(self._file_storage / sub_path)
         self._file_storage.mkdir(exist_ok=True)  # ToDo: warning when folder exists
 
