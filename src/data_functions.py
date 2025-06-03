@@ -311,7 +311,7 @@ class DataProcessingFactory:
         ) -> Generator:
             # ToDo: utilize blacklist for noun chunks that should not be included [sie, er, die, etc.] - or check if later on this is done and switch accordingly
             #  because here every superfluous chunk will be run through negex and slows process down and probably  induces errors
-            for doc in self._processed_docs if external is None else external:
+            for doc in self.processed_docs if external is None else external:
                 _offset_in_doc = doc._.offset_in_doc
                 for ch in doc.noun_chunks:
                     ch: spacy.tokens.Span
@@ -437,7 +437,7 @@ class DataProcessingFactory:
                 omit_negated_chunks: bool = True
         ) -> None:
             self._chunk_set_dicts.clear()
-            self._build_chunk_set_dicts(use_lemma=use_lemma, prepend_head=prepend_head, head_only=head_only,
+            self._build_chunk_set_dicts(data=None, use_lemma=use_lemma, prepend_head=prepend_head, head_only=head_only,
                                         case_sensitive=case_sensitive, omit_negated_chunks=omit_negated_chunks)
 
         def _check_view_elements(
@@ -468,11 +468,11 @@ class DataProcessingFactory:
             _labels_count = 0
             for i, d in enumerate(self._data_entries if external is None else external):
                 _label = d.get("label", None)
-                if _label not in self._true_labels_dict and external is not None:
+                if _label not in self._true_labels_dict and external is None:
                     self._true_labels_dict[_label] = _labels_count
                     _labels_count += 1
-                if external is not None: self._true_labels.append(_label)
-                if external is not None: self._text_id_to_doc_name[i] = d.get("name", "no_name")
+                if external is None: self._true_labels.append(_label)
+                if external is None: self._text_id_to_doc_name[i] = d.get("name", "no_name")
                 _offset = 0
                 for line in d.get("content", "").split(split_on):
                     if line.isspace():
@@ -490,20 +490,20 @@ class DataProcessingFactory:
 
         def _build_chunk_set_dicts(
                 self,
+                data: Optional[Iterable[spacy.tokens.Doc]],
                 prepend_head: bool,
                 use_lemma: bool,
                 head_only: bool,
                 case_sensitive: bool = False,
-                omit_negated_chunks: bool = True,
-                external: Optional[list[Doc]] = None
+                omit_negated_chunks: bool = True
         ) -> Optional[list[dict]]:
             _key = (prepend_head, use_lemma, head_only,)
-            if (len(self._chunk_set_dicts) == 0 and (_key != self._options_key) and external is None) or external is not None:
-                if external is None: self._options_key = copy.copy(_key)
+            if (len(self._chunk_set_dicts) == 0 and (_key != self._options_key) and data is None) or data is not None:
+                if data is None: self._options_key = copy.copy(_key)
                 _csdt = {}
-                if external is None: self._document_chunk_matrix = ["" for i in range(self.documents_n)]
+                if data is None: self._document_chunk_matrix = ["" for i in range(self.documents_n)]
 
-                for i, ch in enumerate(self.noun_chunks_corpus(external)):
+                for i, ch in enumerate(self.noun_chunks_corpus(data)):
                     ch: dict
                     _chunk_dict = clean_span(ch["spacy_chunk"], ch["offset"])
                     _negated_chunk: bool = ch["negated"]
@@ -514,7 +514,7 @@ class DataProcessingFactory:
 
                     _text = get_actual_str(_chunk_dict, _key, case_sensitive=case_sensitive)
                     _offset = _chunk_dict["offset"]
-                    if (not (_negated_chunk and omit_negated_chunks)) and external is None:
+                    if (not (_negated_chunk and omit_negated_chunks)) and data is None:
                         self._document_chunk_matrix[ch["doc_index"]] += f"{self._chunk_boundary}{_text}"
 
                     if _csdt.get(_text, False) and not (_negated_chunk and omit_negated_chunks):
@@ -599,8 +599,9 @@ class DataProcessingFactory:
                 if external is None: self._processed_docs = _processed_docs
 
                 _chunk_set_dicts = self._build_chunk_set_dicts(
-                    prepend_head=self._prepend_head, head_only=self._head_only, use_lemma=self._use_lemma,
-                    case_sensitive=case_sensitive, omit_negated_chunks=omit_negated_chunks, external=_processed_docs
+                    data=_processed_docs if external is not None else None, prepend_head=self._prepend_head,
+                    head_only=self._head_only, use_lemma=self._use_lemma, case_sensitive=case_sensitive,
+                    omit_negated_chunks=omit_negated_chunks
                 )
                 if external is None and _chunk_set_dicts is not None:
                     self._chunk_set_dicts = _chunk_set_dicts

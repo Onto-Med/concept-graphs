@@ -50,14 +50,16 @@ class PreprocessingUtil:
         self._file_storage = Path(self._file_storage / sub_path)
         self._file_storage.mkdir(exist_ok=True)  # ToDo: warning when folder exists
 
-    def has_pickle(self, process):
-        pickle = [Path(self._file_storage / process / f"{process}_{self.process_step}.{x}") for x in self._ext]
+    def has_process(self, process: Optional[str] = None):
+        pickle = [Path(self._file_storage / (process if process is not None else "") /
+                       f"{self.process_name if process is None else process}_{self.process_step}.{x}") for x in self._ext]
         return all([p.exists() for p in pickle])
 
-    def delete_pickle(self, process):
-        if self.has_pickle(process):
+    def delete_process(self, process: Optional[str] = None):
+        if self.has_process(process):
             for p in self._ext:
-                _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.{p}")
+                _pickle = Path(self._file_storage / (process if process is not None else "") /
+                               f"{self.process_name if process is None else process}_{self.process_step}.{p}")
                 _pickle.unlink()
 
     def read_data(self, data: Union[FileStorage, Path, Generator], replace_keys: Optional[dict], label_getter: Optional[str]):

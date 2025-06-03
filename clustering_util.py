@@ -78,13 +78,15 @@ class ClusteringUtil:
         self._file_storage = Path(self._file_storage / sub_path)
         self._file_storage.mkdir(exist_ok=True)  # ToDo: warning when folder exists
 
-    def has_pickle(self, process):
-        _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
+    def has_process(self, process: Optional[str] = None):
+        _pickle = Path(self._file_storage / (process if process is not None else "") /
+                       f"{self.process_name if process is None else process}_{self.process_step}.pickle")
         return _pickle.exists()
 
-    def delete_pickle(self, process):
-        if self.has_pickle(process):
-            _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
+    def delete_process(self, process: Optional[str] = None):
+        if self.has_process(process):
+            _pickle = Path(self._file_storage / (process if process is not None else "") /
+                           f"{self.process_name if process is None else process}_{self.process_step}.pickle")
             _pickle.unlink()
 
     def read_stored_config(self, ext: str = "yaml"):

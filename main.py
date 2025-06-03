@@ -1,5 +1,6 @@
 import json
 import logging
+import pathlib
 import shutil
 
 from typing import Optional
@@ -7,6 +8,7 @@ from typing import Optional
 from flask import Flask, Response
 from flask.logging import default_handler
 
+import preprocessing_util
 from main_methods import *
 from main_utils import ProcessStatus, HTTPResponses, StepsName, add_status_to_running_process, get_bool_expression, \
     StoppableThread
@@ -386,14 +388,14 @@ def complete_pipeline():
     for _name, _proc, _conf, _fact in processes:
         process_obj = _proc(app=app, file_storage=FILE_STORAGE_TMP)
         add_status_to_running_process(query_params.process_name, _name, ProcessStatus.STARTED, running_processes)
-        if process_obj.has_pickle(query_params.process_name):
+        if process_obj.has_process(query_params.process_name):
             if _name in query_params.omitted_pipeline_steps or query_params.skip_present:
                 logging.info(f"Skipping {_name} because "
                              f"{'omitted' if _name in query_params.omitted_pipeline_steps else 'skip_present'}.")
                 add_status_to_running_process(query_params.process_name, _name, ProcessStatus.FINISHED, running_processes)
                 continue
             else:
-                process_obj.delete_pickle(query_params.process_name)
+                process_obj.delete_process(query_params.process_name)
 
         if content_type_json:
             read_config_json(app=app, processor=process_obj, process_type=_name,
@@ -486,6 +488,10 @@ def delete_process(process_id):
                         status=int(HTTPResponses.NOT_IMPLEMENTED))
 
     _process_stats = running_processes.pop(process_id)
+    for _step in [PreprocessingUtil, PhraseEmbeddingUtil, ClusteringUtil, GraphCreationUtil]:
+        _process_util = _step(app=app, file_storage=str(pathlib.Path(f_storage / process_id).resolve()))
+        _process_util.process_name = process_id
+        _process_util.delete_process()
     shutil.rmtree(pathlib.Path(f_storage / process_id))
     return Response(f"Process '{process_id}' deleted."), HTTPResponses.OK
 

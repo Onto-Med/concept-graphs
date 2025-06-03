@@ -119,6 +119,7 @@ class StepsName:
     EMBEDDING = "embedding"
     CLUSTERING = "clustering"
     GRAPH = "graph"
+    ALL = [DATA, EMBEDDING, CLUSTERING, GRAPH]
 
 
 pipeline_query_params = namedtuple(

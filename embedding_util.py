@@ -11,6 +11,8 @@ from munch import Munch, unmunchify
 from werkzeug.datastructures import FileStorage
 
 from main_utils import ProcessStatus, StepsName, add_status_to_running_process
+from src.marqo_external_utils import MarqoEmbeddingStore
+from src.util_functions import load_pickle
 
 sys.path.insert(0, "src")
 import util_functions
@@ -103,13 +105,20 @@ class PhraseEmbeddingUtil:
         self._file_storage = Path(self._file_storage / sub_path)
         self._file_storage.mkdir(exist_ok=True)  # ToDo: warning when folder exists
 
-    def has_pickle(self, process):
-        _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
+    def has_process(self, process: Optional[str] = None):
+        _pickle = Path(self._file_storage / (process if process is not None else "") /
+                       f"{self.process_name if process is None else process}_{self.process_step}.pickle")
         return _pickle.exists()
 
-    def delete_pickle(self, process):
-        if self.has_pickle(process):
-            _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
+    def delete_process(self, process: Optional[str] = None):
+        if self.has_process(process):
+            _pickle = Path(self._file_storage / (process if process is not None else "") /
+                           f"{self.process_name if process is None else process}_{self.process_step}.pickle")
+            if _pickle.stat().st_size < 500:
+                # assume pickled config dict for vectorstore and not pickled embedding object
+                _config: dict = load_pickle(_pickle)
+                vector_store = MarqoEmbeddingStore.existing_from_config(_config)
+                vector_store.marqo_index.delete()
             _pickle.unlink()
 
     def read_stored_config(self, ext: str = "yaml"):

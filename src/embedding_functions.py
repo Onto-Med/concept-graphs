@@ -52,7 +52,7 @@ class SentenceEmbeddingsFactory:
         if storage_method[0].lower() == "pickle":
              _embeddings_obj: SentenceEmbeddingsFactory.SentenceEmbeddings = _loaded_obj
              _embeddings_obj.data_processing_obj = data_obj
-        elif storage_method[0].lower() == "vector_store":
+        elif storage_method[0].lower() in ["vector_store", "vectorstore"]:
             _config: dict = load_pickle(_file_path)
             vector_store = MarqoEmbeddingStore.existing_from_config(_config)
             _embeddings_obj = SentenceEmbeddingsFactory.SentenceEmbeddings(
