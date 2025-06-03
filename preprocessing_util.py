@@ -25,6 +25,7 @@ class PreprocessingUtil:
         self.serializable_config = None
         self.labels = None
         self.data = None
+        self._ext = ["pickle", "spacy"]
 
     def _read_zip_content(self, zip_archive, labels) -> List[Dict[str, str]]:
         extension = self.config.get("file_extension", "txt")
@@ -50,13 +51,14 @@ class PreprocessingUtil:
         self._file_storage.mkdir(exist_ok=True)  # ToDo: warning when folder exists
 
     def has_pickle(self, process):
-        _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
-        return _pickle.exists()
+        pickle = [Path(self._file_storage / process / f"{process}_{self.process_step}.{x}") for x in self._ext]
+        return all([p.exists() for p in pickle])
 
     def delete_pickle(self, process):
         if self.has_pickle(process):
-            _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
-            _pickle.unlink()
+            for p in self._ext:
+                _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.{p}")
+                _pickle.unlink()
 
     def read_data(self, data: Union[FileStorage, Path, Generator], replace_keys: Optional[dict], label_getter: Optional[str]):
         try:
