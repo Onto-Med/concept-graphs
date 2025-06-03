@@ -5,10 +5,12 @@ import os
 import pathlib
 import re
 import itertools
+import sys
 from collections import defaultdict
 from random import sample
 
 import numpy as np
+from spacy.tokens import DocBin
 from spacy.tokens.doc import Doc
 from tqdm.autonotebook import tqdm
 from typing import Optional, Generator, Union, Iterable, Dict, List, Set, Callable, Any
@@ -41,10 +43,12 @@ class DataProcessingFactory:
     ) -> 'DataProcessing':
         set_spacy_extensions()
         _data_obj = load_pickle(data_obj_path)
+        _doc_bin = DocBin().from_disk(data_obj_path.with_suffix(".spacy"))
         try:
             _ = _data_obj.data_chunk_sets
+            _data_obj.processed_docs = _doc_bin
         except AttributeError:
-            raise AssertionError(f"The loaded object '{_data_obj}' is not a DataProcessing object.")
+            raise AssertionError(f"The loaded object '{_data_obj}' seems not to be a DataProcessing object or is missing important attribute 'data_chunk_sets'.")
         return _data_obj
 
     @staticmethod
@@ -145,6 +149,11 @@ class DataProcessingFactory:
         if save_to_file:
             delattr(_data_processing, '_data_entries')  # remove as it's not needed and makes problems when serializing
             final_cache = pathlib.Path(_cache_path / pathlib.Path(f"{_cache_name}.pickle"))
+            # Using DocBin -- mainly for future use of proper DBs
+            doc_bin = DocBin(docs=_data_processing._processed_docs, store_user_data=True)
+            doc_bin.to_disk(final_cache.with_suffix(".spacy"))
+            _data_processing._processed_docs.clear()
+            # DocBin end
             save_pickle(_data_processing, final_cache)
         return _data_processing
 
@@ -171,7 +180,6 @@ class DataProcessingFactory:
             self._prepend_head = prepend_head
             self._use_lemma = use_lemma
             self._head_only = head_only
-            # self._data_corpus_tuples = list()
             self._text_id_to_doc_name = dict()
             self._processed_docs = list()
             self._document_chunk_matrix = list()
@@ -201,6 +209,13 @@ class DataProcessingFactory:
             )
 
         # ToDo: some method to set 'doc_topic' outside init?
+
+        @property
+        def model_name(self) -> Optional[str]:
+            if _pipe := self.document_process_config.get("pipeline", {}):
+                if _pipe.get("lang", False) and _pipe.get("name", False):
+                    return f"{_pipe['lang']}_{_pipe['name']}"
+            return None
 
         @property
         def document_process_config(self) -> dict:
@@ -274,6 +289,15 @@ class DataProcessingFactory:
                 return self._processed_docs
             else:
                 return [d for d in self._processed_docs if d._.doc_topic.lower() in self._view['labels']]
+
+        @processed_docs.setter
+        def processed_docs(self, value: Union[list, DocBin]):
+            if isinstance(value, list):
+                self._processed_docs = value
+            elif isinstance(value, DocBin):
+                self._processed_docs = list(value.get_docs(
+                    load_spacy_model(self.model_name, logging.getLogger(__name__), get_default_spacy_model()).vocab
+                ))
 
         @property
         def chunk_sets_n(
@@ -548,7 +572,7 @@ class DataProcessingFactory:
                     kv[1] for kv in sorted(self.document_process_config.items(),
                                            key=lambda x: x[0]) if kv[0] not in ["negspacy_config", "omit_negated_chunks", "pipeline"]]
                 pipeline = load_spacy_model(
-                    f"{self.document_process_config['pipeline']['lang']}_{self.document_process_config['pipeline']['name']}",
+                    self.model_name,
                     logging.getLogger(__name__),
                     get_default_spacy_model()
                 )
@@ -716,7 +740,7 @@ if __name__ == "__main__":
     #     }
     # )
 
-    data_proc = DataProcessingFactory.load(pathlib.Path("C:/Users/fra3066mat/PycharmProjects/concept-graphs/tmp/grascco/grascco_data.pickle"))
+    data_proc = DataProcessingFactory.load(pathlib.Path("C:/Users/fra3066mat/PycharmProjects/concept-graphs/tmp/grascco_test/grascco_test_data.pickle"))
     res = data_proc.process_external_docs([{"name": "test",
                                             "content": "Das ist ein Test Dokument. Es hat ein paar Nomen Chunks; vielleicht. Auch gab es keinen Nachweis für einen Sinn. Aber es wurd ein Sinn nicht gesehen.",
                                             "label": None}])
