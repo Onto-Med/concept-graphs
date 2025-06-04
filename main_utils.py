@@ -6,8 +6,9 @@ from collections import namedtuple
 from dataclasses import dataclass
 from enum import Enum, IntEnum
 from abc import ABC, abstractmethod
+from inspect import getfullargspec
 from pathlib import Path
-from typing import Union, Optional, Any
+from typing import Union, Optional, Any, Callable
 
 from flask import jsonify, Response
 from munch import Munch, unmunchify
@@ -213,13 +214,51 @@ class BaseUtil(ABC):
         return self.process_step, config_yaml
 
     @abstractmethod
+    def _process_method(self) -> Callable:
+        raise NotImplementedError()
+
+    @abstractmethod
+    def _load_pre_components(
+            self,
+            cache_name
+    ) -> Union[tuple, list]:
+        """
+        Pre Components should be returned as a tuple or list; they will be provided to
+        '_start_process' as its args. So when implementing both methods, one should be
+        aware of their positioning.
+        """
+        return []
+
+    @abstractmethod
+    def _start_process(
+            self,
+            process_factory,
+            *args,
+            **kwargs
+    ):
+        raise NotImplementedError()
+
     def start_process(
             self,
             cache_name: str,
             process_factory,
-            process_tracker: dict
+            process_tracker: dict,
+            **kwargs
     ) -> Optional[Any]:
-        raise NotImplementedError()
+        add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.RUNNING, process_tracker)
+        _pre_components = self._load_pre_components(cache_name)
+        config = self.config.copy()
+        try:
+            _valid_config = getfullargspec(self._process_method).args
+            for _arg in config.copy().keys():
+                if _arg not in _valid_config:
+                    config.pop(_arg)
+            config.update(kwargs)
+            return self._start_process(process_factory, *_pre_components, **config)
+        except Exception as e:
+            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.ABORTED, process_tracker)
+            self._app.logger.error(e)
+        return None
 
 pipeline_query_params = namedtuple(
     "PipelineQueryParams", ["process_name", "language", "skip_present", "omitted_pipeline_steps", "return_statistics"])
@@ -249,7 +288,7 @@ class PipelineLanguage:
 
 def add_status_to_running_process(
         process_name: str,
-        step_name: StepsName,
+        step_name: str,
         step_status: ProcessStatus,
         running_processes: dict
 ):

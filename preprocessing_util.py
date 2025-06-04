@@ -10,12 +10,11 @@ from munch import Munch, unmunchify
 from werkzeug.datastructures import FileStorage
 
 from main_utils import ProcessStatus, StepsName, add_status_to_running_process, get_bool_expression, NegspacyConfig, \
-    load_spacy_model, get_default_spacy_model
+    load_spacy_model, get_default_spacy_model, BaseUtil
 from src.negspacy.utils import FeaturesOfInterest
 
 
 class PreprocessingUtil:
-
     def __init__(self, app: flask.app.Flask, file_storage: str, step_name: StepsName = StepsName.DATA):
         self._app = app
         self._file_storage = Path(file_storage)

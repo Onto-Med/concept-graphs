@@ -1,115 +1,103 @@
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, Callable
 
 import flask
-import yaml
 import sys
 
-from flask import jsonify
-from munch import Munch, unmunchify
 from werkzeug.datastructures import FileStorage
 
-from main_utils import ProcessStatus, StepsName, add_status_to_running_process
+from main_utils import ProcessStatus, StepsName, add_status_to_running_process, BaseUtil
 from src import data_functions
 
 sys.path.insert(0, "src")
 import util_functions
 import embedding_functions
+from src.cluster_functions import PhraseClusterFactory
 
 
-class ClusteringUtil:
+class ClusteringUtil(BaseUtil):
 
-    def __init__(self, app: flask.app.Flask, file_storage: str, step_name: StepsName = StepsName.CLUSTERING):
-        self._app = app
-        self._file_storage = Path(file_storage)
-        self._process_step = step_name
-        self._process_name = None
-        self.config = None
-
-    @property
-    def process_name(self):
-        return self._process_name
-
-    @process_name.setter
-    def process_name(self, name):
-        self._process_name = name
+    def __init__(
+            self,
+            app: flask.app.Flask,
+            file_storage: str
+    ):
+        super().__init__(app, file_storage, StepsName.CLUSTERING)
 
     @property
-    def process_step(self):
-        return self._process_step
-
-    def read_config(self, config: Optional[Union[FileStorage, dict]], process_name=None, language=None):
-        base_config = {"algorithm": "kmeans", "downscale": "umap", "scaling_n_neighbors": 10, "scaling_min_dist": 0.1,
-                       "scaling_n_components": 100, "scaling_metric": 'euclidean', "scaling_random_state": 42,
-                       "deduction_k_min": 2, "deduction_k_max": 100}
-        if isinstance(config, dict):
-            if isinstance(config, Munch):
-                _config = unmunchify(config)
-            else:
-                _config = config
-            for _type in ["scaling", "clustering", "deduction"]:
-                _sub_config = _config.get(_type, {}).copy()
-                for k, v in _sub_config.items():
-                    _config[f"{_type}_{k}"] = v
-                _config.pop(_type, None)
-            if _config.pop("missing_as_recommended", True):
-                for k, v in base_config.items():
-                    if k not in _config:
-                        _config[k] = v
-            base_config = _config
-        elif isinstance(config, FileStorage):
-            try:
-                _config = yaml.safe_load(config.stream)
-                if _config.pop("missing_as_recommended", True):
-                    for k, v in base_config.items():
-                        if k not in _config:
-                            _config[k] = v
-                base_config = _config
-            except Exception as e:
-                self._app.logger.error(f"Couldn't read config file: {e}")
-                return jsonify("Encountered error. See log.")
-        else:
-            self._app.logger.info("No config file provided; using default values")
-
-        base_config["corpus_name"] = process_name.lower() if process_name is not None else base_config["corpus_name"].lower()
-        self.config = base_config
+    def default_config(self) -> dict:
+        return {
+            "algorithm": "kmeans",
+            "downscale": "umap",
+            "scaling_n_neighbors": 10,
+            "scaling_min_dist": 0.1,
+            "scaling_n_components": 100,
+            "scaling_metric": 'euclidean',
+            "scaling_random_state": 42,
+            "deduction_k_min": 2,
+            "deduction_k_max": 100
+        }
 
     @property
-    def file_storage_path(self):
-        return self._file_storage
+    def sub_config_names(self) -> list[str]:
+        return ["scaling", "clustering", "deduction"]
 
-    @file_storage_path.setter
-    def file_storage_path(self, sub_path):
-        self._file_storage = Path(self._file_storage / sub_path)
-        self._file_storage.mkdir(exist_ok=True)  # ToDo: warning when folder exists
+    @property
+    def necessary_config_keys(self) -> list[str]:
+        return []
 
-    def has_process(self, process: Optional[str] = None):
-        _pickle = Path(self._file_storage / (process if process is not None else "") /
-                       f"{self.process_name if process is None else process}_{self.process_step}.pickle")
-        return _pickle.exists()
+    def read_config(
+            self,
+            config: Optional[Union[FileStorage, dict]],
+            process_name=None,
+            language=None
+    ):
+        _response = super().read_config(config, process_name, language)
+        if _response is None:
+            if self.config.pop("missing_as_recommended", True):
+                for k, v in self.default_config.items():
+                    if k not in self.config:
+                        self.config[k] = v
+        return _response
 
-    def delete_process(self, process: Optional[str] = None):
-        if self.has_process(process):
-            _pickle = Path(self._file_storage / (process if process is not None else "") /
-                           f"{self.process_name if process is None else process}_{self.process_step}.pickle")
-            _pickle.unlink()
 
-    def read_stored_config(self, ext: str = "yaml"):
-        _sub_configs = {"deduction": {}, "scaling": {}, "clustering": {}}
-        _file_name = f"{self.process_name}_{self.process_step}_config.{ext}"
-        _file = Path(self._file_storage / _file_name)
-        if not _file.exists():
-            return self.process_step, {}
-        config_yaml = yaml.safe_load(_file.open('rb'))
-        for key, value in config_yaml.copy().items():
-            _sub_key_split = key.split("_")
-            if len(_sub_key_split) > 1 and _sub_key_split[0] in _sub_configs.keys():
-                _sub_configs[_sub_key_split[0]]["_".join(_sub_key_split[1:])] = value
-                config_yaml.pop(key)
-        config_yaml.update(_sub_configs)
-        return self.process_step, config_yaml
+    def read_stored_config(
+            self,
+            ext: str = "yaml"
+    ):
+        return super().read_stored_config(ext)
 
-    def start_process(self, cache_name, process_factory, process_tracker):
+    def has_process(
+            self,
+            process: Optional[str] = None
+    ) -> bool:
+        return super().has_process(process)
+
+    def delete_process(
+            self,
+            process: Optional[str] = None
+    ) -> None:
+        return super().delete_process(process)
+
+    def _process_method(self) -> Callable:
+        return PhraseClusterFactory.create
+
+    def _load_pre_components(
+            self,
+            cache_name
+    ) -> Union[tuple, list]:
+        pass
+
+    def _start_process(self, process_factory, *args, **kwargs):
+        pass
+
+    def start_process(
+            self,
+            cache_name,
+            process_factory,
+            process_tracker,
+            **kwargs
+    ):
         config = self.config.copy()
         # default_args = inspect.getfullargspec(process_factory.create)[0]
         algorithm = config.pop("algorithm", "kmeans")
