@@ -86,8 +86,8 @@ class BaseUtil(ABC):
         self._file_storage = pathlib.Path(file_storage)
         self._process_step = step_name
         self._process_name = None
+        self._global_protected_kwargs = ["corpus_name"]
         self.config = None
-        self.serializable_config = None
 
     def _complete_pickle_path(
             self,
@@ -201,8 +201,7 @@ class BaseUtil(ABC):
             _inter = set(base_config.keys()).intersection(self.necessary_config_keys)
             if not len(_inter) == len(self.necessary_config_keys):
                 raise KeyError(f"Missing necessary config values: '{_inter}'.")
-        base_config["corpus_name"] = process_name.lower() if process_name is not None else base_config[
-            "corpus_name"].lower()
+        base_config["corpus_name"] = process_name.lower() if process_name is not None else base_config["corpus_name"].lower()
         self.config = base_config
         # ToDo: Since n_process > 1 would induce Multiprocessing and this doesn't work with the Threading approach
         #  to keep the server able to respond, the value will be popped here.
@@ -256,7 +255,7 @@ class BaseUtil(ABC):
 
     def _in_protected_kwargs(self, kwarg: str) -> bool:
         if isinstance(kwarg, str):
-            return any([kwarg.startswith(x) for x in self.protected_kwargs])
+            return any([kwarg.startswith(x) for x in self.protected_kwargs + self._global_protected_kwargs])
         else:
             return False
 
@@ -271,7 +270,7 @@ class BaseUtil(ABC):
         _pre_components = self._load_pre_components(cache_name)
         config = self.config.copy()
         try:
-            _valid_config = getfullargspec(self._process_method).args if self._process_method is not None else None
+            _valid_config = getfullargspec(self._process_method()).args if self._process_method() is not None else None
             if _valid_config is not None:
                 for _arg in config.copy().keys():
                     if _arg not in _valid_config and not self._in_protected_kwargs(_arg):
