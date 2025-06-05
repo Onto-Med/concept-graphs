@@ -59,6 +59,10 @@ class PhraseEmbeddingUtil(BaseUtil):
         self.storage_method = (storage_method, connection_dict)
 
     @property
+    def serializable_config(self) -> dict:
+        return self.config.copy()
+
+    @property
     def default_config(self) -> dict:
         return {
             'model': self.default_model,
@@ -153,7 +157,7 @@ class PhraseEmbeddingUtil(BaseUtil):
                 cache_path=self._file_storage,
                 cache_name=f"{self.process_name}_{self.process_step}",
                 model_name=kwargs.pop("model", self.default_model),
-                storage_method=self.storage_method,
+                # storage_method=self.storage_method,
                 **kwargs
             )
         except Exception as e:

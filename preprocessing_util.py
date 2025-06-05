@@ -3,9 +3,11 @@ import zipfile
 from pathlib import Path
 from types import GeneratorType
 from typing import List, Dict, Union, Generator, Optional, Callable
+from copy import copy
 
 import flask.app
 import yaml
+from dataclass_wizard import JSONSerializable
 from werkzeug.datastructures import FileStorage
 
 sys.path.insert(0, "src")
@@ -35,6 +37,13 @@ class PreprocessingUtil(BaseUtil):
             "en": self.default_model,
             "de": "de_dep_news_trf"
         }
+
+    @property
+    def serializable_config(self) -> dict:
+        _neg_spacy: JSONSerializable =  self.config.get("negspacy_config", NegspacyConfig())
+        _serializable_conf =  self.config.copy()
+        _serializable_conf["negspacy_config"] = _neg_spacy.to_dict()
+        return _serializable_conf
 
     @property
     def default_config(self) -> dict:

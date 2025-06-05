@@ -24,6 +24,10 @@ class ClusteringUtil(BaseUtil):
         super().__init__(app, file_storage, StepsName.CLUSTERING)
 
     @property
+    def serializable_config(self) -> dict:
+        return self.config.copy()
+
+    @property
     def default_config(self) -> dict:
         return {
             "algorithm": "kmeans",

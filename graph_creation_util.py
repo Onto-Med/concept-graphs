@@ -26,6 +26,10 @@ class GraphCreationUtil(BaseUtil):
         super().__init__(app, file_storage, StepsName.GRAPH)
 
     @property
+    def serializable_config(self) -> dict:
+        return self.config.copy()
+
+    @property
     def default_config(self) -> dict:
         return {
             "cluster_distance": 0.7,

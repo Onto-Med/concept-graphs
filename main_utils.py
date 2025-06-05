@@ -86,7 +86,6 @@ class BaseUtil(ABC):
         self._file_storage = pathlib.Path(file_storage)
         self._process_step = step_name
         self._process_name = None
-        self._global_protected_kwargs = ["corpus_name"]
         self.config = None
 
     def _complete_pickle_path(
@@ -96,6 +95,11 @@ class BaseUtil(ABC):
     ) -> pathlib.Path:
         return Path(self._file_storage / (process if process is not None else "") /
                     f"{self.process_name if process is None else process}_{self.process_step}.{extension}")
+
+    @property
+    @abstractmethod
+    def serializable_config(self) -> dict:
+        raise NotImplementedError()
 
     @property
     @abstractmethod
@@ -255,7 +259,7 @@ class BaseUtil(ABC):
 
     def _in_protected_kwargs(self, kwarg: str) -> bool:
         if isinstance(kwarg, str):
-            return any([kwarg.startswith(x) for x in self.protected_kwargs + self._global_protected_kwargs])
+            return any([kwarg.startswith(x) for x in self.protected_kwargs])
         else:
             return False
 
@@ -278,7 +282,7 @@ class BaseUtil(ABC):
                 config.update(kwargs)
             if _pre_components is not None:
                 self._start_process(process_factory, *_pre_components, **config)
-            return self._start_process(process_factory, **kwargs)
+            return self._start_process(process_factory, **config)
         except Exception as e:
             add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.ABORTED, process_tracker)
             self._app.logger.error(e)
