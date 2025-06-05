@@ -91,10 +91,11 @@ class BaseUtil(ABC):
 
     def _complete_pickle_path(
             self,
-            process: Optional[str]
+            process: Optional[str],
+            extension: str = "pickle",
     ) -> pathlib.Path:
         return Path(self._file_storage / (process if process is not None else "") /
-                    f"{self.process_name if process is None else process}_{self.process_step}.pickle")
+                    f"{self.process_name if process is None else process}_{self.process_step}.{extension}")
 
     @property
     @abstractmethod
@@ -109,6 +110,11 @@ class BaseUtil(ABC):
     @property
     @abstractmethod
     def necessary_config_keys(self) -> list[str]:
+        raise NotImplementedError()
+
+    @property
+    @abstractmethod
+    def protected_kwargs(self) -> list[str]:
         raise NotImplementedError()
 
     @property
@@ -141,17 +147,23 @@ class BaseUtil(ABC):
     @abstractmethod
     def has_process(
             self,
-            process: Optional[str] = None
+            process: Optional[str] = None,
+            extensions: Optional[list[str]] = None
     ) -> bool:
-        return self._complete_pickle_path(process).exists()
+        if extensions is None:
+            return self._complete_pickle_path(process).exists()
+        return all([self._complete_pickle_path(process, ext).exists() for ext in extensions])
 
     @abstractmethod
     def delete_process(
             self,
-            process: Optional[str] = None
+            process: Optional[str] = None,
+            extensions: Optional[list[str]] = None,
     ) -> None:
-        if self.has_process(process):
-            self._complete_pickle_path(process).unlink()
+        if self.has_process(process, extensions):
+            for ext in extensions:
+                _pickle = self._complete_pickle_path(process, ext)
+                _pickle.unlink()
 
     @abstractmethod
     def read_config(
@@ -192,6 +204,10 @@ class BaseUtil(ABC):
         base_config["corpus_name"] = process_name.lower() if process_name is not None else base_config[
             "corpus_name"].lower()
         self.config = base_config
+        # ToDo: Since n_process > 1 would induce Multiprocessing and this doesn't work with the Threading approach
+        #  to keep the server able to respond, the value will be popped here.
+        #  Maybe I can find a solution to this problem
+        self.config.pop("n_process", None)
         return None
 
     @abstractmethod
@@ -214,14 +230,14 @@ class BaseUtil(ABC):
         return self.process_step, config_yaml
 
     @abstractmethod
-    def _process_method(self) -> Callable:
+    def _process_method(self) -> Optional[Callable]:
         raise NotImplementedError()
 
     @abstractmethod
     def _load_pre_components(
             self,
             cache_name
-    ) -> Union[tuple, list]:
+    ) -> Optional[Union[tuple, list]]:
         """
         Pre Components should be returned as a tuple or list; they will be provided to
         '_start_process' as its args. So when implementing both methods, one should be
@@ -238,6 +254,12 @@ class BaseUtil(ABC):
     ):
         raise NotImplementedError()
 
+    def _in_protected_kwargs(self, kwarg: str) -> bool:
+        if isinstance(kwarg, str):
+            return any([kwarg.startswith(x) for x in self.protected_kwargs])
+        else:
+            return False
+
     def start_process(
             self,
             cache_name: str,
@@ -249,12 +271,15 @@ class BaseUtil(ABC):
         _pre_components = self._load_pre_components(cache_name)
         config = self.config.copy()
         try:
-            _valid_config = getfullargspec(self._process_method).args
-            for _arg in config.copy().keys():
-                if _arg not in _valid_config:
-                    config.pop(_arg)
-            config.update(kwargs)
-            return self._start_process(process_factory, *_pre_components, **config)
+            _valid_config = getfullargspec(self._process_method).args if self._process_method is not None else None
+            if _valid_config is not None:
+                for _arg in config.copy().keys():
+                    if _arg not in _valid_config and not self._in_protected_kwargs(_arg):
+                        config.pop(_arg)
+                config.update(kwargs)
+            if _pre_components is not None:
+                self._start_process(process_factory, *_pre_components, **config)
+            return self._start_process(process_factory, **kwargs)
         except Exception as e:
             add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.ABORTED, process_tracker)
             self._app.logger.error(e)

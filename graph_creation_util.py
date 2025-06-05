@@ -1,9 +1,6 @@
-import pathlib
-import pickle
 import sys
 from pathlib import Path
 from typing import Optional, Union, Callable
-from inspect import getfullargspec
 
 import flask
 import networkx as nx
@@ -11,13 +8,12 @@ from pyvis import network as net
 
 from werkzeug.datastructures import FileStorage
 
-from main_utils import ProcessStatus, StepsName, add_status_to_running_process, BaseUtil
-from src import data_functions
-from src.cluster_functions import WordEmbeddingClustering
-
 sys.path.insert(0, "src")
-import util_functions
-import embedding_functions
+from main_utils import StepsName, BaseUtil
+from src.data_functions import DataProcessingFactory
+from src.embedding_functions import SentenceEmbeddingsFactory
+from src.cluster_functions import WordEmbeddingClustering
+from src.util_functions import load_pickle
 
 
 class GraphCreationUtil(BaseUtil):
@@ -52,6 +48,10 @@ class GraphCreationUtil(BaseUtil):
     def necessary_config_keys(self) -> list[str]:
         return []
 
+    @property
+    def protected_kwargs(self) -> list[str]:
+        return ["exclusion_ids"]
+
     def read_config(
             self,
             config: Optional[Union[FileStorage, dict]],
@@ -68,15 +68,17 @@ class GraphCreationUtil(BaseUtil):
 
     def has_process(
             self,
-            process: Optional[str] = None
+            process: Optional[str] = None,
+            extensions: Optional[list[str]] = None
     ):
-        return super().has_process(process)
+        return super().has_process(process, extensions)
 
     def delete_process(
             self,
-            process: Optional[str] = None
+            process: Optional[str] = None,
+            extensions: Optional[list[str]] = None
     ):
-        return super().delete_process(process)
+        return super().delete_process(process, extensions)
 
     def _process_method(self) -> Callable:
         return WordEmbeddingClustering._ConceptGraphClustering.build_concept_graphs
@@ -85,15 +87,15 @@ class GraphCreationUtil(BaseUtil):
             self,
             cache_name
     ) -> tuple:
-        sent_emb = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_embedding.pickle"))
+        sent_emb = load_pickle(Path(self._file_storage / f"{cache_name}_embedding.pickle"))
         if isinstance(sent_emb, dict):
-            sent_emb = embedding_functions.SentenceEmbeddingsFactory.load(
+            sent_emb = SentenceEmbeddingsFactory.load(
                 embeddings_obj_path=Path(self._file_storage / f"{cache_name}_embedding.pickle"),
-                data_obj=data_functions.DataProcessingFactory.load(
+                data_obj=DataProcessingFactory.load(
                     Path(self._file_storage / f"{cache_name}_data.pickle")),
                 storage_method=('vector_store', {},),
             )
-        cluster_obj = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_clustering.pickle"))
+        cluster_obj = load_pickle(Path(self._file_storage / f"{cache_name}_clustering.pickle"))
         return sent_emb, cluster_obj
 
     def _start_process(

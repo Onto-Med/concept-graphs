@@ -6,13 +6,12 @@ import sys
 
 from werkzeug.datastructures import FileStorage
 
-from main_utils import ProcessStatus, StepsName, add_status_to_running_process, BaseUtil
-from src import data_functions
-
 sys.path.insert(0, "src")
-import util_functions
-import embedding_functions
+from main_utils import StepsName, BaseUtil
+from src.data_functions import DataProcessingFactory
+from src.embedding_functions import SentenceEmbeddingsFactory, show_top_k_for_concepts
 from src.cluster_functions import PhraseClusterFactory
+from src.util_functions import load_pickle
 
 
 class ClusteringUtil(BaseUtil):
@@ -46,6 +45,10 @@ class ClusteringUtil(BaseUtil):
     def necessary_config_keys(self) -> list[str]:
         return []
 
+    @property
+    def protected_kwargs(self) -> list[str]:
+        return ["clustering", "scaling", "deduction"]
+
     def read_config(
             self,
             config: Optional[Union[FileStorage, dict]],
@@ -69,15 +72,17 @@ class ClusteringUtil(BaseUtil):
 
     def has_process(
             self,
-            process: Optional[str] = None
+            process: Optional[str] = None,
+            extensions: Optional[list[str]] = None
     ) -> bool:
-        return super().has_process(process)
+        return super().has_process(process, extensions)
 
     def delete_process(
             self,
-            process: Optional[str] = None
+            process: Optional[str] = None,
+            extensions: Optional[list[str]] = None
     ) -> None:
-        return super().delete_process(process)
+        return super().delete_process(process, extensions)
 
     def _process_method(self) -> Callable:
         return PhraseClusterFactory.create
@@ -85,52 +90,37 @@ class ClusteringUtil(BaseUtil):
     def _load_pre_components(
             self,
             cache_name
-    ) -> Union[tuple, list]:
-        pass
-
-    def _start_process(self, process_factory, *args, **kwargs):
-        pass
-
-    def start_process(
-            self,
-            cache_name,
-            process_factory,
-            process_tracker,
-            **kwargs
-    ):
-        config = self.config.copy()
-        # default_args = inspect.getfullargspec(process_factory.create)[0]
-        algorithm = config.pop("algorithm", "kmeans")
-        downscale = config.pop("downscale", "umap")
-        # _ = [config.pop(x, None) for x in list(config.keys()) if x not in default_args]
-
-        emb_obj = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_embedding.pickle"))
-        if isinstance(emb_obj, dict):
-            emb_obj = embedding_functions.SentenceEmbeddingsFactory.load(
+    ) -> tuple:
+        sent_emb = load_pickle(Path(self._file_storage / f"{cache_name}_embedding.pickle"))
+        if isinstance(sent_emb, dict):
+            sent_emb = SentenceEmbeddingsFactory.load(
                 embeddings_obj_path=Path(self._file_storage / f"{cache_name}_embedding.pickle"),
-                data_obj=data_functions.DataProcessingFactory.load(Path(self._file_storage / f"{cache_name}_data.pickle")),
+                data_obj=DataProcessingFactory.load(
+                    Path(self._file_storage / f"{cache_name}_data.pickle")),
                 storage_method=('vector_store', {},),
             )
+        return (sent_emb,)
 
-        add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.RUNNING, process_tracker)
+    def _start_process(self, process_factory, *args, **kwargs):
+        sent_emb, = args
+        algorithm = kwargs.pop("algorithm", "kmeans")
+        downscale = kwargs.pop("downscale", "umap")
+
         cluster_obj = None
         try:
             cluster_obj = process_factory.create(
-                sentence_embeddings=emb_obj,
+                sentence_embeddings=sent_emb,
                 cache_path=self._file_storage,
-                cache_name=f"{cache_name}_{self.process_step}",
+                cache_name=f"{self.process_name}_{self.process_step}",
                 cluster_algorithm=algorithm,
                 down_scale_algorithm=downscale,
                 cluster_by_down_scale=True,  # ToDo: is this feasible to toggle via config?
-                ** config
+                **kwargs
             )
-            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.FINISHED, process_tracker)
         except Exception as e:
-            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.ABORTED, process_tracker)
-            self._app.logger.error(e)
-
+            raise e
         if cluster_obj is not None:
-            return embedding_functions.show_top_k_for_concepts(cluster_obj=cluster_obj.concept_cluster,
-                                                               embedding_object=emb_obj, yield_concepts=True)
+            return show_top_k_for_concepts(cluster_obj=cluster_obj.concept_cluster,
+                                           embedding_object=sent_emb, yield_concepts=True)
         else:
             return []
