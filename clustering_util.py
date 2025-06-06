@@ -51,7 +51,7 @@ class ClusteringUtil(BaseUtil):
 
     @property
     def protected_kwargs(self) -> list[str]:
-        return ["clustering", "scaling", "deduction"]
+        return ["clustering", "scaling", "deduction", "algorithm", "downscale"]
 
     def read_config(
             self,

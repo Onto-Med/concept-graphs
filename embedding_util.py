@@ -13,6 +13,7 @@ from src.embedding_functions import SentenceEmbeddingsFactory
 from src.util_functions import load_pickle
 
 
+#ToDo: I need to check the storage_method config/kwarg; it works but there are some redundancies
 class PhraseEmbeddingUtil(BaseUtil):
 
     def __init__(
@@ -105,6 +106,7 @@ class PhraseEmbeddingUtil(BaseUtil):
 
         if language is not None and not self.config.get("model", False):
             self.config["model"] = self.language_model_map.get(language, self.default_model)
+        return _response
 
     def read_stored_config(
             self,

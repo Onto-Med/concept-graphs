@@ -665,8 +665,10 @@ class PhraseClusterFactory:
             embedding_obj: SentenceEmbeddingsFactory.SentenceEmbeddings
     ):
         _data = load_pickle(pathlib.Path(cluster_obj_path).resolve())
-        if not isinstance(_data, cls.PhraseCluster):
-            raise RuntimeError(f"The loaded object '{_data}' is not a PhraseCluster object.")
+        try:
+            _ = _data.cluster_center
+        except AttributeError:
+            raise AssertionError(f"The loaded object '{_data}' is not a PhraseCluster object.")
         try:
             _ = embedding_obj.sentence_embeddings
         except AttributeError:
@@ -742,7 +744,7 @@ class PhraseClusterFactory:
 
         @sentence_embedding.setter
         def sentence_embedding(self, value):
-            self._sentence_emb = value.sentence_embeddings if isinstance(value, SentenceEmbeddingsFactory.SentenceEmbeddings) else value
+            self._sentence_emb = value if isinstance(value, ndarray) else (None if value is None else value.sentence_embeddings)
 
         @property
         def get_params(
@@ -896,3 +898,8 @@ class ClusterNumberDetector:
         self._owner._cluster_alg_kwargs["n_clusters"] = int(self._k_elbow_estimation(projection))
         # if self._cluster_obj in [KMeans, MiniBatchKMeans] and "n_init" not in _cluster_args.keys():
         #     _cluster_args["n_init"] = 'auto'
+
+if __name__ == '__main__':
+    data = DataProcessingFactory.load(pathlib.Path("../tmp/grascco/grascco_data.pickle"))
+    emb = SentenceEmbeddingsFactory.load(pathlib.Path("../tmp/grascco/grascco_embedding.pickle"), data, storage_method=("vectorstore", None))
+    cluster = PhraseClusterFactory.load(pathlib.Path("../tmp/grascco/grascco_clustering.pickle"), emb)

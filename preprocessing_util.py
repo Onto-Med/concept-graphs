@@ -3,7 +3,6 @@ import zipfile
 from pathlib import Path
 from types import GeneratorType
 from typing import List, Dict, Union, Generator, Optional, Callable
-from copy import copy
 
 import flask.app
 import yaml
@@ -132,54 +131,56 @@ class PreprocessingUtil(BaseUtil):
             process_name=None,
             language=None
     ):
-        super().read_config(config, process_name, language)
-        if language is not None and not self.config.get("spacy_model", False):
-            self.config["spacy_model"] = self.language_model_map.get(language, self.default_model)
+        _response = super().read_config(config, process_name, language)
+        if _response is None:
+            if language is not None and not self.config.get("spacy_model", False):
+                self.config["spacy_model"] = self.language_model_map.get(language, self.default_model)
 
-        if self.config.get("negspacy", False):
-            _enabled = False
-            _neg_config = NegspacyConfig()
-            _neg_options = self.config.pop("negspacy")
-            if isinstance(_neg_options, dict):
-                for k, v in _neg_options.items():
-                    if k.lower() == "enabled":
-                        _enabled = get_bool_expression(v)
-                    elif k.lower() == "configuration":
-                        _neg_config = NegspacyConfig.from_dict(v)
-            elif isinstance(_neg_options, list):
-                for _c in _neg_options:
-                    if get_bool_expression(_c.get("enabled", "False")):
-                        _enabled = True
-                    elif _c.get("configuration", False):
-                        _neg_config = NegspacyConfig.from_dict(_c.get("configuration")[0])
-            _foi_map = {
-                "nc": FeaturesOfInterest.NOUN_CHUNKS,
-                "ne": FeaturesOfInterest.NAMED_ENTITIES,
-                "both": FeaturesOfInterest.BOTH
-            }
-            _neg_config.feat_of_interest = (
-                _foi_map.get(_neg_config.feat_of_interest.lower(), FeaturesOfInterest.NAMED_ENTITIES)
-                if isinstance(_neg_config.feat_of_interest, str) else FeaturesOfInterest.NAMED_ENTITIES
-            )
-            self.config["negspacy_config"] = _neg_config
-            self.config["omit_negated_chunks"] = _enabled
+            if self.config.get("negspacy", False):
+                _enabled = False
+                _neg_config = NegspacyConfig()
+                _neg_options = self.config.pop("negspacy")
+                if isinstance(_neg_options, dict):
+                    for k, v in _neg_options.items():
+                        if k.lower() == "enabled":
+                            _enabled = get_bool_expression(v)
+                        elif k.lower() == "configuration":
+                            _neg_config = NegspacyConfig.from_dict(v)
+                elif isinstance(_neg_options, list):
+                    for _c in _neg_options:
+                        if get_bool_expression(_c.get("enabled", "False")):
+                            _enabled = True
+                        elif _c.get("configuration", False):
+                            _neg_config = NegspacyConfig.from_dict(_c.get("configuration")[0])
+                _foi_map = {
+                    "nc": FeaturesOfInterest.NOUN_CHUNKS,
+                    "ne": FeaturesOfInterest.NAMED_ENTITIES,
+                    "both": FeaturesOfInterest.BOTH
+                }
+                _neg_config.feat_of_interest = (
+                    _foi_map.get(_neg_config.feat_of_interest.lower(), FeaturesOfInterest.NAMED_ENTITIES)
+                    if isinstance(_neg_config.feat_of_interest, str) else FeaturesOfInterest.NAMED_ENTITIES
+                )
+                self.config["negspacy_config"] = _neg_config
+                self.config["omit_negated_chunks"] = _enabled
 
-        if self.config.get("tfidf_filter", False):
-            _conf = self.config.pop("tfidf_filter")
-            if _conf.get("enabled", True):
-                self.config["filter_min_df"] = _conf.get("min_df", 1)
-                self.config["filter_max_df"] = _conf.get("max_df", 1.0)
-                self.config["filter_stop"] = _conf.get("stop", None)
+            if self.config.get("tfidf_filter", False):
+                _conf = self.config.pop("tfidf_filter")
+                if _conf.get("enabled", True):
+                    self.config["filter_min_df"] = _conf.get("min_df", 1)
+                    self.config["filter_max_df"] = _conf.get("max_df", 1.0)
+                    self.config["filter_stop"] = _conf.get("stop", None)
+        return _response
 
     def read_stored_config(self, ext: str = "yaml"):
-        super().read_stored_config(ext)
+        return super().read_stored_config(ext)
 
     def has_process(
             self,
             process: Optional[str] = None,
             extensions: Optional[list[str]] = None
     ):
-        super().has_process(process, extensions)
+        return super().has_process(process, extensions)
 
     def delete_process(
             self,

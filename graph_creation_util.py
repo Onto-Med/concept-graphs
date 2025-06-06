@@ -13,7 +13,7 @@ from main_utils import StepsName, BaseUtil
 from src.data_functions import DataProcessingFactory
 from src.embedding_functions import SentenceEmbeddingsFactory
 from src.cluster_functions import WordEmbeddingClustering
-from src.util_functions import load_pickle
+from src.util_functions import load_pickle, save_pickle
 
 
 class GraphCreationUtil(BaseUtil):
@@ -117,6 +117,7 @@ class GraphCreationUtil(BaseUtil):
                 cluster_exclusion_ids=kwargs.pop("exclusion_ids", []),
             ).create_concept_graph_clustering()
             concept_graphs = concept_graph_clustering.build_concept_graphs(**kwargs)
+            save_pickle(concept_graphs, Path(self.file_storage_path / f"{self.process_name}_{self.process_step}"))
         except Exception as e:
             raise e
         return concept_graphs

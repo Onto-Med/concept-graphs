@@ -42,6 +42,7 @@ class DataProcessingFactory:
             data_obj_path: Union[pathlib.Path, str, io.IOBase]
     ) -> 'DataProcessing':
         set_spacy_extensions()
+        data_obj_path = data_obj_path if isinstance(data_obj_path, pathlib.Path) else pathlib.Path(data_obj_path)
         _data_obj = load_pickle(data_obj_path)
         _doc_bin = DocBin().from_disk(data_obj_path.with_suffix(".spacy"))
         try:

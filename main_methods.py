@@ -284,6 +284,8 @@ def start_processes(
         process_tracker: dict[str, dict],
         thread_store: dict[str, StoppableThread]
 ):
+    #ToDo: maybe think about persisting already finished objects so that each step
+    # doesn't need to load them again?
     _name_marker = {
         StepsName.DATA: "**data**, embedding, clustering, graph",
         StepsName.EMBEDDING: "data, **embedding**, clustering, graph",

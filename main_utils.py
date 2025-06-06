@@ -281,7 +281,7 @@ class BaseUtil(ABC):
                         config.pop(_arg)
                 config.update(kwargs)
             if _pre_components is not None:
-                self._start_process(process_factory, *_pre_components, **config)
+                return self._start_process(process_factory, *_pre_components, **config)
             return self._start_process(process_factory, **config)
         except Exception as e:
             add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.ABORTED, process_tracker)
