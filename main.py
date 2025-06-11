@@ -330,7 +330,7 @@ def complete_pipeline():
             else:
                 vector_store_config = DEFAULT_VECTOR_STORE
         else:
-            vector_store_config = None
+            vector_store_config = DEFAULT_VECTOR_STORE
         if not data and not document_server_config:
             return jsonify(
                 name=query_params.process_name,
@@ -360,10 +360,10 @@ def complete_pipeline():
         _port = str(vector_store_config.pop("port", 8882))
         vector_store_config["client_url"] = f"{_url}:{_port}"
         #ToDo: check vectorstoreconfig accessible else log warning and force pickle
-        if MarqoEmbeddingStore.is_accessible(vector_store_config):
-            pass
-        else:
-            pass
+        if not MarqoEmbeddingStore.is_accessible(vector_store_config):
+            logging.warning(f"Vector store doesn't seem to be accessible under '{vector_store_config['client_url']}'."
+                            f" Using 'pickle' storage.")
+            vector_store_config = None
     if not data_upload:
         ds_base_config = get_data_server_config(document_server_config, app)
         if not check_data_server(ds_base_config):
@@ -411,7 +411,9 @@ def complete_pipeline():
             process_obj.read_labels(labels if label_getter is None else label_getter)
             process_obj.read_data(data, replace_keys=replace_keys, label_getter=label_getter)
         if _name == StepsName.EMBEDDING:
-            process_obj.storage_method = ("vectorstore" if vector_store_config is not None else "pickle", vector_store_config, )
+            process_obj.storage_method = ("pickle", None,) if vector_store_config is None else (
+                ("vectorstore", vector_store_config,) if process_obj.storage_method == "vectorstore" else ("pickle", None, )
+            )
 
         processes_threading.append((process_obj, _fact, _name, ))
 
