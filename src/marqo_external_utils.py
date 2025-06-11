@@ -1,14 +1,11 @@
 import itertools
-import json
 import logging
 import pathlib
-import pickle
 
 import marqo
 import numpy as np
 from typing import Iterable, Union, Optional, Tuple
 
-import yaml
 from marqo.errors import MarqoWebError
 from src.util_functions import EmbeddingStore, DocumentStore, Document, harmonic_mean, ConfigLoadMethods
 
@@ -86,20 +83,35 @@ class MarqoEmbeddingStore(EmbeddingStore):
         }
         return _d
 
-    @classmethod
-    def existing_from_config(cls, config: Union[dict, pathlib.Path, str]):
+    @staticmethod
+    def _read_config(config: Union[dict, pathlib.Path, str]) -> dict:
         if isinstance(config, str):
             config = pathlib.Path(config)
         if not isinstance(config, dict):
             config = ConfigLoadMethods.get(config.suffix)(config.open("r"))
-            _index = config.get("index_name", config.stem)
+            config["index_name"] = config.get("index_name", config.stem)
         else:
-            _index = config.get("index_name", "default")
-        _client = config.get("client_url", "http://localhost:8882")
+            config["index_name"] = config.get("index_name", "default")
+        return config
 
+    @staticmethod
+    def is_accessible(config: Union[dict, pathlib.Path, str]) -> bool:
+        config = MarqoEmbeddingStore._read_config(config)
+
+        try:
+            _client = marqo.Client(url=f"{config['client_url']}")
+            _ = _client.get_indexes()
+            return True
+        except Exception as e:
+            logging.error(f"There couldn't be a connection established for {config['client_url']}.")
+            return False
+
+    @classmethod
+    def existing_from_config(cls, config: Union[dict, pathlib.Path, str]):
+        config = MarqoEmbeddingStore._read_config(config)
         return cls(
-            client_url=_client,
-            index_name=_index,
+            client_url=config.get("client_url", "http://localhost:8882"),
+            index_name=config.get("index_name"),
             create_index=False,
         )
 

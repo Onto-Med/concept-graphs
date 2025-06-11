@@ -344,6 +344,11 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
         """Instantiates an object from a config"""
         raise NotImplementedError
 
+    @staticmethod
+    @abc.abstractmethod
+    def is_accessible(config: Union[dict, pathlib.Path, str]) -> bool:
+        raise NotImplementedError
+
     @abc.abstractmethod
     def store_embedding(self, embedding: Any, check_for_same: bool, **kwargs) -> Iterable[str]:
         """Store the embedding and return its id"""

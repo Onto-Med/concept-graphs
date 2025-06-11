@@ -1,14 +1,9 @@
 import json
-import logging
-import pathlib
 import shutil
 
-from typing import Optional
-
-from flask import Flask, Response
+from flask import Flask
 from flask.logging import default_handler
 
-import preprocessing_util
 from main_methods import *
 from main_utils import ProcessStatus, HTTPResponses, StepsName, add_status_to_running_process, get_bool_expression, \
     StoppableThread
@@ -16,6 +11,7 @@ from preprocessing_util import PreprocessingUtil
 from embedding_util import PhraseEmbeddingUtil
 from clustering_util import ClusteringUtil
 from graph_creation_util import GraphCreationUtil
+from src.marqo_external_utils import MarqoEmbeddingStore
 
 sys.path.insert(0, "src")
 import data_functions
@@ -290,6 +286,7 @@ def graph_creation_with_arg(path_arg):
 
 @app.route("/pipeline", methods=['POST'])
 def complete_pipeline():
+    DEFAULT_VECTOR_STORE = {"url": "http://localhost", "port": 8882}
     data = request.files.get("data", False)
     data_upload = False
     document_server_config = request.files.get("document_server_config", False)
@@ -311,7 +308,7 @@ def complete_pipeline():
 
     if content_type_json:
         _document_server = config_object_json.document_server
-        vector_store_config = config_object_json.vectorstore_server if config_object_json.vectorstore_server is not None else {"url": "http://localhost", "port": 8882}
+        vector_store_config = config_object_json.vectorstore_server if config_object_json.vectorstore_server is not None else DEFAULT_VECTOR_STORE
         if _document_server is not None:
             replace_keys = _document_server.get("replace_keys", {"text": "content"})
             label_getter = _document_server.get("label_key", None)
@@ -331,7 +328,7 @@ def complete_pipeline():
             if isinstance(vector_store_config, FileStorage):
                 vector_store_config = yaml.safe_load(vector_store_config.stream)
             else:
-                vector_store_config = None
+                vector_store_config = DEFAULT_VECTOR_STORE
         else:
             vector_store_config = None
         if not data and not document_server_config:
@@ -362,9 +359,14 @@ def complete_pipeline():
         _url = vector_store_config.pop("url", "http://localhost")
         _port = str(vector_store_config.pop("port", 8882))
         vector_store_config["client_url"] = f"{_url}:{_port}"
+        #ToDo: check vectorstoreconfig accessible else log warning and force pickle
+        if MarqoEmbeddingStore.is_accessible(vector_store_config):
+            pass
+        else:
+            pass
     if not data_upload:
         ds_base_config = get_data_server_config(document_server_config, app)
-        if not check_data_server(url=ds_base_config["url"], port=ds_base_config["port"], index=ds_base_config["index"]):
+        if not check_data_server(ds_base_config):
             return jsonify(
                 name=query_params.process_name,
                 error=f"There is no data server at the specified location ({ds_base_config}) or it contains no data."

@@ -161,16 +161,22 @@ def get_data_server_config(document_server_config: Union[FileStorage, dict], app
 
 
 def check_data_server(
-        url: str, port: Union[int, str], index: str
+        config: Union[Munch, dict],
 ):
-    final_url = f"{url.rstrip('/')}:{port}/{index.lstrip('/').rstrip('/')}/_count"
-    try:
-        _response = requests.get(final_url)
-    except requests.exceptions.RequestException as e:
-        return False
-    if _count := _response.json().get('count', False):
-        if int(_count) > 0:
-            return True
+    for _url_key in ["url", "alternate_url"]:
+        _url = config.get(_url_key, None)
+        if _url is None:
+            continue
+        final_url = f"{_url.rstrip('/')}:{config.get('port', '9008')}/{config.get('index', 'documents').lstrip('/').rstrip('/')}/_count"
+        try:
+            _response = requests.get(final_url)
+        except requests.exceptions.RequestException as e:
+            continue
+        if _count := _response.json().get('count', False):
+            if int(_count) > 0:
+                config["url"] = _url
+                config.pop("alternate_url", None)
+                return True
     return False
 
 
