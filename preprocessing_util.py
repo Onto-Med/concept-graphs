@@ -217,5 +217,5 @@ class PreprocessingUtil(BaseUtil):
                 **kwargs
             )
         except Exception as e:
-            raise e
-        return _process
+            return False, e
+        return True, _process

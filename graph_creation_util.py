@@ -119,8 +119,8 @@ class GraphCreationUtil(BaseUtil):
             concept_graphs = concept_graph_clustering.build_concept_graphs(**kwargs)
             save_pickle(concept_graphs, Path(self.file_storage_path / f"{self.process_name}_{self.process_step}"))
         except Exception as e:
-            raise e
-        return concept_graphs
+            return False, e
+        return True, concept_graphs
 
 
 def visualize_graph(graph: nx.Graph, height="800px", directed=False, store="index.html"):

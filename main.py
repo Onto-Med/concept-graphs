@@ -3,6 +3,7 @@ import shutil
 
 from flask import Flask
 from flask.logging import default_handler
+from werkzeug.exceptions import MethodNotAllowed
 
 from main_methods import *
 from main_utils import ProcessStatus, HTTPResponses, StepsName, add_status_to_running_process, get_bool_expression, \
@@ -11,6 +12,8 @@ from preprocessing_util import PreprocessingUtil
 from embedding_util import PhraseEmbeddingUtil
 from clustering_util import ClusteringUtil
 from graph_creation_util import GraphCreationUtil
+from src.data_functions import DataProcessingFactory
+from src.embedding_functions import show_top_k_for_concepts
 from src.marqo_external_utils import MarqoEmbeddingStore
 
 sys.path.insert(0, "src")
@@ -161,10 +164,13 @@ def phrase_clustering():
 
             app.logger.info(f"Start phrase clustering '{process_name}' ...")
             try:
-                _cluster_gen = phra_clus.start_process(
+                _cluster_obj = phra_clus.start_process(
                     process_name, cluster_functions.PhraseClusterFactory, running_processes
                 )
-                return clustering_get_concepts(_cluster_gen)
+                return clustering_get_concepts(
+                    show_top_k_for_concepts(cluster_obj=_cluster_obj.concept_cluster,
+                                            embedding_object=_cluster_obj.sentence_embeddings, yield_concepts=True)
+                )
             except FileNotFoundError:
                 return jsonify(f"There is no embedded data for the '{process_name}' process to be clustered.")
         else:
@@ -388,7 +394,7 @@ def complete_pipeline():
     processes_threading = []
 
     for _name, _proc, _conf, _fact in processes:
-        process_obj = _proc(app=app, file_storage=FILE_STORAGE_TMP)
+        process_obj: BaseUtil = _proc(app=app, file_storage=FILE_STORAGE_TMP)
         add_status_to_running_process(query_params.process_name, _name, ProcessStatus.STARTED, running_processes)
         if process_obj.has_process(query_params.process_name):
             if _name in query_params.omitted_pipeline_steps or query_params.skip_present:
@@ -408,6 +414,7 @@ def complete_pipeline():
                         process_name=query_params.process_name, config=_conf, language=query_params.language)
 
         if _name == StepsName.DATA:
+            process_obj: PreprocessingUtil
             process_obj.read_labels(labels if label_getter is None else label_getter)
             process_obj.read_data(data, replace_keys=replace_keys, label_getter=label_getter)
         if _name == StepsName.EMBEDDING:
@@ -450,6 +457,7 @@ def stop_pipeline(process_id):
             threading_store=pipeline_threads_store,
             process_tracker=running_processes
         )
+    return jsonify(f"Method not supported: {request.method}")
 
 
 @app.route("/pipeline/configuration", methods=['GET'])
@@ -544,6 +552,10 @@ def get_data_server():
                 f"Data server reachable under: '{base_config['url']}:{base_config['port']}/{base_config['index']}'"),
             int(HTTPResponses.OK)
         )
+    elif request.method == "POST":
+        return jsonify("Method 'POST' not implemented.")
+    else:
+        return jsonify(f"Method not supported: '{request.method}'.")
 
 
 if __name__ in ["__main__"]:

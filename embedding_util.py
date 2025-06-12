@@ -163,5 +163,5 @@ class PhraseEmbeddingUtil(BaseUtil):
                 **kwargs
             )
         except Exception as e:
-            raise e
-        return emb_obj
+            return False, e
+        return True, emb_obj

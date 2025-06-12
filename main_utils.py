@@ -8,7 +8,7 @@ from enum import Enum, IntEnum
 from abc import ABC, abstractmethod
 from inspect import getfullargspec
 from pathlib import Path
-from typing import Union, Optional, Any, Callable
+from typing import Union, Optional, Any, Callable, Tuple
 
 from flask import jsonify, Response
 from munch import Munch, unmunchify
@@ -254,7 +254,11 @@ class BaseUtil(ABC):
             process_factory,
             *args,
             **kwargs
-    ):
+    ) -> Tuple[bool, Union[str, Any]]:
+        """
+        Should return whether process was successful (and with it could provide the resulting object)
+         and if not additional an error/exception message
+        """
         raise NotImplementedError()
 
     def _in_protected_kwargs(self, kwarg: str) -> bool:
@@ -269,7 +273,7 @@ class BaseUtil(ABC):
             process_factory,
             process_tracker: dict,
             **kwargs
-    ) -> Optional[Any]:
+    ):
         add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.RUNNING, process_tracker)
         _pre_components = self._load_pre_components(cache_name)
         config = self.config.copy()
@@ -280,13 +284,20 @@ class BaseUtil(ABC):
                     if _arg not in _valid_config and not self._in_protected_kwargs(_arg):
                         config.pop(_arg)
                 config.update(kwargs)
-            if _pre_components is not None:
-                return self._start_process(process_factory, *_pre_components, **config)
-            return self._start_process(process_factory, **config)
+            _process_status = None
+            if _pre_components is None:
+                _process_status = self._start_process(process_factory, **config)
+            else:
+                _process_status = self._start_process(process_factory, *_pre_components, **config)
+
+            if _process_status[0]:
+                add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.FINISHED, process_tracker)
+            else:
+                self._app.logger.error(_process_status[1] if (len(_process_status) > 1 and isinstance(_process_status[1], str)) else "No error message given.")
+                add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.ABORTED, process_tracker)
         except Exception as e:
             add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.ABORTED, process_tracker)
             self._app.logger.error(e)
-        return None
 
 pipeline_query_params = namedtuple(
     "PipelineQueryParams", ["process_name", "language", "skip_present", "omitted_pipeline_steps", "return_statistics"])

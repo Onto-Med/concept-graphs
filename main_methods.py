@@ -22,7 +22,8 @@ from embedding_util import PhraseEmbeddingUtil
 from preprocessing_util import PreprocessingUtil
 from graph_creation_util import GraphCreationUtil, visualize_graph
 from main_utils import ProcessStatus, HTTPResponses, StepsName, pipeline_query_params, steps_relation_dict, \
-    add_status_to_running_process, PipelineLanguage, get_bool_expression, StoppableThread, string_conformity
+    add_status_to_running_process, PipelineLanguage, get_bool_expression, StoppableThread, string_conformity, BaseUtil
+
 sys.path.insert(0, "src")
 from src import data_functions, cluster_functions, embedding_functions
 from src.util_functions import DocumentStore, EmbeddingStore
@@ -411,9 +412,9 @@ def load_configs(app: flask.app, process_name: str, path_to_configs: Union[pathl
     ]
     _language = set()
     for _step, _proc in processes:
-        process_obj = _proc(app=app, file_storage=path_to_configs)
+        process_obj: BaseUtil = _proc(app=app, file_storage=path_to_configs)
         process_obj.process_name = process_name
-        process_obj.set_file_storage_path(process_name)
+        process_obj.file_storage_path = process_name
         key, val = process_obj.read_stored_config()
         _language.add(val.pop('language', 'en'))
         final_config["config"][key] = val

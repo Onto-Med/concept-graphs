@@ -122,9 +122,5 @@ class ClusteringUtil(BaseUtil):
                 **kwargs
             )
         except Exception as e:
-            raise e
-        if cluster_obj is not None:
-            return show_top_k_for_concepts(cluster_obj=cluster_obj.concept_cluster,
-                                           embedding_object=sent_emb, yield_concepts=True)
-        else:
-            return []
+            return False, e
+        return True, cluster_obj
