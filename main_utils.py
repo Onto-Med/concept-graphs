@@ -272,6 +272,7 @@ class BaseUtil(ABC):
             cache_name: str,
             process_factory,
             process_tracker: dict,
+            return_result_obj: bool = False,
             **kwargs
     ):
         add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.RUNNING, process_tracker)
@@ -295,9 +296,14 @@ class BaseUtil(ABC):
             else:
                 self._app.logger.error(_process_status[1] if (len(_process_status) > 1 and isinstance(_process_status[1], str)) else "No error message given.")
                 add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.ABORTED, process_tracker)
+
+            if return_result_obj:
+                return _process_status[1] if len(_process_status) > 1 else None
         except Exception as e:
             add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.ABORTED, process_tracker)
             self._app.logger.error(e)
+        return None
+
 
 pipeline_query_params = namedtuple(
     "PipelineQueryParams", ["process_name", "language", "skip_present", "omitted_pipeline_steps", "return_statistics"])

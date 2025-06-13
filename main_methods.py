@@ -26,15 +26,13 @@ from main_utils import ProcessStatus, HTTPResponses, StepsName, pipeline_query_p
 
 sys.path.insert(0, "src")
 from src import data_functions, cluster_functions, embedding_functions
-from src.util_functions import DocumentStore, EmbeddingStore
-
-
+from src.util_functions import DocumentStore, EmbeddingStore, Document
 
 pipeline_json_config = namedtuple("pipeline_json_config",
                                   ["name", "language", "document_server", "vectorstore_server", "data", "embedding", "clustering", "graph"])
 
 document_adding_json = namedtuple("document_adding_json",
-                                  ["id", "language", "content", "document_server", "vectorstore_server"])
+                                  ["language", "documents", "document_server", "vectorstore_server"])
 
 
 def parse_config_json(response_json) -> pipeline_json_config:
@@ -62,15 +60,34 @@ def parse_config_json(response_json) -> pipeline_json_config:
                                     )
 
 
-def parse_document_adding_json(response_json) -> document_adding_json:
-    config = Munch.fromDict(response_json)
-    _id_key = list(set(config.keys()).intersection(["id", "_id"]))
-    _id = _id_key[0] if _id_key else "none"
-    return document_adding_json(config.get(_id, None),
-                                config.get("language", None),
-                                config.get("content", None),
-                                config.get("document_server", None),
-                                config.get("vectorstore_server", None))
+def parse_document_adding_json(response_json) -> Optional[document_adding_json]:
+    """
+        request.json = {
+            vectorstore_server: Optional[dict]
+            document_server: Optional[dict]
+            language: str
+            documents: [
+                {
+                    id: str
+                    content: str
+                    corpus: str
+                    label: str
+                    name: str
+                }
+            ]
+        }
+    """
+    try:
+        config = Munch.fromDict(response_json)
+        # _id_key = list(set(config.keys()).intersection(["id", "_id"]))
+        # _id = _id_key[0] if _id_key else "none"
+        return document_adding_json(config.get("language", None),
+                                    config.get("documents", []),
+                                    config.get("document_server", None),
+                                    config.get("vectorstore_server", None))
+    except Exception as e:
+        logging.error(f"Content json parsing error: '{e}'")
+        return None
 
 
 
@@ -595,28 +612,50 @@ def get_omit_pipeline_steps(steps: object) -> list[str]:
 
 
 def add_documents_to_concept_graphs(
-        docs: Iterable[str],
-        data_processing: Optional[data_functions.DataProcessingFactory.DataProcessing],
-        embedding_processing: Optional[embedding_functions.SentenceEmbeddingsFactory.SentenceEmbeddings],
-        content: Optional[Iterable[str]] = None,
+        content: Iterable[Union[str, dict]],
+        data_processing: Optional[data_functions.DataProcessingFactory.DataProcessing] = None,
+        embedding_processing: Optional[embedding_functions.SentenceEmbeddingsFactory.SentenceEmbeddings] = None,
         document_store_cls: str = "src.marqo_external_utils.MarqoDocumentStore",
         embedding_store_cls: str = "src.marqo_external_utils.MarqoEmbeddingStore",
         document_cls: str = "src.marqo_external_utils.MarqoDocument",
 ):
+    """
+    content: [
+        Union[
+            {
+                id: str
+                content: str
+                corpus: str
+                label: str
+                name: str
+            },
+            str
+        ]
+    ]
+    """
     document_store = locate(document_store_cls)
     embedding_store = locate(embedding_store_cls)
     document = locate(document_cls)
 
     if content is None :
-        raise NotImplementedError("Need to implement getting text from document server.")
+        return jsonify("No content provided.")
+    _source = embedding_processing.source
+    _client_key = list(set(_source.keys()).intersection(["client_url", "url", "client", "clienturl"])) if isinstance(_source, dict) else "none"
+    _client_key = _client_key[0] if len(_client_key) > 0 else None
+    _index_key = list(set(_source.keys()).intersection(["index_name", "index", "indexname"])) if isinstance(_source, dict) else "none"
+    _index_key = _index_key[0] if len(_index_key) > 0 else None
+
     embedding_store_impl: EmbeddingStore = embedding_store(
-        client_url="http://localhost:8882",
-        index_name="grascco",
+        client_url=_source.get(_client_key, "http://localhost:8882"),
+        index_name=_source.get(_index_key, "default"),
         create_index= False,
-        vector_dim= 1024
+        vector_dim= embedding_processing.embedding_dim
     )
     doc_store_impl: DocumentStore  = document_store(
         embedding_store=embedding_store
+    )
+    doc_impl: Document = document(
+        data_processing.process_external_docs()
     )
 
     # doc_store_impl.add_documents([document(doc) for doc in docs])

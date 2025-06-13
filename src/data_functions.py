@@ -611,7 +611,9 @@ class DataProcessingFactory:
             return None
 
         def process_external_docs(self, content: list[dict[str, Optional[str]]]):
-            # dict: {"name": document name, "content": document content, "label": label/category of document if present}
+            """
+            content: {"name": document name, "content": document content, "label": label/category of document if present}
+            """
             return self._process_documents(external=content)
 
 

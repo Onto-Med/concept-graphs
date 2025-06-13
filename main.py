@@ -1,4 +1,5 @@
 import json
+import pathlib
 import shutil
 
 from flask import Flask
@@ -13,7 +14,7 @@ from embedding_util import PhraseEmbeddingUtil
 from clustering_util import ClusteringUtil
 from graph_creation_util import GraphCreationUtil
 from src.data_functions import DataProcessingFactory
-from src.embedding_functions import show_top_k_for_concepts
+from src.embedding_functions import show_top_k_for_concepts, SentenceEmbeddingsFactory
 from src.marqo_external_utils import MarqoEmbeddingStore
 
 sys.path.insert(0, "src")
@@ -80,7 +81,7 @@ def data_preprocessing():
 
         app.logger.info(f"Start preprocessing '{process_name}' ...")
         return data_get_statistics(
-            pre_proc.start_process(process_name, data_functions.DataProcessingFactory, running_processes)
+            pre_proc.start_process(pre_proc.process_name, data_functions.DataProcessingFactory, running_processes),
         )
 
     elif request.method == "GET":
@@ -245,18 +246,57 @@ def graph_base_endpoint():
 
 @app.route("/graph/document/<path_arg>", methods=['POST'])
 def graph_document(path_arg):
+    #ToDo: resolve not implemented exceptions
+    """
+    request.json = {
+        vectorstore_server: Optional[dict]
+        document_server: Optional[dict]
+        language: str
+        documents: [
+            Union[
+                {
+                    id: str
+                    content: str
+                    corpus: str
+                    label: str
+                    name: str
+                },
+                str
+            ]
+        ]
+    }
+    """
     process = request.args.get("process", "default").lower()
-    content_json = {}
-    if "application/json" == request.headers.get("Content-Type"):
+    if request.headers.get("Content-Type") == "application/json":
         content_json = parse_document_adding_json(request.get_json())
-    if path_arg.lower() == "add":
-        if content_json.id is None:
-            return jsonify(f"No '_id' or 'id' key in content json: '{content_json.keys()}'")
-        add_document_to_concept_graphs()
-    elif path_arg.lower() == "delete":
-        pass
+        if content_json is None:
+            return jsonify(f"Could not parse json provided in request.")
     else:
-        pass
+        raise NotImplementedError("Only json request body is supported.")
+    if path_arg.lower() == "add":
+        # if content_json.id is None:
+        #     return jsonify(f"No '_id' or 'id' key in content json: '{request.get_json().keys()}'")
+        _path_base = pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process)
+        _data_proc = DataProcessingFactory.load(_path_base / f"{process}_data.pickle")
+        if content_json.vectorstore_server is None:
+            raise NotImplementedError("Only adding documents with a setup vectorstore server is supported; no vectorstore configured.")
+        _emb_proc = SentenceEmbeddingsFactory.load(
+            _path_base / f"{process}_embedding.pickle",
+            _data_proc,
+            storage_method=('pickle', None) if content_json.vectorstore_server is None else ('vectorstore', content_json.vectorstore_server)
+        )
+        if len(content_json.documents) > 0 and isinstance(content_json.documents[0], dict):
+            _response = add_documents_to_concept_graphs(
+                content_json.documents,
+                data_processing=_data_proc,
+                embedding_processing=_emb_proc,
+            )
+        else:
+            raise NotImplementedError("Right now only processing of documents as json is supported.")
+    elif path_arg.lower() == "delete":
+        raise NotImplementedError("'Delete' not implemented.")
+    else:
+        return jsonify(error=f"No such path argument '{path_arg}' supported.")
     return graph_base_endpoint()
 
 

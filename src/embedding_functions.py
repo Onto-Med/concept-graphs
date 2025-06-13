@@ -1,6 +1,6 @@
 import logging
 import pathlib
-from typing import Optional, Union, List, Iterable
+from typing import Optional, Union, List, Iterable, Tuple
 
 import numpy as np
 import tensorflow as tf
@@ -52,6 +52,7 @@ class SentenceEmbeddingsFactory:
         if storage_method[0].lower() == "pickle":
              _embeddings_obj: SentenceEmbeddingsFactory.SentenceEmbeddings = _loaded_obj
              _embeddings_obj.data_processing_obj = data_obj
+             _embeddings_obj.source = None
         elif storage_method[0].lower() in ["vector_store", "vectorstore"]:
             _config: dict = load_pickle(_file_path)
             vector_store = MarqoEmbeddingStore.existing_from_config(_config)
@@ -60,6 +61,7 @@ class SentenceEmbeddingsFactory:
                 data_obj=data_obj,
             )
             _embeddings_obj.sentence_embeddings = vector_store.get_embeddings()
+            _embeddings_obj.source = _config
         else:
             logging.error("Unknown storage method")
             return None
@@ -108,6 +110,7 @@ class SentenceEmbeddingsFactory:
         _storage_method = storage_method[0].lower()
         if _storage_method == "pickle":
             _sent_emb.data_processing_obj = None
+            _sent_emb.source = None
             SentenceEmbeddingsFactory.storage_options[_storage_method](_sent_emb, _file_path)
         elif _storage_method in ["vector_store", "vectorstore"]:
             _url_key = set(k.lower() for k in storage_method[1].keys()).intersection(["client", "client_url", "url"])
@@ -146,6 +149,7 @@ class SentenceEmbeddingsFactory:
             self._down_scale_obj = down_scale_obj
             self._embeddings = None
             self._head_only = head_only #ToDo?
+            self._source = None
 
         @property
         def sentence_embeddings(
@@ -166,6 +170,22 @@ class SentenceEmbeddingsFactory:
         @data_processing_obj.setter
         def data_processing_obj(self, value: DataProcessingFactory.DataProcessing):
             self._data_obj = value
+
+        @property
+        def source(
+                self
+        ) -> Optional[dict]:
+            return self._source
+
+        @source.setter
+        def source(
+                self,
+                value: Tuple[str, Optional[dict]]
+        ):
+            if isinstance(value, tuple):
+                self._source = value[1] if len(value) > 1 else None
+            else:
+                self._source = value
 
         @property
         def embedding_dim(
