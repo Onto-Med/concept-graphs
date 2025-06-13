@@ -1,10 +1,8 @@
 import json
-import pathlib
 import shutil
 
 from flask import Flask
 from flask.logging import default_handler
-from werkzeug.exceptions import MethodNotAllowed
 
 from main_methods import *
 from main_utils import ProcessStatus, HTTPResponses, StepsName, add_status_to_running_process, get_bool_expression, \
@@ -35,6 +33,7 @@ FILE_STORAGE_TMP = "./tmp"
 
 running_processes = {}
 pipeline_threads_store = {}
+current_active_pipeline_objects = {k: None for k in StepsName.ALL}
 
 f_storage = pathlib.Path(FILE_STORAGE_TMP)
 if not f_storage.exists():
@@ -278,13 +277,15 @@ def graph_document(path_arg):
         #     return jsonify(f"No '_id' or 'id' key in content json: '{request.get_json().keys()}'")
         _path_base = pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process)
         _data_proc = DataProcessingFactory.load(_path_base / f"{process}_data.pickle")
-        if content_json.vectorstore_server is None:
-            raise NotImplementedError("Only adding documents with a setup vectorstore server is supported; no vectorstore configured.")
         _emb_proc = SentenceEmbeddingsFactory.load(
             _path_base / f"{process}_embedding.pickle",
             _data_proc,
-            storage_method=('pickle', None) if content_json.vectorstore_server is None else ('vectorstore', content_json.vectorstore_server)
+            storage_method=None if content_json.vectorstore_server is None else ('vectorstore', content_json.vectorstore_server)
         )
+        if content_json.vectorstore_server is None and _emb_proc.source is None:
+            raise NotImplementedError("Only adding documents with a setup vectorstore server is supported; no vectorstore configured.")
+        if _emb_proc.source is None:
+            _emb_proc.source = content_json.vectorstore_server
         if len(content_json.documents) > 0 and isinstance(content_json.documents[0], dict):
             _response = add_documents_to_concept_graphs(
                 content_json.documents,
@@ -464,6 +465,7 @@ def complete_pipeline():
 
         processes_threading.append((process_obj, _fact, _name, ))
 
+    #ToDo: add 'current_active_pipeline_objects' to Threading
     pipeline_thread = StoppableThread(
         target_args=(app, processes_threading, query_params.process_name, running_processes, pipeline_threads_store,),
         group=None, target=start_processes, name=None)

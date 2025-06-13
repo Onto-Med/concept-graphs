@@ -645,20 +645,30 @@ def add_documents_to_concept_graphs(
     _index_key = list(set(_source.keys()).intersection(["index_name", "index", "indexname"])) if isinstance(_source, dict) else "none"
     _index_key = _index_key[0] if len(_index_key) > 0 else None
 
+    _chunk_result = data_processing.process_external_docs(
+        content = [
+            {"name": doc.get("name", None), "content": doc.get("content", ""), "label": doc.get("label", None)}
+            for doc in content
+        ]
+    )
+    _sorted_chunks = sorted(((_result["text"], set(_doc["id"] for _doc in _result["doc"]), ) for _result in _chunk_result), key=lambda _result: _result[0])
+    _embedding_result = embedding_processing.encode_external(
+        content = [x[0] for x in _sorted_chunks],
+    )
+
     embedding_store_impl: EmbeddingStore = embedding_store(
         client_url=_source.get(_client_key, "http://localhost:8882"),
         index_name=_source.get(_index_key, "default"),
-        create_index= False,
-        vector_dim= embedding_processing.embedding_dim
+        create_index=False,
+        vector_dim=embedding_processing.embedding_dim
     )
-    doc_store_impl: DocumentStore  = document_store(
-        embedding_store=embedding_store
+    doc_store_impl: DocumentStore = document_store(
+        embedding_store=embedding_store_impl
     )
-    doc_impl: Document = document(
-        data_processing.process_external_docs()
-    )
-
-    # doc_store_impl.add_documents([document(doc) for doc in docs])
+    _doc_ids = set()
+    _doc_ids.update(_chunk[1] for _chunk in _sorted_chunks)
+    doc_store_impl.add_documents([document(phrases=, embeddings=,) for _id in _doc_ids])
+    return jsonify("Processed documents.")
 
 
 if __name__ == "__main__":

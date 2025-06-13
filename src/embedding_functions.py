@@ -49,7 +49,9 @@ class SentenceEmbeddingsFactory:
         _file_path = pathlib.Path(embeddings_obj_path).absolute()
         _loaded_obj = load_pickle(_file_path)
 
-        if storage_method[0].lower() == "pickle":
+        if storage_method is None:
+            storage_method = ("pickle", None) if not isinstance(_loaded_obj, dict) else ("vectorstore", _loaded_obj)
+        if storage_method[0].lower() == "pickle" and not isinstance(_loaded_obj, dict):
              _embeddings_obj: SentenceEmbeddingsFactory.SentenceEmbeddings = _loaded_obj
              _embeddings_obj.data_processing_obj = data_obj
              _embeddings_obj.source = None
@@ -105,6 +107,7 @@ class SentenceEmbeddingsFactory:
             head_only=head_only
         )
         _sent_emb._encode_data(n_process, **kwargs)
+        _sent_emb.embedding_config = kwargs
         _file_path = (cache_path / pathlib.Path(f"{cache_name}.pickle"))
 
         _storage_method = storage_method[0].lower()
@@ -150,6 +153,7 @@ class SentenceEmbeddingsFactory:
             self._embeddings = None
             self._head_only = head_only #ToDo?
             self._source = None
+            self._encoding_config = None
 
         @property
         def sentence_embeddings(
@@ -188,6 +192,19 @@ class SentenceEmbeddingsFactory:
                 self._source = value
 
         @property
+        def encoding_config(
+                self
+        ):
+            return {} if self._encoding_config is None else self._encoding_config
+
+        @encoding_config.setter
+        def encoding_config(
+                self,
+                value: dict
+        ):
+            self._encoding_config = value
+
+        @property
         def embedding_dim(
                 self
         ) -> int:
@@ -198,6 +215,7 @@ class SentenceEmbeddingsFactory:
                 self,
                 n_process: int = 1,
                 device: Union[str, List[str]] = 'cpu',
+                external: Optional[Iterable[str]] = None,
                 **kwargs
         ):
             if "convert_to_numpy" in kwargs.keys():
@@ -210,19 +228,34 @@ class SentenceEmbeddingsFactory:
             if n_process > 1:
                 logging.info(f"Using {n_process} processes.")
                 pool = self._model.start_multi_process_pool([device]*n_process if isinstance(device, str) else device)
-                self._embeddings = self._model.encode_multi_process(
-                    sentences=[dcs['text'] for dcs in self.data_processing_obj.data_chunk_sets],
+                _embeddings = self._model.encode_multi_process(
+                    sentences=[dcs['text'] for dcs in self.data_processing_obj.data_chunk_sets] if external is None else external,
                     pool=pool,
                     **kwargs
                 )
             else:
-                self._embeddings = self._model.encode(
-                    sentences=[dcs['text'] for dcs in self.data_processing_obj.data_chunk_sets],
+                _embeddings = self._model.encode(
+                    sentences=[dcs['text'] for dcs in self.data_processing_obj.data_chunk_sets] if external is None else external,
                     convert_to_numpy=True,
                     **kwargs
                 )
-            if not isinstance(self._down_scale_obj, NoneDownScaleObj):
-                self._embeddings = self._down_scale_obj.fit_transform(self._embeddings)
+            if external is None:
+                self._embeddings = _embeddings
+                if not isinstance(self._down_scale_obj, NoneDownScaleObj) and self._down_scale_obj is not None:
+                    self._embeddings = self._down_scale_obj.fit_transform(self._embeddings)
+            else:
+                if not isinstance(self._down_scale_obj, NoneDownScaleObj) and self._down_scale_obj is not None:
+                    return self._down_scale_obj.fit_transform(_embeddings)
+                return _embeddings
+            return None
+
+
+        def encode_external(
+                self,
+                content: Iterable[str]
+        ):
+            _embeddings = self._encode_data(external=content, **self.encoding_config)
+            return _embeddings
 
 
 def cosine(

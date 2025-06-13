@@ -267,6 +267,17 @@ class BaseUtil(ABC):
         else:
             return False
 
+    @staticmethod
+    def abort_chain(
+            step: str,
+    ) -> list:
+        return {
+            StepsName.DATA: StepsName.ALL,
+            StepsName.EMBEDDING: [StepsName.EMBEDDING, StepsName.CLUSTERING, StepsName.GRAPH],
+            StepsName.CLUSTERING: [StepsName.CLUSTERING, StepsName.GRAPH],
+            StepsName.GRAPH: [StepsName.GRAPH],
+        }.get(step, StepsName.ALL)
+
     def start_process(
             self,
             cache_name: str,
@@ -295,7 +306,8 @@ class BaseUtil(ABC):
                 add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.FINISHED, process_tracker)
             else:
                 self._app.logger.error(_process_status[1] if (len(_process_status) > 1 and isinstance(_process_status[1], str)) else "No error message given.")
-                add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.ABORTED, process_tracker)
+                for _step in BaseUtil.abort_chain(self.process_step):
+                    add_status_to_running_process(self.process_name, _step, ProcessStatus.ABORTED, process_tracker)
 
             if return_result_obj:
                 return _process_status[1] if len(_process_status) > 1 else None
