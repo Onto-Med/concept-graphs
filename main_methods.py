@@ -7,6 +7,7 @@ from collections import OrderedDict, defaultdict, namedtuple
 from time import sleep
 from typing import Union, Iterable, Optional
 
+import numpy as np
 import flask
 import networkx as nx
 import requests
@@ -651,10 +652,14 @@ def add_documents_to_concept_graphs(
             for doc in content
         ]
     )
-    _sorted_chunks = sorted(((_result["text"], set(_doc["id"] for _doc in _result["doc"]), ) for _result in _chunk_result), key=lambda _result: _result[0])
-    _embedding_result = embedding_processing.encode_external(
-        content = [x[0] for x in _sorted_chunks],
-    )
+    text_list = []
+    idx_dict = defaultdict(list)
+    for idx, _chunk in enumerate(sorted(((_result["text"], set(_doc["id"] for _doc in _result["doc"]), )
+                                         for _result in _chunk_result), key=lambda _result: _result[0])):
+        for _doc in _chunk[1]:
+            idx_dict[_doc].append(idx)
+        text_list.append(_chunk[0])
+    _embedding_result = embedding_processing.encode_external(content=text_list)
 
     embedding_store_impl: EmbeddingStore = embedding_store(
         client_url=_source.get(_client_key, "http://localhost:8882"),
@@ -665,9 +670,10 @@ def add_documents_to_concept_graphs(
     doc_store_impl: DocumentStore = document_store(
         embedding_store=embedding_store_impl
     )
-    _doc_ids = set()
-    _doc_ids.update(_chunk[1] for _chunk in _sorted_chunks)
-    doc_store_impl.add_documents([document(phrases=, embeddings=,) for _id in _doc_ids])
+    doc_store_impl.add_documents(
+        [document(phrases=np.take(text_list, idx, 0), embeddings=np.take(_embedding_result.astype("float64"), idx, 0),)
+         for idx in idx_dict.values()]
+    )
     return jsonify("Processed documents.")
 
 

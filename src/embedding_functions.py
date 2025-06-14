@@ -22,14 +22,6 @@ class SentenceEmbeddingsFactory:
         'vectorstore': MarqoEmbeddingStore,
     }
 
-    @staticmethod
-    def encode_data(
-            model_name: str,
-            data_processing_obj: DataProcessingFactory.DataProcessing,
-    ):
-        #Todo: !
-        pass
-
     @classmethod
     def load(
             cls,
