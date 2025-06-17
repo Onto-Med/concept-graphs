@@ -82,7 +82,7 @@ class GraphCreationUtil(BaseUtil):
             process: Optional[str] = None,
             extensions: Optional[list[str]] = None
     ):
-        return super().delete_process(process, extensions)
+        return super().delete_process(process, ["pickle"])
 
     def _process_method(self) -> Callable:
         return WordEmbeddingClustering._ConceptGraphClustering.build_concept_graphs

@@ -312,10 +312,11 @@ def start_processes(
     #ToDo: maybe think about persisting already finished objects so that each step
     # doesn't need to load them again?
     _name_marker = {
-        StepsName.DATA: "**data**, embedding, clustering, graph",
-        StepsName.EMBEDDING: "data, **embedding**, clustering, graph",
-        StepsName.CLUSTERING: "data, embedding, **clustering**, graph",
-        StepsName.GRAPH: "data, embedding, clustering, **graph**",
+        StepsName.DATA: "**data**, embedding, clustering, graph, integration",
+        StepsName.EMBEDDING: "data, **embedding**, clustering, graph, integration",
+        StepsName.CLUSTERING: "data, embedding, **clustering**, graph, integration",
+        StepsName.GRAPH: "data, embedding, clustering, **graph**, integration",
+        StepsName.INTEGRATION: "data, embedding, clustering, graph, **integration**",
     }
     for process_obj, _fact, _name in processes:
         if thread_store.get(process_name, None) is not None:
@@ -670,7 +671,7 @@ def add_documents_to_concept_graphs(
     doc_store_impl: DocumentStore = document_store(
         embedding_store=embedding_store_impl
     )
-    doc_store_impl.add_documents(
+    added_embeddings = doc_store_impl.add_documents(
         [document(phrases=np.take(text_list, idx, 0), embeddings=np.take(_embedding_result.astype("float64"), idx, 0),)
          for idx in idx_dict.values()]
     )

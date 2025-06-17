@@ -1,6 +1,7 @@
 import itertools
 import logging
 import pathlib
+from copy import copy
 
 import marqo
 import numpy as np
@@ -89,9 +90,10 @@ class MarqoEmbeddingStore(EmbeddingStore):
     def _read_config(config: Union[dict, pathlib.Path, str]) -> dict:
         if isinstance(config, str):
             config = pathlib.Path(config)
-        if not isinstance(config, dict):
-            config = ConfigLoadMethods.get(config.suffix)(config.open("r"))
-            config["index_name"] = config.get("index_name", config.stem)
+        if not hasattr(config, "get"):
+            config_obj = copy(config)
+            config = ConfigLoadMethods.get(config_obj.suffix)(config_obj.open("rb"))
+            config["index_name"] = config.get("index_name", config_obj.stem)
         else:
             config["index_name"] = config.get("index_name", "default")
         return config
@@ -238,6 +240,10 @@ class MarqoEmbeddingStore(EmbeddingStore):
         _offset = self.store_size
         _new_id = lambda x: str(_offset + x)
         _embeddings = []
+        try:
+            list(embeddings)[0]
+        except IndexError:
+            return []
         if not isinstance(embeddings, np.ndarray) and isinstance(list(embeddings)[0], dict):
             for i, _dict in enumerate(embeddings):
                 _dict["_id"] = _new_id(i)
@@ -403,7 +409,7 @@ class MarqoDocumentStore(DocumentStore):
     ):
         self._embedding_store = embedding_store
 
-    def add_document(self, document: MarqoDocument):
+    def add_document(self, document: MarqoDocument) -> Optional[set[str]]:
         _field = "graph_cluster"
         _last_store_id: int = self._embedding_store.store_size - 1
         _ids: Iterable[str] = self._embedding_store.store_embeddings(
@@ -433,10 +439,13 @@ class MarqoDocumentStore(DocumentStore):
                 _field: [_gcs[_id_tuple[0]]],
             })
         self._embedding_store.marqo_index.update_documents(_updated_docs, client_batch_size=CLIENT_BATCH_SIZE)
+        return {i["_id"] for i in _updated_docs}
 
-    def add_documents(self, documents: Iterable[MarqoDocument]):
+    def add_documents(self, documents: Iterable[MarqoDocument]) -> Optional[set[str]]:
+        return_set = set()
         for document in documents:
-            self.add_document(document)
+            return_set.update(self.add_document(document))
+        return return_set
 
     def suggest_graph_cluster(self, document: MarqoDocument) -> Optional[str]:
         # _graph_cluster = self._embedding_store.best_hits_for_field(

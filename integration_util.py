@@ -85,7 +85,7 @@ class ConceptGraphIntegrationUtil(BaseUtil):
             raise RuntimeError("Embedding store not present.")
         embedding_store_impl: EmbeddingStore = embedding_store.existing_from_config(_emb_config)
         graph_list = load_pickle(Path(self._file_storage / f"{cache_name}_graph.pickle"))
-        if len(graph_list > 0):
+        if len(graph_list) > 0:
             return embedding_store_impl, graph_list
         else:
             logging.warning("There were no graphs present.")

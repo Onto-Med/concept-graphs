@@ -391,11 +391,11 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
 class DocumentStore(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
-    def add_document(self, document: Document):
+    def add_document(self, document: Document) -> set[str]:
         raise NotImplementedError
 
     @abc.abstractmethod
-    def add_documents(self, document: Iterable[Document]):
+    def add_documents(self, document: Iterable[Document]) -> set[str]:
         raise NotImplementedError
 
     @abc.abstractmethod

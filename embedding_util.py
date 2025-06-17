@@ -6,6 +6,8 @@ import flask
 
 from werkzeug.datastructures import FileStorage
 
+from src.data_functions import DataProcessingFactory
+
 sys.path.insert(0, "src")
 from main_utils import StepsName, BaseUtil
 from src.marqo_external_utils import MarqoEmbeddingStore
@@ -142,7 +144,7 @@ class PhraseEmbeddingUtil(BaseUtil):
             self,
             cache_name
     ) -> Union[tuple, list]:
-        data_obj = load_pickle(Path(self._file_storage / f"{cache_name}_data.pickle"))
+        data_obj = DataProcessingFactory.load(Path(self._file_storage / f"{cache_name}_data.pickle"))
         return (data_obj,)
 
     def _start_process(

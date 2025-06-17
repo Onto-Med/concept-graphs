@@ -35,7 +35,7 @@ FILE_STORAGE_TMP = "./tmp"
 
 running_processes = {}
 pipeline_threads_store = {}
-current_active_pipeline_objects = {k: None for k in StepsName.ALL}
+current_active_pipeline_objects = {}
 
 f_storage = pathlib.Path(FILE_STORAGE_TMP)
 if not f_storage.exists():
@@ -409,7 +409,7 @@ def complete_pipeline():
         _port = str(vector_store_config.pop("port", 8882))
         vector_store_config["client_url"] = f"{_url}:{_port}"
         #ToDo: check vectorstoreconfig accessible else log warning and force pickle
-        if not MarqoEmbeddingStore.is_accessible(vector_store_config):
+        if not MarqoEmbeddingStore.is_accessible(vector_store_config.copy()):
             logging.warning(f"Vector store doesn't seem to be accessible under '{vector_store_config['client_url']}'."
                             f" Using 'pickle' storage.")
             vector_store_config = None
@@ -432,11 +432,11 @@ def complete_pipeline():
         (StepsName.DATA, PreprocessingUtil, _data_config, data_functions.DataProcessingFactory,),
         (StepsName.EMBEDDING, PhraseEmbeddingUtil, _embedding_config, embedding_functions.SentenceEmbeddingsFactory,),
         (StepsName.CLUSTERING, ClusteringUtil, _clustering_config, cluster_functions.PhraseClusterFactory,),
-        (StepsName.GRAPH, GraphCreationUtil, _graph_config, cluster_functions.WordEmbeddingClustering,)
+        (StepsName.GRAPH, GraphCreationUtil, _graph_config, cluster_functions.WordEmbeddingClustering,),
         (StepsName.INTEGRATION, ConceptGraphIntegrationUtil, {}, integration_functions.ConceptGraphIntegrationFactory,)
     ]
     processes_threading = []
-
+    current_active_pipeline_objects[query_params.process_name] = {k: None for k in StepsName.ALL}
     for _name, _proc, _conf, _fact in processes:
         process_obj: BaseUtil = _proc(app=app, file_storage=FILE_STORAGE_TMP)
         add_status_to_running_process(query_params.process_name, _name, ProcessStatus.STARTED, running_processes)
@@ -470,7 +470,7 @@ def complete_pipeline():
 
     #ToDo: add 'current_active_pipeline_objects' to Threading
     pipeline_thread = StoppableThread(
-        target_args=(app, processes_threading, query_params.process_name, running_processes, pipeline_threads_store,),
+        target_args=(app, processes_threading, query_params.process_name, running_processes, pipeline_threads_store, current_active_pipeline_objects,),
         group=None, target=start_processes, name=None)
 
     start_thread(app, query_params.process_name, pipeline_thread, pipeline_threads_store)

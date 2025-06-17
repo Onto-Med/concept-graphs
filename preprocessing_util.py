@@ -187,7 +187,7 @@ class PreprocessingUtil(BaseUtil):
             process: Optional[str] = None,
             extensions: Optional[list[str]] = None
     ):
-        super().delete_process(process, extensions)
+        super().delete_process(process, ["pickle", "spacy"])
 
     def _process_method(self) -> Optional[Callable]:
         return DataProcessingFactory.create
