@@ -368,13 +368,20 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
+    def update_embedding(self, embedding_id: str, **kwargs) -> bool:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def update_embeddings(self, embedding_ids: list[str], values: list[dict]) -> list[str]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
     def delete_embedding(self, embedding_id: str) -> bool:
         raise NotImplementedError
 
     @abc.abstractmethod
     def delete_embeddings(self, embedding_ids: Iterable) -> bool:
         raise NotImplementedError
-
 
     @abc.abstractmethod
     def best_hits_for_field(self, embedding: Union[str, np.ndarray, list[float], dict]):
@@ -385,6 +392,10 @@ class DocumentStore(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def add_document(self, document: Document):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def add_documents(self, document: Iterable[Document]):
         raise NotImplementedError
 
     @abc.abstractmethod

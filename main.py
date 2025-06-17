@@ -4,6 +4,7 @@ import shutil
 from flask import Flask
 from flask.logging import default_handler
 
+from integration_util import ConceptGraphIntegrationUtil
 from main_methods import *
 from main_utils import ProcessStatus, HTTPResponses, StepsName, add_status_to_running_process, get_bool_expression, \
     StoppableThread
@@ -11,6 +12,7 @@ from preprocessing_util import PreprocessingUtil
 from embedding_util import PhraseEmbeddingUtil
 from clustering_util import ClusteringUtil
 from graph_creation_util import GraphCreationUtil
+from src import integration_functions
 from src.data_functions import DataProcessingFactory
 from src.embedding_functions import show_top_k_for_concepts, SentenceEmbeddingsFactory
 from src.marqo_external_utils import MarqoEmbeddingStore
@@ -431,6 +433,7 @@ def complete_pipeline():
         (StepsName.EMBEDDING, PhraseEmbeddingUtil, _embedding_config, embedding_functions.SentenceEmbeddingsFactory,),
         (StepsName.CLUSTERING, ClusteringUtil, _clustering_config, cluster_functions.PhraseClusterFactory,),
         (StepsName.GRAPH, GraphCreationUtil, _graph_config, cluster_functions.WordEmbeddingClustering,)
+        (StepsName.INTEGRATION, ConceptGraphIntegrationUtil, {}, integration_functions.ConceptGraphIntegrationFactory,)
     ]
     processes_threading = []
 

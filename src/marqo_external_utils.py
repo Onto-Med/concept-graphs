@@ -10,6 +10,8 @@ from marqo.errors import MarqoWebError
 from src.util_functions import EmbeddingStore, DocumentStore, Document, harmonic_mean, ConfigLoadMethods
 
 
+CLIENT_BATCH_SIZE = 128
+
 class MarqoDocument(Document):
     def __init__(
             self,
@@ -215,7 +217,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
         _doc.update(kwargs)
         _result = self.marqo_index.add_documents(
             documents=[_doc],
-            client_batch_size=128,
+            client_batch_size=CLIENT_BATCH_SIZE,
             tensor_fields=[self._vector_name],
             mappings={
                 self._vector_name: {
@@ -254,7 +256,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
 
         _result = self.marqo_index.add_documents(
             documents=list(embeddings),
-            client_batch_size=128,
+            client_batch_size=CLIENT_BATCH_SIZE,
             tensor_fields=[_vector_name],
             mappings={
                 _vector_name: {
@@ -301,6 +303,34 @@ class MarqoEmbeddingStore(EmbeddingStore):
         except MarqoWebError as e:
             logging.error(e)
         return None
+
+    def update_embedding(self, embedding_id: str, **kwargs) -> bool:
+        _doc = {
+            "_id": embedding_id
+        }
+        _doc.update(kwargs)
+        try:
+            self.marqo_index.update_documents(
+                documents=[_doc],
+                client_batch_size=CLIENT_BATCH_SIZE,
+            )
+            return True
+        except MarqoWebError as e:
+            logging.error(e)
+            return False
+
+    def update_embeddings(self, embedding_ids: list[str], values: list[dict]) -> list[str]:
+        _docs = [{"_id": str(t[0]), **t[1]} for t in zip(embedding_ids, values)]
+        try:
+            self.marqo_index.update_documents(
+                documents=_docs,
+                client_batch_size=CLIENT_BATCH_SIZE,
+            )
+            #ToDo: is it possible to differentiate which docs were updated or if one fails all do?
+            return embedding_ids
+        except MarqoWebError as e:
+            logging.error(e)
+            return []
 
     def delete_embedding(
             self,
@@ -402,7 +432,7 @@ class MarqoDocumentStore(DocumentStore):
                 "_id": _id_tuple[1],
                 _field: [_gcs[_id_tuple[0]]],
             })
-        self._embedding_store.marqo_index.update_documents(_updated_docs, client_batch_size=128)
+        self._embedding_store.marqo_index.update_documents(_updated_docs, client_batch_size=CLIENT_BATCH_SIZE)
 
     def add_documents(self, documents: Iterable[MarqoDocument]):
         for document in documents:

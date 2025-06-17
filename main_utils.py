@@ -47,7 +47,8 @@ class StepsName:
     EMBEDDING = "embedding"
     CLUSTERING = "clustering"
     GRAPH = "graph"
-    ALL = [DATA, EMBEDDING, CLUSTERING, GRAPH]
+    INTEGRATION = "integration"
+    ALL = [DATA, EMBEDDING, CLUSTERING, GRAPH, INTEGRATION]
 
 
 @dataclass
