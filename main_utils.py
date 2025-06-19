@@ -3,6 +3,7 @@ import pathlib
 import threading
 import re
 from collections import namedtuple
+from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum, IntEnum
 from abc import ABC, abstractmethod
@@ -242,7 +243,8 @@ class BaseUtil(ABC):
     @abstractmethod
     def _load_pre_components(
             self,
-            cache_name
+            cache_name,
+            active_process_objs: Optional[dict[str, dict]] = None
     ) -> Optional[Union[tuple, list]]:
         """
         Pre Components should be returned as a tuple or list; they will be provided to
@@ -286,11 +288,12 @@ class BaseUtil(ABC):
             cache_name: str,
             process_factory,
             process_tracker: dict,
+            active_process_objs: Optional[dict[str, dict]] = None,
             return_result_obj: bool = False,
             **kwargs
     ):
         add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.RUNNING, process_tracker)
-        _pre_components = self._load_pre_components(cache_name)
+        _pre_components = self._load_pre_components(cache_name, active_process_objs)
         config = self.config.copy()
         try:
             _valid_config = getfullargspec(self._process_method()).args if self._process_method() is not None else None
@@ -312,6 +315,8 @@ class BaseUtil(ABC):
                 for _step in BaseUtil.abort_chain(self.process_step):
                     add_status_to_running_process(self.process_name, _step, ProcessStatus.ABORTED, process_tracker)
 
+            if active_process_objs is not None and hasattr(active_process_objs, "update"):
+                active_process_objs[self.process_name][self.process_step] = deepcopy(_process_status[1])
             if return_result_obj:
                 return _process_status[1] if len(_process_status) > 1 else None
         except Exception as e:

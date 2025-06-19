@@ -89,10 +89,22 @@ class GraphCreationUtil(BaseUtil):
 
     def _load_pre_components(
             self,
-            cache_name
+            cache_name,
+            active_process_objs: Optional[dict[str, dict]] = None
     ) -> tuple:
-        sent_emb = FactoryLoader.load_embedding(self._file_storage, cache_name)
-        cluster_obj = FactoryLoader.load_clustering(self._file_storage, cache_name, None, sent_emb)
+        _cached_data = active_process_objs.get(cache_name, {}).get(StepsName.DATA, None)
+        _cached_sent = active_process_objs.get(cache_name, {}).get(StepsName.EMBEDDING, None)
+        _cached_cluster = active_process_objs.get(cache_name, {}).get(StepsName.CLUSTERING, None)
+        sent_emb = FactoryLoader.load_embedding(
+            self._file_storage,
+            cache_name
+        )  if _cached_sent is None else _cached_sent
+        cluster_obj = FactoryLoader.load_clustering(
+            self._file_storage,
+            cache_name,
+            _cached_data,
+            sent_emb
+        ) if _cached_cluster is None else _cached_cluster
         return sent_emb, cluster_obj
 
     def _start_process(

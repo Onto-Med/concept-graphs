@@ -1,4 +1,5 @@
 import json
+import pathlib
 import shutil
 
 from flask import Flask
@@ -446,6 +447,14 @@ def complete_pipeline():
                 logging.info(f"Skipping {_name} because "
                              f"{'omitted' if _name in query_params.omitted_pipeline_steps else 'skip_present'}.")
                 add_status_to_running_process(query_params.process_name, _name, ProcessStatus.FINISHED, running_processes)
+                current_active_pipeline_objects[query_params.process_name][_name] = FactoryLoader.load(
+                    step=_name,
+                    path=str(pathlib.Path(FILE_STORAGE_TMP, query_params.process_name).resolve()),
+                    process=query_params.process_name,
+                    data_obj=current_active_pipeline_objects[query_params.process_name].get(StepsName.DATA, None),
+                    emb_obj=current_active_pipeline_objects[query_params.process_name].get(StepsName.EMBEDDING, None),
+                    vector_store=vector_store_config,
+                )
                 continue
             else:
                 process_obj.delete_process(query_params.process_name)

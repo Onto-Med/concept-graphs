@@ -307,7 +307,8 @@ def start_processes(
         processes: tuple,
         process_name: str,
         process_tracker: dict[str, dict],
-        thread_store: dict[str, StoppableThread]
+        thread_store: dict[str, StoppableThread],
+        active_process_objs: dict[str, dict],
 ):
     #ToDo: maybe think about persisting already finished objects so that each step
     # doesn't need to load them again?
@@ -328,15 +329,20 @@ def start_processes(
                     running_processes=process_tracker
                 )
                 continue
+        log_warning = f"Something went wrong with one of the previous steps: {_name_marker[_name]}."
+        if any([True for d in process_tracker.get(process_name, {}).get("status", [])
+                if (d.get("name") == _name and d.get("status") == ProcessStatus.ABORTED)]):
+            app.logger.warning(log_warning + f"\n So this one was aborted: '{_name}'.")
+            continue
         try:
             process_obj.start_process(
                 cache_name=process_name,
                 process_factory=_fact,
-                process_tracker=process_tracker
+                process_tracker=process_tracker,
+                active_process_objs=active_process_objs,
             )
         except FileNotFoundError as e:
-            app.logger.warning(f"Something went wrong with one of the previous steps: {_name_marker[_name]}."
-                               f"\nThere is a pickle file missing: {e}")
+            app.logger.warning(log_warning +  f"\nThere is a pickle file missing: {e}")
 
 
 def start_thread(
@@ -569,10 +575,13 @@ def graph_create(app: flask.Flask, path: str):
 
         app.logger.info(f"Start Graph Creation '{process_name}' ...")
         try:
-            concept_graphs = graph_create.start_process(process_name,
-                                                        cluster_functions.WordEmbeddingClustering,
-                                                        exclusion_ids_query)
-            return graph_get_statistics(concept_graphs)  # ToDo: if concept_graphs -> need to adapt method
+            _, concept_graphs = graph_create.start_process(
+                process_name,
+                cluster_functions.WordEmbeddingClustering,
+                process_tracker={},
+                exclusion_ids=exclusion_ids_query
+            )
+            return graph_get_statistics(app, concept_graphs, path)  # ToDo: if concept_graphs -> need to adapt method
         except FileNotFoundError:
             return jsonify(f"There is no processed data for the '{process_name}' process to be embedded.")
     return jsonify("Nothing to do.")

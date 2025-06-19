@@ -1,5 +1,6 @@
 import sys
 import zipfile
+from copy import deepcopy
 from pathlib import Path
 from types import GeneratorType
 from typing import List, Dict, Union, Generator, Optional, Callable
@@ -194,7 +195,8 @@ class PreprocessingUtil(BaseUtil):
 
     def _load_pre_components(
             self,
-            cache_name
+            cache_name,
+            active_process_objs: Optional[dict[str, dict]] = None
     ):
         return None
 

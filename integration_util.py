@@ -75,7 +75,8 @@ class ConceptGraphIntegrationUtil(BaseUtil):
 
     def _load_pre_components(
             self,
-            cache_name
+            cache_name,
+            active_process_objs: Optional[dict[str, dict]] = None
     ) -> Optional[Union[tuple, list]]:
         _emb_config = Path(self._file_storage / f"{cache_name}_embedding.pickle")
         embedding_store: EmbeddingStore = locate(self._embedding_store_cls)
@@ -102,6 +103,8 @@ class ConceptGraphIntegrationUtil(BaseUtil):
             int_obj = process_factory.create(
                 embedding_store=emb_store,
                 graphs=graphs,
+                cache_path=self._file_storage,
+                cache_name=f"{self.process_name}_{self.process_step}",
             )
         except Exception as e:
             return False, e

@@ -91,12 +91,19 @@ class ClusteringUtil(BaseUtil):
 
     def _load_pre_components(
             self,
-            cache_name
+            cache_name,
+            active_process_objs: Optional[dict[str, dict]] = None
     ) -> tuple:
-        sent_emb = FactoryLoader.load_embedding(self._file_storage, cache_name)
+        _cached = active_process_objs.get(cache_name, {}).get(StepsName.EMBEDDING, None)
+        sent_emb = FactoryLoader.load_embedding(self._file_storage, cache_name) if _cached is None else _cached
         return (sent_emb,)
 
-    def _start_process(self, process_factory, *args, **kwargs):
+    def _start_process(
+            self,
+            process_factory,
+            *args,
+            **kwargs
+    ):
         sent_emb, = args
         algorithm = kwargs.pop("algorithm", "kmeans")
         downscale = kwargs.pop("downscale", "umap")

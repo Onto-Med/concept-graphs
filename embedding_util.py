@@ -140,9 +140,11 @@ class PhraseEmbeddingUtil(BaseUtil):
 
     def _load_pre_components(
             self,
-            cache_name
+            cache_name,
+            active_process_objs: Optional[dict[str, dict]] = None
     ) -> Union[tuple, list]:
-        data_obj = FactoryLoader.load_data(self._file_storage, cache_name)
+        _cached = active_process_objs.get(cache_name, {}).get(StepsName.DATA, None)
+        data_obj = FactoryLoader.load_data(self._file_storage, cache_name) if _cached is None else _cached
         return (data_obj,)
 
     def _start_process(
