@@ -27,7 +27,7 @@ from main_utils import ProcessStatus, HTTPResponses, StepsName, pipeline_query_p
 
 sys.path.insert(0, "src")
 from src import data_functions, cluster_functions, embedding_functions
-from src.util_functions import DocumentStore, EmbeddingStore, Document
+from src.util_functions import DocumentStore, EmbeddingStore
 
 pipeline_json_config = namedtuple("pipeline_json_config",
                                   ["name", "language", "document_server", "vectorstore_server", "data", "embedding", "clustering", "graph"])

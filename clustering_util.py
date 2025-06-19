@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Optional, Union, Callable
 
 import flask
@@ -6,12 +5,11 @@ import sys
 
 from werkzeug.datastructures import FileStorage
 
+from load_utils import FactoryLoader
+
 sys.path.insert(0, "src")
 from main_utils import StepsName, BaseUtil
-from src.data_functions import DataProcessingFactory
-from src.embedding_functions import SentenceEmbeddingsFactory, show_top_k_for_concepts
 from src.cluster_functions import PhraseClusterFactory
-from src.util_functions import load_pickle
 
 
 class ClusteringUtil(BaseUtil):
@@ -95,14 +93,7 @@ class ClusteringUtil(BaseUtil):
             self,
             cache_name
     ) -> tuple:
-        sent_emb = load_pickle(Path(self._file_storage / f"{cache_name}_embedding.pickle"))
-        if isinstance(sent_emb, dict):
-            sent_emb = SentenceEmbeddingsFactory.load(
-                embeddings_obj_path=Path(self._file_storage / f"{cache_name}_embedding.pickle"),
-                data_obj=DataProcessingFactory.load(
-                    Path(self._file_storage / f"{cache_name}_data.pickle")),
-                storage_method=('vector_store', {},),
-            )
+        sent_emb = FactoryLoader.load_embedding(self._file_storage, cache_name)
         return (sent_emb,)
 
     def _start_process(self, process_factory, *args, **kwargs):

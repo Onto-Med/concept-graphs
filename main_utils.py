@@ -166,6 +166,8 @@ class BaseUtil(ABC):
             extensions: Optional[list[str]] = None,
     ) -> None:
         if self.has_process(process, extensions):
+            if extensions is None:
+                extensions = ["pickle"]
             for ext in extensions:
                 _pickle = self._complete_pickle_path(process, ext)
                 _pickle.unlink()
@@ -325,7 +327,8 @@ steps_relation_dict = {
     StepsName.DATA: 1,
     StepsName.EMBEDDING: 2,
     StepsName.CLUSTERING: 3,
-    StepsName.GRAPH: 4
+    StepsName.GRAPH: 4,
+    StepsName.INTEGRATION: 5,
 }
 
 

@@ -5,6 +5,7 @@ from flask import Flask
 from flask.logging import default_handler
 
 from integration_util import ConceptGraphIntegrationUtil
+from load_utils import FactoryLoader
 from main_methods import *
 from main_utils import ProcessStatus, HTTPResponses, StepsName, add_status_to_running_process, get_bool_expression, \
     StoppableThread
@@ -12,15 +13,13 @@ from preprocessing_util import PreprocessingUtil
 from embedding_util import PhraseEmbeddingUtil
 from clustering_util import ClusteringUtil
 from graph_creation_util import GraphCreationUtil
-from src import integration_functions
-from src.data_functions import DataProcessingFactory
-from src.embedding_functions import show_top_k_for_concepts, SentenceEmbeddingsFactory
 from src.marqo_external_utils import MarqoEmbeddingStore
 
 sys.path.insert(0, "src")
 import data_functions
 import embedding_functions
 import cluster_functions
+import integration_functions
 import util_functions
 
 werkzeug_logger = logging.getLogger("werkzeug")
@@ -103,8 +102,7 @@ def data_preprocessing_with_arg(path_arg):
 
     _path_args = ["statistics", "noun_chunks"]
     if path_arg in _path_args:
-        data_obj = data_functions.DataProcessingFactory.load(
-            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process) / f"{process}_data.pickle"))
+        data_obj = FactoryLoader.load_data(str(pathlib.Path(FILE_STORAGE_TMP, process).resolve()), process)
     else:
         return jsonify(error=f"No such path argument '{path_arg}' for 'preprocessing' endpoint.",
                        possible_path_args=[f"/{p}" for p in _path_args])
@@ -170,8 +168,10 @@ def phrase_clustering():
                     process_name, cluster_functions.PhraseClusterFactory, running_processes
                 )
                 return clustering_get_concepts(
-                    show_top_k_for_concepts(cluster_obj=_cluster_obj.concept_cluster,
-                                            embedding_object=_cluster_obj.sentence_embeddings, yield_concepts=True)
+                    embedding_functions.show_top_k_for_concepts(
+                        cluster_obj=_cluster_obj.concept_cluster,
+                        embedding_object=_cluster_obj.sentence_embeddings, yield_concepts=True
+                    )
                 )
             except FileNotFoundError:
                 return jsonify(f"There is no embedded data for the '{process_name}' process to be clustered.")
@@ -278,11 +278,12 @@ def graph_document(path_arg):
         # if content_json.id is None:
         #     return jsonify(f"No '_id' or 'id' key in content json: '{request.get_json().keys()}'")
         _path_base = pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process)
-        _data_proc = DataProcessingFactory.load(_path_base / f"{process}_data.pickle")
-        _emb_proc = SentenceEmbeddingsFactory.load(
-            _path_base / f"{process}_embedding.pickle",
+        _data_proc = FactoryLoader.load_data(str(_path_base.resolve()), process)
+        _emb_proc = FactoryLoader.load_embedding(
+            str(_path_base.resolve()),
+            process,
             _data_proc,
-            storage_method=None if content_json.vectorstore_server is None else ('vectorstore', content_json.vectorstore_server)
+            None if content_json.vectorstore_server is None else content_json.vectorstore_server
         )
         if content_json.vectorstore_server is None and _emb_proc.source is None:
             raise NotImplementedError("Only adding documents with a setup vectorstore server is supported; no vectorstore configured.")

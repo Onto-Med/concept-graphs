@@ -15,10 +15,9 @@ from functools import lru_cache
 
 from scipy.sparse.csgraph import connected_components
 from sklearn.cluster import AffinityPropagation
-from tqdm.auto import tqdm
 
-from embedding_functions import cosine_against_collection, cosine
-from util_functions import add_offset_to_documents_dicts_by_id
+from src.embedding_functions import cosine
+from src.util_functions import add_offset_to_documents_dicts_by_id
 
 
 class GraphCreator:

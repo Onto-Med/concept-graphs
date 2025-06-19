@@ -1,18 +1,16 @@
 import sys
-from pathlib import Path
 from typing import Optional, Union, Callable
 
 import flask
 
 from werkzeug.datastructures import FileStorage
 
-from src.data_functions import DataProcessingFactory
-
 sys.path.insert(0, "src")
 from main_utils import StepsName, BaseUtil
 from src.marqo_external_utils import MarqoEmbeddingStore
 from src.embedding_functions import SentenceEmbeddingsFactory
 from src.util_functions import load_pickle
+from load_utils import FactoryLoader
 
 
 #ToDo: I need to check the storage_method config/kwarg; it works but there are some redundancies
@@ -144,7 +142,7 @@ class PhraseEmbeddingUtil(BaseUtil):
             self,
             cache_name
     ) -> Union[tuple, list]:
-        data_obj = DataProcessingFactory.load(Path(self._file_storage / f"{cache_name}_data.pickle"))
+        data_obj = FactoryLoader.load_data(self._file_storage, cache_name)
         return (data_obj,)
 
     def _start_process(

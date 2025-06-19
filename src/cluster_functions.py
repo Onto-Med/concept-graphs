@@ -30,13 +30,12 @@ from scipy.sparse.csgraph import shortest_path, construct_dist_matrix, NegativeC
 from sklearn.feature_extraction.text import TfidfVectorizer as tfidfVec
 #import sknetwork as skn
 
-from data_functions import DataProcessingFactory, clean_span, get_actual_str
-from pruning import unimodal
-
-from embedding_functions import SentenceEmbeddingsFactory, top_k_cosine
-from graph_functions import GraphCreator, unroll_graph, simplify_graph_naive, sub_clustering
+from src.pruning import unimodal
+from src.data_functions import DataProcessingFactory, clean_span, get_actual_str
+from src.embedding_functions import SentenceEmbeddingsFactory, top_k_cosine
+from src.graph_functions import GraphCreator, unroll_graph, simplify_graph_naive, sub_clustering
 # from src.util_functions import CVAEMantle
-from util_functions import load_pickle, save_pickle, pairwise, NoneDownScaleObj, ClusterNumberDetection
+from src.util_functions import load_pickle, save_pickle, pairwise, NoneDownScaleObj, ClusterNumberDetection
 
 logging.basicConfig()
 logging.root.setLevel(logging.INFO)

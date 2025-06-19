@@ -8,10 +8,10 @@ from pyvis import network as net
 
 from werkzeug.datastructures import FileStorage
 
+from load_utils import FactoryLoader
+
 sys.path.insert(0, "src")
 from main_utils import StepsName, BaseUtil
-from src.data_functions import DataProcessingFactory
-from src.embedding_functions import SentenceEmbeddingsFactory
 from src.cluster_functions import WordEmbeddingClustering
 from src.util_functions import load_pickle, save_pickle
 
@@ -91,15 +91,8 @@ class GraphCreationUtil(BaseUtil):
             self,
             cache_name
     ) -> tuple:
-        sent_emb = load_pickle(Path(self._file_storage / f"{cache_name}_embedding.pickle"))
-        if isinstance(sent_emb, dict):
-            sent_emb = SentenceEmbeddingsFactory.load(
-                embeddings_obj_path=Path(self._file_storage / f"{cache_name}_embedding.pickle"),
-                data_obj=DataProcessingFactory.load(
-                    Path(self._file_storage / f"{cache_name}_data.pickle")),
-                storage_method=('vector_store', {},),
-            )
-        cluster_obj = load_pickle(Path(self._file_storage / f"{cache_name}_clustering.pickle"))
+        sent_emb = FactoryLoader.load_embedding(self._file_storage, cache_name)
+        cluster_obj = FactoryLoader.load_clustering(self._file_storage, cache_name, None, sent_emb)
         return sent_emb, cluster_obj
 
     def _start_process(
