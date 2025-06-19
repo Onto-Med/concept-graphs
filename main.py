@@ -1,5 +1,4 @@
 import json
-import pathlib
 import shutil
 
 from flask import Flask
@@ -14,7 +13,6 @@ from preprocessing_util import PreprocessingUtil
 from embedding_util import PhraseEmbeddingUtil
 from clustering_util import ClusteringUtil
 from graph_creation_util import GraphCreationUtil
-from src.marqo_external_utils import MarqoEmbeddingStore
 
 sys.path.insert(0, "src")
 import data_functions
@@ -22,6 +20,7 @@ import embedding_functions
 import cluster_functions
 import integration_functions
 import util_functions
+import marqo_external_utils
 
 werkzeug_logger = logging.getLogger("werkzeug")
 werkzeug_logger.setLevel(logging.WARN)
@@ -411,7 +410,7 @@ def complete_pipeline():
         _port = str(vector_store_config.pop("port", 8882))
         vector_store_config["client_url"] = f"{_url}:{_port}"
         #ToDo: check vectorstoreconfig accessible else log warning and force pickle
-        if not MarqoEmbeddingStore.is_accessible(vector_store_config.copy()):
+        if not marqo_external_utils.MarqoEmbeddingStore.is_accessible(vector_store_config.copy()):
             logging.warning(f"Vector store doesn't seem to be accessible under '{vector_store_config['client_url']}'."
                             f" Using 'pickle' storage.")
             vector_store_config = None
@@ -478,7 +477,6 @@ def complete_pipeline():
 
         processes_threading.append((process_obj, _fact, _name, ))
 
-    #ToDo: add 'current_active_pipeline_objects' to Threading
     pipeline_thread = StoppableThread(
         target_args=(app, processes_threading, query_params.process_name, running_processes, pipeline_threads_store, current_active_pipeline_objects,),
         group=None, target=start_processes, name=None)
