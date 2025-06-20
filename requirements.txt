@@ -72,6 +72,7 @@ lxml==4.9.2
 marisa-trie==1.2.1
 Markdown==3.7
 MarkupSafe==3.0.2
+marqo~=3.13.0
 matplotlib==3.10.1
 matplotlib-inline==0.1.6
 ml-dtypes==0.3.2

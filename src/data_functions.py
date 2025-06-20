@@ -5,11 +5,12 @@ import os
 import pathlib
 import re
 import itertools
-import zipfile
+import sys
 from collections import defaultdict
 from random import sample
 
 import numpy as np
+from spacy.tokens import DocBin
 from spacy.tokens.doc import Doc
 from tqdm.autonotebook import tqdm
 from typing import Optional, Generator, Union, Iterable, Dict, List, Set, Callable, Any
@@ -20,25 +21,10 @@ from functools import lru_cache
 from spacy import Language
 from sklearn.feature_extraction.text import TfidfVectorizer as tfidfVec
 
+from main_utils import load_spacy_model, get_default_spacy_model
 from src.negspacy.utils import FeaturesOfInterest
 from src.negspacy.negation import Negex
-from util_functions import load_pickle, save_pickle, add_offset_to_documents_dicts_by_id
-
-
-# ToDo: this needs to be called whenever a data_proc object is used/loaded by another class
-def _set_extensions(
-) -> None:
-    from spacy.tokens import Doc
-    if not Doc.has_extension("doc_id"):
-        Doc.set_extension("doc_id", default=None)
-    if not Doc.has_extension("doc_index"):
-        Doc.set_extension("doc_index", default=None)
-    if not Doc.has_extension("doc_name"):
-        Doc.set_extension("doc_name", default=None)
-    if not Doc.has_extension("doc_topic"):
-        Doc.set_extension("doc_topic", default=None)
-    if not Doc.has_extension("offset_in_doc"):
-        Doc.set_extension("offset_in_doc", default=None)
+from src.util_functions import load_pickle, save_pickle, add_offset_to_documents_dicts_by_id, set_spacy_extensions
 
 
 def _populate_chunk_set_dict_with_doc(
@@ -50,12 +36,21 @@ def _populate_chunk_set_dict_with_doc(
 
 class DataProcessingFactory:
 
-    @staticmethod
+    @classmethod
     def load(
-            file_path: Union[pathlib.Path, str, io.IOBase]
+            cls,
+            data_obj_path: Union[pathlib.Path, str, io.IOBase]
     ) -> 'DataProcessing':
-        _set_extensions()
-        return load_pickle(file_path)
+        set_spacy_extensions()
+        data_obj_path = data_obj_path if isinstance(data_obj_path, pathlib.Path) else pathlib.Path(data_obj_path)
+        _data_obj = load_pickle(data_obj_path)
+        _doc_bin = DocBin().from_disk(data_obj_path.with_suffix(".spacy"))
+        try:
+            _ = _data_obj.data_chunk_sets
+            _data_obj.processed_docs = _doc_bin
+        except AttributeError:
+            raise AssertionError(f"The loaded object '{_data_obj}' seems not to be a DataProcessing object or is missing important attribute 'data_chunk_sets'.")
+        return _data_obj
 
     @staticmethod
     def create(
@@ -155,6 +150,11 @@ class DataProcessingFactory:
         if save_to_file:
             delattr(_data_processing, '_data_entries')  # remove as it's not needed and makes problems when serializing
             final_cache = pathlib.Path(_cache_path / pathlib.Path(f"{_cache_name}.pickle"))
+            # Using DocBin -- mainly for future use of proper DBs
+            doc_bin = DocBin(docs=_data_processing._processed_docs, store_user_data=True)
+            doc_bin.to_disk(final_cache.with_suffix(".spacy"))
+            _data_processing._processed_docs.clear()
+            # DocBin end
             save_pickle(_data_processing, final_cache)
         return _data_processing
 
@@ -181,7 +181,6 @@ class DataProcessingFactory:
             self._prepend_head = prepend_head
             self._use_lemma = use_lemma
             self._head_only = head_only
-            self._data_corpus_tuples = list()
             self._text_id_to_doc_name = dict()
             self._processed_docs = list()
             self._document_chunk_matrix = list()
@@ -200,6 +199,7 @@ class DataProcessingFactory:
             self._tfidf_filter = None
             self._tfidf_filter_vec = None
             self._negspacy = {"enabled": omit_negated_chunks, "config": negspacy_config}
+            self._document_process_config = None
             self._process_documents(
                 pipeline=pipeline,
                 n_process=n_process,
@@ -210,6 +210,21 @@ class DataProcessingFactory:
             )
 
         # ToDo: some method to set 'doc_topic' outside init?
+
+        @property
+        def model_name(self) -> Optional[str]:
+            if _pipe := self.document_process_config.get("pipeline", {}):
+                if _pipe.get("lang", False) and _pipe.get("name", False):
+                    return f"{_pipe['lang']}_{_pipe['name']}"
+            return None
+
+        @property
+        def document_process_config(self) -> dict:
+            return self._document_process_config
+
+        @document_process_config.setter
+        def document_process_config(self, value: dict):
+            self._document_process_config = value
 
         @lru_cache()
         def _document_list(
@@ -276,24 +291,34 @@ class DataProcessingFactory:
             else:
                 return [d for d in self._processed_docs if d._.doc_topic.lower() in self._view['labels']]
 
+        @processed_docs.setter
+        def processed_docs(self, value: Union[list, DocBin]):
+            if isinstance(value, list):
+                self._processed_docs = value
+            elif isinstance(value, DocBin):
+                self._processed_docs = list(value.get_docs(
+                    load_spacy_model(self.model_name, logging.getLogger(__name__), get_default_spacy_model()).vocab
+                ))
+
         @property
         def chunk_sets_n(
                 self
         ) -> int:
             return len(self.data_chunk_sets)
 
-        @property
         def noun_chunks_corpus(
                 self,
+                external: Optional[list[Doc]]
         ) -> Generator:
             # ToDo: utilize blacklist for noun chunks that should not be included [sie, er, die, etc.] - or check if later on this is done and switch accordingly
             #  because here every superfluous chunk will be run through negex and slows process down and probably  induces errors
-            for doc in self._processed_docs:
+            for doc in self.processed_docs if external is None else external:
                 _offset_in_doc = doc._.offset_in_doc
                 for ch in doc.noun_chunks:
                     ch: spacy.tokens.Span
-                    _negated = not (not hasattr(ch, "_") or
-                                    (hasattr(ch, "_") and not getattr(getattr(ch, "_"), "negex", True)))
+                    # _negated = not (not hasattr(ch, "_") or
+                    #                 (hasattr(ch, "_") and not getattr(getattr(ch, "_"), "negex", True)))
+                    _negated = hasattr(ch, "_") and getattr(getattr(ch, "_"), "negex", False)
                     if len(ch.text) == 1 and re.match(r"\W", ch.text):
                         # _offset_in_doc += 1
                         continue
@@ -413,7 +438,7 @@ class DataProcessingFactory:
                 omit_negated_chunks: bool = True
         ) -> None:
             self._chunk_set_dicts.clear()
-            self._build_chunk_set_dicts(use_lemma=use_lemma, prepend_head=prepend_head, head_only=head_only,
+            self._build_chunk_set_dicts(data=None, use_lemma=use_lemma, prepend_head=prepend_head, head_only=head_only,
                                         case_sensitive=case_sensitive, omit_negated_chunks=omit_negated_chunks)
 
         def _check_view_elements(
@@ -436,45 +461,50 @@ class DataProcessingFactory:
 
         def _build_data_tuples(
                 self,
-                split_on: str = "\n"
-        ) -> None:
-            if len(self._data_corpus_tuples) == 0:
-                _labels_count = 0
-                for i, d in enumerate(self._data_entries):
-                    _label = d.get("label", None)
-                    if _label not in self._true_labels_dict:
-                        self._true_labels_dict[_label] = _labels_count
-                        _labels_count += 1
-                    self._true_labels.append(_label)
-                    self._text_id_to_doc_name[i] = d.get("name", "no_name")
-                    _offset = 0
-                    for line in d.get("content", "").split(split_on):
-                        if line.isspace():
-                            _offset += (len(line) +len(split_on))
-                        elif len(line) == 0:
-                            _offset += len(split_on)
-                        else:
-                            self._data_corpus_tuples.append(
-                                (line, {"doc_id": d.get("id", i), "doc_index": i,
-                                        "doc_name": d.get("name", "no_name"), "doc_topic": _label,
-                                        "offset_in_doc": _offset})
-                            )
-                            _offset += (len(line) +len(split_on))
+                split_on: str = "\n",
+                external: Optional[list[dict]] = None
+        ) -> list[tuple[str, dict[str, Optional[Union[str, int]]]]]:
+            _data_corpus_tuples = []
+            # if len(self._data_corpus_tuples) == 0:
+            _labels_count = 0
+            for i, d in enumerate(self._data_entries if external is None else external):
+                _label = d.get("label", None)
+                if _label not in self._true_labels_dict and external is None:
+                    self._true_labels_dict[_label] = _labels_count
+                    _labels_count += 1
+                if external is None: self._true_labels.append(_label)
+                if external is None: self._text_id_to_doc_name[i] = d.get("name", "no_name")
+                _offset = 0
+                for line in d.get("content", "").split(split_on):
+                    if line.isspace():
+                        _offset += (len(line) +len(split_on))
+                    elif len(line) == 0:
+                        _offset += len(split_on)
+                    else:
+                        _data_corpus_tuples.append(
+                            (line, {"doc_id": d.get("id", i), "doc_index": i,
+                                    "doc_name": d.get("name", "no_name"), "doc_topic": _label,
+                                    "offset_in_doc": _offset})
+                        )
+                        _offset += (len(line) +len(split_on))
+            return _data_corpus_tuples
 
         def _build_chunk_set_dicts(
                 self,
+                data: Optional[Iterable[spacy.tokens.Doc]],
                 prepend_head: bool,
                 use_lemma: bool,
                 head_only: bool,
                 case_sensitive: bool = False,
                 omit_negated_chunks: bool = True
-        ) -> None:
+        ) -> Optional[list[dict]]:
             _key = (prepend_head, use_lemma, head_only,)
-            if len(self._chunk_set_dicts) == 0 and (_key != self._options_key):
-                self._options_key = copy.copy(_key)
+            if (len(self._chunk_set_dicts) == 0 and (_key != self._options_key) and data is None) or data is not None:
+                if data is None: self._options_key = copy.copy(_key)
                 _csdt = {}
-                self._document_chunk_matrix = ["" for i in range(self.documents_n)]
-                for i, ch in enumerate(self.noun_chunks_corpus):
+                if data is None: self._document_chunk_matrix = ["" for i in range(self.documents_n)]
+
+                for i, ch in enumerate(self.noun_chunks_corpus(data)):
                     ch: dict
                     _chunk_dict = clean_span(ch["spacy_chunk"], ch["offset"])
                     _negated_chunk: bool = ch["negated"]
@@ -485,55 +515,106 @@ class DataProcessingFactory:
 
                     _text = get_actual_str(_chunk_dict, _key, case_sensitive=case_sensitive)
                     _offset = _chunk_dict["offset"]
-                    if not (_negated_chunk and omit_negated_chunks):
+                    if (not (_negated_chunk and omit_negated_chunks)) and data is None:
                         self._document_chunk_matrix[ch["doc_index"]] += f"{self._chunk_boundary}{_text}"
 
                     if _csdt.get(_text, False) and not (_negated_chunk and omit_negated_chunks):
+                        #ToDo: maybe string similarity check already here to merge similar phrases
                         _populate_chunk_set_dict_with_doc(_csdt, _text, _offset, ch)
                     else:
                         _csdt[_text] = ({"doc": [{"id": ch["doc_id"], "offsets": [_offset]}], "count": 1}
                                         if not (_negated_chunk and omit_negated_chunks) else {"doc": [], "count": 0})
 
-                self._chunk_set_dicts = [{"text": _t, "doc": _ch["doc"], "count": _ch["count"]}
-                                         for _t, _ch in _csdt.items()] #ToDo: omit chunks that have a doc count of 0?
+                return [{"text": _t, "doc": _ch["doc"], "count": _ch["count"]}
+                        for _t, _ch in _csdt.items()] #ToDo: omit chunks that have a doc count of 0?
+            return None
 
         def _process_documents(
                 self,
-                pipeline: spacy.Language,
+                pipeline: Optional[spacy.Language] = None,
                 n_process: int = 1,
                 case_sensitive: bool = False,
                 disable: Optional[Iterable[str]] = None,
                 omit_negated_chunks: bool = True,
-                negspacy_config = None
-        ) -> None:
+                negspacy_config: Optional[dict] = None,
+                external: Optional[list[dict]] = None
+        ) -> Optional[list]:
+            if pipeline is None and external is None:
+                logging.error("No spacy pipeline specified and not referencing deserialized pipeline.")
+                return None
             _negspacy_config = {}
-            if omit_negated_chunks and (negspacy_config is not None):
+            if external is not None and self.document_process_config is not None:
+                _negspacy_config = self.document_process_config.get("negspacy_config", {})
+                omit_negated_chunks = self.document_process_config.get("omit_negated_chunks", True)
+                negex_ext_name = _negspacy_config.get("extension_name", "negex")
+                Negex.set_extension(negex_ext_name)
+            if external is None and omit_negated_chunks and (negspacy_config is not None):
                 _negspacy_config = validate_negspacy_config(negspacy_config)
-
-            if omit_negated_chunks:
                 logging.info(f"Omitting negated entities with following settings: {_negspacy_config}")
                 pipeline.add_pipe("negex", last=True, config=_negspacy_config)
-            disable = [] if disable is None else disable
-            if len(self._processed_docs) == 0:
-                _pipe_trf_type = True if "trf" in pipeline.meta["name"].split("_") else False
-                _set_extensions()
-                self._build_data_tuples()
 
-                data_corpus = pipeline.pipe(self._data_corpus_tuples[:], as_tuples=True, n_process=n_process,
+            disable = [] if disable is None else disable
+
+            if self.document_process_config is None and external is None:
+                self.document_process_config = {
+                    "pipeline": {
+                        "name": pipeline.meta.get("name", None),
+                        "lang": pipeline.meta.get("lang", None),
+                        "version": pipeline.meta.get("version", None),
+                    },
+                    "n_process": n_process,
+                    "case_sensitive": case_sensitive,
+                    "disable": disable,
+                    "omit_negated_chunks": omit_negated_chunks,
+                    "negspacy_config": _negspacy_config
+                }
+            else:
+                case_sensitive, disable, n_process = [
+                    kv[1] for kv in sorted(self.document_process_config.items(),
+                                           key=lambda x: x[0]) if kv[0] not in ["negspacy_config", "omit_negated_chunks", "pipeline"]]
+                pipeline = load_spacy_model(
+                    self.model_name,
+                    logging.getLogger(__name__),
+                    get_default_spacy_model()
+                )
+                if omit_negated_chunks and (_negspacy_config is not None):
+                    pipeline.add_pipe(_negspacy_config.get("extension_name", "negex"), last=True, config=_negspacy_config)
+
+            if (len(self._processed_docs) == 0 and external is None) or external is not None:
+                _pipe_trf_type = True if "trf" in pipeline.meta["name"].split("_") else False
+                set_spacy_extensions()
+                _data_corpus_tuples = self._build_data_tuples(external=external)
+
+                data_corpus = pipeline.pipe(_data_corpus_tuples[:], as_tuples=True, n_process=n_process,
                                             disable=disable)
-                for _doc, _ctx in tqdm(data_corpus, total=len(self._data_corpus_tuples)):
+                _processed_docs = []
+                for _doc, _ctx in tqdm(data_corpus, total=len(_data_corpus_tuples)):
                     _doc._.doc_id = _ctx.get("doc_id", None)
                     _doc._.doc_index = _ctx.get("doc_index", None)
                     _doc._.doc_name = _ctx.get("doc_name", None)
                     _doc._.doc_topic = _ctx.get("doc_topic", None)
                     _doc._.offset_in_doc = _ctx.get("offset_in_doc", None)
-                    self._processed_docs.append(_doc)
                     if _pipe_trf_type:
                         _doc._.trf_data = None  # clears cache and saves ram when using trf_pipelines
+                    _processed_docs.append(_doc)
+                if external is None: self._processed_docs = _processed_docs
 
-                self._build_chunk_set_dicts(prepend_head=self._prepend_head, head_only=self._head_only,
-                                            use_lemma=self._use_lemma, case_sensitive=case_sensitive,
-                                            omit_negated_chunks=omit_negated_chunks)
+                _chunk_set_dicts = self._build_chunk_set_dicts(
+                    data=_processed_docs if external is not None else None, prepend_head=self._prepend_head,
+                    head_only=self._head_only, use_lemma=self._use_lemma, case_sensitive=case_sensitive,
+                    omit_negated_chunks=omit_negated_chunks
+                )
+                if external is None and _chunk_set_dicts is not None:
+                    self._chunk_set_dicts = _chunk_set_dicts
+                else:
+                    return _chunk_set_dicts
+            return None
+
+        def process_external_docs(self, content: list[dict[str, Optional[str]]]):
+            """
+            content: {"name": document name, "content": document content, "label": label/category of document if present}
+            """
+            return self._process_documents(external=content)
 
 
 def validate_negspacy_config(config) -> dict:
@@ -545,13 +626,13 @@ def validate_negspacy_config(config) -> dict:
         "neg_termset_file": None,
         "feat_of_interest": FeaturesOfInterest.NOUN_CHUNKS,
         "scope": None,
-        "language": "en"
+        "language": None
     }
     _foi = {"nc": FeaturesOfInterest.NOUN_CHUNKS, "ne": FeaturesOfInterest.NAMED_ENTITIES, "both": FeaturesOfInterest.BOTH}
     _return_dict = {}
 
     for k, v in _val_dict.items():
-        v_alt = getattr(config, k, None)
+        v_alt = getattr(config, k, None) if not isinstance(config, dict) else config.get(k, None)
         if k == "feat_of_interest":
             v_alt = _foi.get(v_alt.lower(), FeaturesOfInterest.NOUN_CHUNKS) if isinstance(v_alt, str) else (
                 v_alt if isinstance(v_alt, list) else FeaturesOfInterest.NOUN_CHUNKS
@@ -642,15 +723,29 @@ def get_actual_str(
 
 
 if __name__ == "__main__":
-    _data = None
-    with zipfile.ZipFile("C:/Users/fra3066mat/Documents/Corpora/grassco.zip", mode='r') as archive:
-        _data = [{"name": pathlib.Path(f.filename).stem,
-                  "content": archive.read(f.filename).decode('utf-8'),
-                  "label": None
-                  } for f in archive.filelist if
-                 (not f.is_dir()) and (pathlib.Path(f.filename).suffix.lstrip('.') == 'txt')]
-    data_proc = DataProcessingFactory.create(
-        pipeline=spacy.load("de_dep_news_trf"),
-        base_data=_data[1:3],
-        save_to_file=False
-    )
+    # _data = None
+    # _zip_path = pathlib.Path("C:/Users/fra3066mat/Documents/Corpora/grascco.zip")
+    # if not _zip_path.exists():
+    #     sys.exit("zip doesnt exist")
+    # with zipfile.ZipFile(_zip_path.resolve(), mode='r') as archive:
+    #     _data = [{"name": pathlib.Path(f.filename).stem,
+    #               "content": archive.read(f.filename).decode('utf-8'),
+    #               "label": None
+    #               } for f in archive.filelist if
+    #              (not f.is_dir()) and (pathlib.Path(f.filename).suffix.lstrip('.') == 'txt')]
+    # data_proc = DataProcessingFactory.create(
+    #     pipeline=spacy.load("de_dep_news_trf"),
+    #     base_data=_data[5:10],
+    #     save_to_file=False,
+    #     negspacy_config={
+    #         "neg_termset_file": "C:/Users/fra3066mat/PycharmProjects/concept-graphs/conf/negex_files/negex_trigger_german_biotxtm_2016_extended.txt",
+    #         "chunk_prefix": ["kein", "keine", "keinen"],
+    #         "scope": 2
+    #     }
+    # )
+
+    data_proc = DataProcessingFactory.load(pathlib.Path("C:/Users/fra3066mat/PycharmProjects/concept-graphs/tmp/grascco_test/grascco_test_data.pickle"))
+    res = data_proc.process_external_docs([{"name": "test",
+                                            "content": "Das ist ein Test Dokument. Es hat ein paar Nomen Chunks; vielleicht. Auch gab es keinen Nachweis für einen Sinn. Aber es wurd ein Sinn nicht gesehen.",
+                                            "label": None}])
+    print(res)

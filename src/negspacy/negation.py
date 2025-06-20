@@ -1,6 +1,6 @@
 import pathlib
 from itertools import islice
-from typing import Union
+from typing import Union, Optional
 
 from spacy.language import Language
 from spacy.tokens import Doc, Span, SpanGroup
@@ -16,14 +16,14 @@ default_ts = termset("en_clinical").get_patterns()
 @Language.factory(
     "negex",
     default_config={
-        "neg_termset": default_ts,
+        "neg_termset": None,
         "feat_types": list(),
         "extension_name": "negex",
         "chunk_prefix": list(),
         "neg_termset_file": None,
         "feat_of_interest": FeaturesOfInterest.NAMED_ENTITIES,
         "scope": None,
-        "language": "en"
+        "language": None
     },
 )
 class Negex:
@@ -60,19 +60,23 @@ class Negex:
          to the number of dependent children under scrutiny. If set to true, scope is 1
     language: str
     """
+    @classmethod
+    def set_extension(cls, ext_name: str):
+        if not Span.has_extension(ext_name):
+            Span.set_extension(ext_name, default=False, force=True)
 
     def __init__(
             self,
             nlp: Language,
             name: str,
-            neg_termset: dict,
+            neg_termset: Optional[dict],
             feat_types: list,
             extension_name: str,
             chunk_prefix: list,
             neg_termset_file: Union[pathlib.Path, str, None],
             feat_of_interest: list[str],
             scope: Union[str, int, bool, None],
-            language: str
+            language: Optional[str]
     ):
         # if not termset_lang in LANGUAGES:
         #     raise KeyError(
@@ -81,10 +85,8 @@ class Negex:
         #         "your own termsets when initializing Negex."
         #     )
         # termsets = LANGUAGES[termset_lang]
-        if not Span.has_extension(extension_name):
-            Span.set_extension(extension_name, default=False, force=True)
-
-        ts = neg_termset
+        Negex.set_extension(extension_name)
+        ts = neg_termset if neg_termset is not None else default_ts
         if neg_termset_file is not None:
             rules = None
             if isinstance(neg_termset_file, str):
@@ -116,6 +118,8 @@ class Negex:
             "following_negations",
             "termination",
         ]
+        if neg_termset is not None and neg_termset_file is not None:
+            ts.update(neg_termset)
         if len(set(ts.keys()).intersection(expected_keys)) != len(expected_keys):
             raise KeyError(
                 f"Missing keys in 'neg_termset', expected: {expected_keys}, instead got: {list(ts.keys())}"
@@ -151,7 +155,7 @@ class Negex:
         self.extension_name = extension_name
         self.features_of_interest = feat_of_interest
         self.scope = scope
-        self.language = language
+        self.language = language if language is not None else (nlp.lang if nlp.lang is not None else "en")
         self.chunk_prefix = list(nlp.tokenizer.pipe(chunk_prefix))
         self.build_patterns()
 
@@ -290,7 +294,8 @@ class Negex:
                     if self.feature_types:
                         if ft.label_ not in self.feature_types:
                             continue
-                    if self.chunk_prefix:
+                    # ft shouldn't be the same as something from the chunk_prefix list
+                    if self.chunk_prefix and not any([(s[1] == ft.start and s[2] == ft.end) for s in sub_preceding]):
                         if self.scope is not None and self.scope > 0:
                             if set(f.text.lower() for f in islice(ft.root.lefts, self.scope)).intersection(
                                     cp.text.lower() for cp in self.chunk_prefix):

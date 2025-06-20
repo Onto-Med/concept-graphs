@@ -31,7 +31,20 @@
         },
         "embedding": {
             "model": "Sahajtomar/German-semantic",
-            "n_process": 1
+            "n_process": 1,
+            "storage": {
+                "method": "vectorstore",
+                "config": {
+                    "normalizeEmbeddings": false,
+                    "annParameters": {
+                        "spaceType": "dotproduct",
+                        "parameters": {
+                            "efConstruction": 1024,
+                            "m": 16
+                        }
+                    }
+                }
+            }
         },
         "clustering": {
             "algorithm": "kmeans",
@@ -79,5 +92,9 @@
         "label_key": "label",
         "replace_keys": {"text": "content"},
         "other_id": "id"
+    },
+    "vectorstore_server": {
+        "url": "http://localhost",
+        "port": 8882
     }
 }

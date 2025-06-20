@@ -1,19 +1,33 @@
+import abc
 import enum
-import inspect
 import io
 import itertools
+import json
 import pathlib
 import pickle
-from typing import Callable, Any, Optional, Union
+from typing import Callable, Any, Optional, Union, Iterable
 from threading import Lock
 
-from collections import Counter
+from collections import Counter, defaultdict
 
 # from cvae import cvae
 import numpy as np
 import pandas as pd
+import yaml
 from sklearn.cluster import KMeans, AgglomerativeClustering
 
+
+class ConfigLoadMethods:
+    @staticmethod
+    def get(file_ending: str):
+        return {
+            "pickle": pickle.load,
+            "pckl": pickle.load,
+            "json": json.load,
+            "jsn": json.load,
+            "yaml": yaml.load,
+            "yml": yaml.load,
+        }.get(file_ending[1:] if file_ending[0] == "." else file_ending, json.load)
 
 class ClusterNumberDetection(enum.Enum):
     DISTORTION = 1
@@ -38,6 +52,20 @@ class SingletonMeta(type):
                 cls._instances[cls] = instance
         return cls._instances[cls]
 
+# ToDo: this needs to be called whenever a data_proc object is used/loaded by another class
+def set_spacy_extensions(
+) -> None:
+    from spacy.tokens import Doc
+    if not Doc.has_extension("doc_id"):
+        Doc.set_extension("doc_id", default=None)
+    if not Doc.has_extension("doc_index"):
+        Doc.set_extension("doc_index", default=None)
+    if not Doc.has_extension("doc_name"):
+        Doc.set_extension("doc_name", default=None)
+    if not Doc.has_extension("doc_topic"):
+        Doc.set_extension("doc_topic", default=None)
+    if not Doc.has_extension("offset_in_doc"):
+        Doc.set_extension("offset_in_doc", default=None)
 
 def pairwise(iterable):
     a, b = itertools.tee(iterable)
@@ -297,6 +325,91 @@ class NoneDownScaleObj:
 
     def __str__(self):
         return "None"
+
+
+class Document(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    def embeddings(self) -> list[Union[np.ndarray, list]]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def phrases(self) -> list[str]:
+        raise NotImplementedError
+
+
+class EmbeddingStore(metaclass=abc.ABCMeta):
+    @classmethod
+    @abc.abstractmethod
+    def existing_from_config(cls, config: Union[dict, pathlib.Path, str]):
+        """Instantiates an object from a config"""
+        raise NotImplementedError
+
+    @staticmethod
+    @abc.abstractmethod
+    def is_accessible(config: Union[dict, pathlib.Path, str]) -> bool:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def store_embedding(self, embedding: Any, check_for_same: bool, **kwargs) -> Iterable[str]:
+        """Store the embedding and return its id"""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def store_embeddings(self, embeddings: Iterable, embeddings_repr: Iterable, vector_name: str, check_for_same: bool) -> Iterable[str]:
+        """Store the embeddings and return their ids"""
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_embedding(self, embedding_id: str):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_embeddings(self, embedding_ids: Optional[Iterable]):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def update_embedding(self, embedding_id: str, **kwargs) -> bool:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def update_embeddings(self, embedding_ids: list[str], values: list[dict]) -> list[str]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def delete_embedding(self, embedding_id: str) -> bool:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def delete_embeddings(self, embedding_ids: Iterable) -> bool:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def best_hits_for_field(self, embedding: Union[str, np.ndarray, list[float], dict]):
+        raise NotImplementedError
+
+
+class DocumentStore(metaclass=abc.ABCMeta):
+
+    @abc.abstractmethod
+    def add_document(self, document: Document) -> set[str]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def add_documents(self, document: Iterable[Document]) -> set[str]:
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def suggest_graph_cluster(self, document: Document):
+        raise NotImplementedError
+
+
+def harmonic_mean(scores: Iterable[tuple[str, float]]) -> list[tuple[str, float]]:
+    _avg = lambda x: sum(x) / len(x)
+    scores_by_class = defaultdict(list)
+    for cls, score in scores:
+        scores_by_class[cls].append(score)
+    return sorted([(cls, 2 * _avg(l) * len(l) / (_avg(l) + len(l)) if (_avg(l) + len(l)) != 0 else 0)
+            for cls, l in scores_by_class.items()], key=lambda x: x[1], reverse=True)
 
 
 # class CVAEMantle:

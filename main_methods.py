@@ -5,8 +5,9 @@ import pathlib
 import pickle
 from collections import OrderedDict, defaultdict, namedtuple
 from time import sleep
-from typing import Union, Iterable
+from typing import Union, Iterable, Optional
 
+import numpy as np
 import flask
 import networkx as nx
 import requests
@@ -15,19 +16,24 @@ from flask import request, jsonify, render_template_string, Response
 from munch import Munch
 from werkzeug.datastructures import FileStorage
 from yaml.representer import RepresenterError
+from pydoc import locate
 
 from clustering_util import ClusteringUtil
 from embedding_util import PhraseEmbeddingUtil
-from main_utils import ProcessStatus, HTTPResponses, StepsName, pipeline_query_params, steps_relation_dict, \
-    add_status_to_running_process, PipelineLanguage, get_bool_expression, StoppableThread, string_conformity
 from preprocessing_util import PreprocessingUtil
+from graph_creation_util import GraphCreationUtil, visualize_graph
+from main_utils import ProcessStatus, HTTPResponses, StepsName, pipeline_query_params, steps_relation_dict, \
+    add_status_to_running_process, PipelineLanguage, get_bool_expression, StoppableThread, string_conformity, BaseUtil
 
 sys.path.insert(0, "src")
-import graph_creation_util
-import cluster_functions
+from src import data_functions, cluster_functions, embedding_functions
+from src.util_functions import DocumentStore, EmbeddingStore
 
 pipeline_json_config = namedtuple("pipeline_json_config",
-                                  ["name", "language", "document_server", "data", "embedding", "clustering", "graph"])
+                                  ["name", "language", "document_server", "vectorstore_server", "data", "embedding", "clustering", "graph"])
+
+document_adding_json = namedtuple("document_adding_json",
+                                  ["language", "documents", "document_server", "vectorstore_server"])
 
 
 def parse_config_json(response_json) -> pipeline_json_config:
@@ -36,6 +42,7 @@ def parse_config_json(response_json) -> pipeline_json_config:
         return pipeline_json_config(string_conformity(config.get("name", None)),
                                     config.get("language", None),
                                     config.get("document_server", None),
+                                    config.get("vectorstore_server", None),
                                     config.config.get("data", Munch()),
                                     config.config.get("embedding", Munch()),
                                     config.config.get("clustering", Munch()),
@@ -46,11 +53,43 @@ def parse_config_json(response_json) -> pipeline_json_config:
         return pipeline_json_config(string_conformity(config.get("name", None)),
                                     config.get("language", None),
                                     config.get("document_server", None),
+                                    config.get("vectorstore_server", None),
                                     Munch(),
                                     Munch(),
                                     Munch(),
                                     Munch()
                                     )
+
+
+def parse_document_adding_json(response_json) -> Optional[document_adding_json]:
+    """
+        request.json = {
+            vectorstore_server: Optional[dict]
+            document_server: Optional[dict]
+            language: str
+            documents: [
+                {
+                    id: str
+                    content: str
+                    corpus: str
+                    label: str
+                    name: str
+                }
+            ]
+        }
+    """
+    try:
+        config = Munch.fromDict(response_json)
+        # _id_key = list(set(config.keys()).intersection(["id", "_id"]))
+        # _id = _id_key[0] if _id_key else "none"
+        return document_adding_json(config.get("language", None),
+                                    config.get("documents", []),
+                                    config.get("document_server", None),
+                                    config.get("vectorstore_server", None))
+    except Exception as e:
+        logging.error(f"Content json parsing error: '{e}'")
+        return None
+
 
 
 def read_config_json(app, processor, process_type, process_name, config, language):
@@ -60,11 +99,11 @@ def read_config_json(app, processor, process_type, process_name, config, languag
     processor.read_config(config=config, process_name=config.get("name", process_name),
                           language=_language if process_type in [StepsName.DATA, StepsName.EMBEDDING] else None)
     app.logger.info(f"Parsed the following arguments for {processor}:\n\t{processor.config}")
-    processor.set_file_storage_path(process_name)
+    processor.file_storage_path = process_name
     processor.process_name = process_name
 
     with pathlib.Path(
-            pathlib.Path(processor._file_storage) /
+            pathlib.Path(processor.file_storage_path) /
             pathlib.Path(f"{process_name}_{process_type}_config.yaml")
     ).open('w') as config_save:
         try:
@@ -141,16 +180,22 @@ def get_data_server_config(document_server_config: Union[FileStorage, dict], app
 
 
 def check_data_server(
-        url: str, port: Union[int, str], index: str
+        config: Union[Munch, dict],
 ):
-    final_url = f"{url.rstrip('/')}:{port}/{index.lstrip('/').rstrip('/')}/_count"
-    try:
-        _response = requests.get(final_url)
-    except requests.exceptions.RequestException as e:
-        return False
-    if _count := _response.json().get('count', False):
-        if int(_count) > 0:
-            return True
+    for _url_key in ["url", "alternate_url"]:
+        _url = config.get(_url_key, None)
+        if _url is None:
+            continue
+        final_url = f"{_url.rstrip('/')}:{config.get('port', '9008')}/{config.get('index', 'documents').lstrip('/').rstrip('/')}/_count"
+        try:
+            _response = requests.get(final_url)
+        except requests.exceptions.RequestException as e:
+            continue
+        if _count := _response.json().get('count', False):
+            if int(_count) > 0:
+                config["url"] = _url
+                config.pop("alternate_url", None)
+                return True
     return False
 
 
@@ -262,13 +307,17 @@ def start_processes(
         processes: tuple,
         process_name: str,
         process_tracker: dict[str, dict],
-        thread_store: dict[str, StoppableThread]
+        thread_store: dict[str, StoppableThread],
+        active_process_objs: dict[str, dict],
 ):
+    #ToDo: maybe think about persisting already finished objects so that each step
+    # doesn't need to load them again?
     _name_marker = {
-        StepsName.DATA: "**data**, embedding, clustering, graph",
-        StepsName.EMBEDDING: "data, **embedding**, clustering, graph",
-        StepsName.CLUSTERING: "data, embedding, **clustering**, graph",
-        StepsName.GRAPH: "data, embedding, clustering, **graph**",
+        StepsName.DATA: "**data**, embedding, clustering, graph, integration",
+        StepsName.EMBEDDING: "data, **embedding**, clustering, graph, integration",
+        StepsName.CLUSTERING: "data, embedding, **clustering**, graph, integration",
+        StepsName.GRAPH: "data, embedding, clustering, **graph**, integration",
+        StepsName.INTEGRATION: "data, embedding, clustering, graph, **integration**",
     }
     for process_obj, _fact, _name in processes:
         if thread_store.get(process_name, None) is not None:
@@ -280,15 +329,20 @@ def start_processes(
                     running_processes=process_tracker
                 )
                 continue
+        log_warning = f"Something went wrong with one of the previous steps: {_name_marker[_name]}."
+        if any([True for d in process_tracker.get(process_name, {}).get("status", [])
+                if (d.get("name") == _name and d.get("status") == ProcessStatus.ABORTED)]):
+            app.logger.warning(log_warning + f"\n So this one was aborted: '{_name}'.")
+            continue
         try:
             process_obj.start_process(
                 cache_name=process_name,
                 process_factory=_fact,
-                process_tracker=process_tracker
+                process_tracker=process_tracker,
+                active_process_objs=active_process_objs,
             )
         except FileNotFoundError as e:
-            app.logger.warning(f"Something went wrong with one of the previous steps: {_name_marker[_name]}."
-                               f"\nThere is a pickle file missing: {e}")
+            app.logger.warning(log_warning +  f"\nThere is a pickle file missing: {e}")
 
 
 def start_thread(
@@ -379,13 +433,13 @@ def load_configs(app: flask.app, process_name: str, path_to_configs: Union[pathl
         (StepsName.DATA, PreprocessingUtil,),
         (StepsName.EMBEDDING, PhraseEmbeddingUtil,),
         (StepsName.CLUSTERING, ClusteringUtil,),
-        (StepsName.GRAPH, graph_creation_util.GraphCreationUtil,)
+        (StepsName.GRAPH, GraphCreationUtil,)
     ]
     _language = set()
     for _step, _proc in processes:
-        process_obj = _proc(app=app, file_storage=path_to_configs)
+        process_obj: BaseUtil = _proc(app=app, file_storage=path_to_configs)
         process_obj.process_name = process_name
-        process_obj.set_file_storage_path(process_name)
+        process_obj.file_storage_path = process_name
         key, val = process_obj.read_stored_config()
         _language.add(val.pop('language', 'en'))
         final_config["config"][key] = val
@@ -498,7 +552,7 @@ def graph_get_specific(process, graph_nr, path: str, draw=False):
             else:
                 templates_path = pathlib.Path(store_path)
                 templates_path.mkdir(exist_ok=True)
-                graph_path = graph_creation_util.visualize_graph(
+                graph_path = visualize_graph(
                     graph=graph_list[graph_nr], store=str(pathlib.Path(templates_path / "graph.html").resolve()),
                     height="800px"
                 )
@@ -515,16 +569,19 @@ def graph_create(app: flask.Flask, path: str):
     # ToDo: files read doesn't work...
     # exclusion_ids_files = read_exclusion_ids(request.files.get("exclusion_ids", "[]"))
     if request.method in ["POST", "GET"]:
-        graph_create = graph_creation_util.GraphCreationUtil(app, path)
+        graph_create = GraphCreationUtil(app, path)
 
         process_name = read_config(graph_create, StepsName.GRAPH)
 
         app.logger.info(f"Start Graph Creation '{process_name}' ...")
         try:
-            concept_graphs = graph_create.start_process(process_name,
-                                                        cluster_functions.WordEmbeddingClustering,
-                                                        exclusion_ids_query)
-            return graph_get_statistics(concept_graphs)  # ToDo: if concept_graphs -> need to adapt method
+            _, concept_graphs = graph_create.start_process(
+                process_name,
+                cluster_functions.WordEmbeddingClustering,
+                process_tracker={},
+                exclusion_ids=exclusion_ids_query
+            )
+            return graph_get_statistics(app, concept_graphs, path)  # ToDo: if concept_graphs -> need to adapt method
         except FileNotFoundError:
             return jsonify(f"There is no processed data for the '{process_name}' process to be embedded.")
     return jsonify("Nothing to do.")
@@ -563,6 +620,71 @@ def get_omit_pipeline_steps(steps: object) -> list[str]:
         steps = steps.strip('([{}])')
         return [s.lower() for s in steps.split(',') if s.lower() in step_set]
     return []
+
+
+def add_documents_to_concept_graphs(
+        content: Iterable[Union[str, dict]],
+        data_processing: Optional[data_functions.DataProcessingFactory.DataProcessing] = None,
+        embedding_processing: Optional[embedding_functions.SentenceEmbeddingsFactory.SentenceEmbeddings] = None,
+        document_store_cls: str = "src.marqo_external_utils.MarqoDocumentStore",
+        embedding_store_cls: str = "src.marqo_external_utils.MarqoEmbeddingStore",
+        document_cls: str = "src.marqo_external_utils.MarqoDocument",
+):
+    """
+    content: [
+        Union[
+            {
+                id: str
+                content: str
+                corpus: str
+                label: str
+                name: str
+            },
+            str
+        ]
+    ]
+    """
+    document_store = locate(document_store_cls)
+    embedding_store = locate(embedding_store_cls)
+    document = locate(document_cls)
+
+    if content is None :
+        return jsonify("No content provided.")
+    _source = embedding_processing.source
+    _client_key = list(set(_source.keys()).intersection(["client_url", "url", "client", "clienturl"])) if isinstance(_source, dict) else "none"
+    _client_key = _client_key[0] if len(_client_key) > 0 else None
+    _index_key = list(set(_source.keys()).intersection(["index_name", "index", "indexname"])) if isinstance(_source, dict) else "none"
+    _index_key = _index_key[0] if len(_index_key) > 0 else None
+
+    _chunk_result = data_processing.process_external_docs(
+        content = [
+            {"name": doc.get("name", None), "content": doc.get("content", ""), "label": doc.get("label", None)}
+            for doc in content
+        ]
+    )
+    text_list = []
+    idx_dict = defaultdict(list)
+    for idx, _chunk in enumerate(sorted(((_result["text"], set(_doc["id"] for _doc in _result["doc"]), )
+                                         for _result in _chunk_result), key=lambda _result: _result[0])):
+        for _doc in _chunk[1]:
+            idx_dict[_doc].append(idx)
+        text_list.append(_chunk[0])
+    _embedding_result = embedding_processing.encode_external(content=text_list)
+
+    embedding_store_impl: EmbeddingStore = embedding_store(
+        client_url=_source.get(_client_key, "http://localhost:8882"),
+        index_name=_source.get(_index_key, "default"),
+        create_index=False,
+        vector_dim=embedding_processing.embedding_dim
+    )
+    doc_store_impl: DocumentStore = document_store(
+        embedding_store=embedding_store_impl
+    )
+    added_embeddings = doc_store_impl.add_documents(
+        [document(phrases=np.take(text_list, idx, 0), embeddings=np.take(_embedding_result.astype("float64"), idx, 0),)
+         for idx in idx_dict.values()]
+    )
+    return jsonify("Processed documents.")
 
 
 if __name__ == "__main__":

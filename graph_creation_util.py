@@ -1,48 +1,37 @@
-import pathlib
-import pickle
 import sys
 from pathlib import Path
-from typing import Optional, Union
-from inspect import getfullargspec
+from typing import Optional, Union, Callable
 
 import flask
-import yaml
 import networkx as nx
-from munch import Munch, unmunchify
 from pyvis import network as net
 
-from flask import jsonify
 from werkzeug.datastructures import FileStorage
 
-from main_utils import ProcessStatus, StepsName, add_status_to_running_process
+from load_utils import FactoryLoader
 
 sys.path.insert(0, "src")
-import util_functions
+from main_utils import StepsName, BaseUtil
+from src.cluster_functions import WordEmbeddingClustering
+from src.util_functions import load_pickle, save_pickle
 
 
-class GraphCreationUtil:
+class GraphCreationUtil(BaseUtil):
 
-    def __init__(self, app: flask.app.Flask, file_storage: str, step_name: StepsName = StepsName.GRAPH):
-        self._app = app
-        self._file_storage = Path(file_storage)
-        self._process_step = step_name
-        self._process_name = None
-        self.config = None
-
-    @property
-    def process_name(self):
-        return self._process_name
-
-    @process_name.setter
-    def process_name(self, name):
-        self._process_name = name
+    def __init__(
+            self,
+            app: flask.app.Flask,
+            file_storage: str
+    ):
+        super().__init__(app, file_storage, StepsName.GRAPH)
 
     @property
-    def process_step(self):
-        return self._process_step
+    def serializable_config(self) -> dict:
+        return self.config.copy()
 
-    def read_config(self, config: Optional[Union[FileStorage, dict]], process_name=None, language=None):
-        base_config = {
+    @property
+    def default_config(self) -> dict:
+        return {
             "cluster_distance": 0.7,
             "cluster_min_size": 4,
             "graph_cosine_weight": .6,
@@ -54,88 +43,89 @@ class GraphCreationUtil:
             "graph_sub_clustering": False,
             "restrict_to_cluster": True,
         }
-        if isinstance(config, dict):
-            if isinstance(config, Munch):
-                _config = unmunchify(config)
-            else:
-                _config = config
-            for _type in ["graph", "cluster"]:
-                _sub_config = _config.get(_type, {}).copy()
-                for k, v in _sub_config.items():
-                    _config[f"{_type}_{k}"] = v
-                _config.pop(_type, None)
-            base_config = _config
-        elif isinstance(config, FileStorage):
-            try:
-                base_config = yaml.safe_load(config.stream)
-                if base_config.get('model', False):
-                    raise KeyError(f"No model name provided in config: {base_config}")
-            except Exception as e:
-                self._app.logger.error(f"Couldn't read config file: {e}")
-                return jsonify("Encountered error. See log.")
-        else:
-            self._app.logger.info("No config file provided; using default values")
 
-        base_config["corpus_name"] = process_name.lower() if process_name is not None else base_config["corpus_name"].lower()
-        self.config = base_config
+    @property
+    def sub_config_names(self) -> list[str]:
+        return ["graph", "cluster"]
 
-    def set_file_storage_path(self, sub_path):
-        self._file_storage = Path(self._file_storage / sub_path)
-        self._file_storage.mkdir(exist_ok=True)  # ToDo: warning when folder exists
+    @property
+    def necessary_config_keys(self) -> list[str]:
+        return []
 
-    def has_pickle(self, process):
-        _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
-        return _pickle.exists()
+    @property
+    def protected_kwargs(self) -> list[str]:
+        return ["exclusion_ids"]
 
-    def delete_pickle(self, process):
-        if self.has_pickle(process):
-            _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
-            _pickle.unlink()
+    def read_config(
+            self,
+            config: Optional[Union[FileStorage, dict]],
+            process_name=None,
+            language=None
+    ):
+        return super().read_config(config, process_name, language)
 
-    def read_stored_config(self, ext: str = "yaml"):
-        _sub_configs = {"graph": {}, "cluster": {}}
-        _file_name = f"{self.process_name}_{self.process_step}_config.{ext}"
-        _file = Path(self._file_storage / _file_name)
-        if not _file.exists():
-            return self.process_step, {}
-        config_yaml = yaml.safe_load(_file.open('rb'))
-        for key, value in config_yaml.copy().items():
-            _sub_key_split = key.split("_")
-            if len(_sub_key_split) > 1 and _sub_key_split[0] in _sub_configs.keys():
-                _sub_configs[_sub_key_split[0]]["_".join(_sub_key_split[1:])] = value
-                config_yaml.pop(key)
-        config_yaml.update(_sub_configs)
-        return self.process_step, config_yaml
+    def read_stored_config(
+            self,
+            ext: str = "yaml"
+    ):
+        return super().read_stored_config(ext)
 
-    def start_process(self, cache_name, process_factory, process_tracker, exclusion_ids=None):
-        sent_emb = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_embedding.pickle"))
-        cluster_obj = util_functions.load_pickle(Path(self._file_storage / f"{cache_name}_clustering.pickle"))
+    def has_process(
+            self,
+            process: Optional[str] = None,
+            extensions: Optional[list[str]] = None
+    ):
+        return super().has_process(process, extensions)
 
-        config = self.config.copy()
+    def delete_process(
+            self,
+            process: Optional[str] = None,
+            extensions: Optional[list[str]] = None
+    ):
+        return super().delete_process(process, ["pickle"])
 
-        add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.RUNNING, process_tracker)
+    def _process_method(self) -> Callable:
+        return WordEmbeddingClustering._ConceptGraphClustering.build_concept_graphs
+
+    def _load_pre_components(
+            self,
+            cache_name,
+            active_process_objs: Optional[dict[str, dict]] = None
+    ) -> tuple:
+        _cached_data = active_process_objs.get(cache_name, {}).get(StepsName.DATA, None)
+        _cached_sent = active_process_objs.get(cache_name, {}).get(StepsName.EMBEDDING, None)
+        _cached_cluster = active_process_objs.get(cache_name, {}).get(StepsName.CLUSTERING, None)
+        sent_emb = FactoryLoader.load_embedding(
+            self._file_storage,
+            cache_name
+        )  if _cached_sent is None else _cached_sent
+        cluster_obj = FactoryLoader.load_clustering(
+            self._file_storage,
+            cache_name,
+            _cached_data,
+            sent_emb
+        ) if _cached_cluster is None else _cached_cluster
+        return sent_emb, cluster_obj
+
+    def _start_process(
+            self,
+            process_factory,
+            *args,
+            **kwargs
+    ):
         concept_graphs = []
+        sent_emb, cluster_obj = args
         try:
             concept_graph_clustering = process_factory(
                 sentence_embedding_obj=sent_emb,
                 cluster_obj=cluster_obj,
-                cluster_exclusion_ids=exclusion_ids
+                cluster_exclusion_ids=kwargs.pop("exclusion_ids", []),
             ).create_concept_graph_clustering()
-
-            # ToDo: should this go everywhere?
-            _valid_config = getfullargspec(concept_graph_clustering.build_concept_graphs).args
-            for _arg in config.copy().keys():
-                if _arg not in _valid_config:
-                    config.pop(_arg)
-            concept_graphs = concept_graph_clustering.build_concept_graphs(**config)
-            with pathlib.Path(self._file_storage / f"{cache_name}_{self.process_step}.pickle").open("wb") as graphs_out:
-                pickle.dump(concept_graphs, graphs_out)
-            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.FINISHED, process_tracker)
+            concept_graphs = concept_graph_clustering.build_concept_graphs(**kwargs)
+            save_pickle(concept_graphs, Path(self.file_storage_path / f"{self.process_name}_{self.process_step}"))
         except Exception as e:
-            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.ABORTED, process_tracker)
-            self._app.logger.error(e)
-
-        return concept_graphs
+            return False, e
+        return True, concept_graphs
 
 
 def visualize_graph(graph: nx.Graph, height="800px", directed=False, store="index.html"):

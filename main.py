@@ -1,12 +1,11 @@
 import json
-import logging
 import shutil
 
-from typing import Optional
-
-from flask import Flask, Response
+from flask import Flask
 from flask.logging import default_handler
 
+from integration_util import ConceptGraphIntegrationUtil
+from load_utils import FactoryLoader
 from main_methods import *
 from main_utils import ProcessStatus, HTTPResponses, StepsName, add_status_to_running_process, get_bool_expression, \
     StoppableThread
@@ -19,7 +18,9 @@ sys.path.insert(0, "src")
 import data_functions
 import embedding_functions
 import cluster_functions
+import integration_functions
 import util_functions
+import marqo_external_utils
 
 werkzeug_logger = logging.getLogger("werkzeug")
 werkzeug_logger.setLevel(logging.WARN)
@@ -33,6 +34,7 @@ FILE_STORAGE_TMP = "./tmp"
 
 running_processes = {}
 pipeline_threads_store = {}
+current_active_pipeline_objects = {}
 
 f_storage = pathlib.Path(FILE_STORAGE_TMP)
 if not f_storage.exists():
@@ -79,7 +81,7 @@ def data_preprocessing():
 
         app.logger.info(f"Start preprocessing '{process_name}' ...")
         return data_get_statistics(
-            pre_proc.start_process(process_name, data_functions.DataProcessingFactory, running_processes)
+            pre_proc.start_process(pre_proc.process_name, data_functions.DataProcessingFactory, running_processes),
         )
 
     elif request.method == "GET":
@@ -100,8 +102,7 @@ def data_preprocessing_with_arg(path_arg):
 
     _path_args = ["statistics", "noun_chunks"]
     if path_arg in _path_args:
-        data_obj = data_functions.DataProcessingFactory.load(
-            pathlib.Path(pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process) / f"{process}_data.pickle"))
+        data_obj = FactoryLoader.load_data(str(pathlib.Path(FILE_STORAGE_TMP, process).resolve()), process)
     else:
         return jsonify(error=f"No such path argument '{path_arg}' for 'preprocessing' endpoint.",
                        possible_path_args=[f"/{p}" for p in _path_args])
@@ -163,10 +164,15 @@ def phrase_clustering():
 
             app.logger.info(f"Start phrase clustering '{process_name}' ...")
             try:
-                _cluster_gen = phra_clus.start_process(
+                _cluster_obj = phra_clus.start_process(
                     process_name, cluster_functions.PhraseClusterFactory, running_processes
                 )
-                return clustering_get_concepts(_cluster_gen)
+                return clustering_get_concepts(
+                    embedding_functions.show_top_k_for_concepts(
+                        cluster_obj=_cluster_obj.concept_cluster,
+                        embedding_object=_cluster_obj.sentence_embeddings, yield_concepts=True
+                    )
+                )
             except FileNotFoundError:
                 return jsonify(f"There is no embedded data for the '{process_name}' process to be clustered.")
         else:
@@ -227,8 +233,75 @@ def graph_base_endpoint():
                     ]
                 }
             },
+            {
+                "document": {
+                    {
+                        "add": {
+                            get_query_param_help_text("process"),
+                        }
+                    }
+                }
+            }
         ],
     ), HTTPResponses.NOT_FOUND
+
+@app.route("/graph/document/<path_arg>", methods=['POST'])
+def graph_document(path_arg):
+    #ToDo: resolve not implemented exceptions
+    """
+    request.json = {
+        vectorstore_server: Optional[dict]
+        document_server: Optional[dict]
+        language: str
+        documents: [
+            Union[
+                {
+                    id: str
+                    content: str
+                    corpus: str
+                    label: str
+                    name: str
+                },
+                str
+            ]
+        ]
+    }
+    """
+    process = request.args.get("process", "default").lower()
+    if request.headers.get("Content-Type") == "application/json":
+        content_json = parse_document_adding_json(request.get_json())
+        if content_json is None:
+            return jsonify(f"Could not parse json provided in request.")
+    else:
+        raise NotImplementedError("Only json request body is supported.")
+    if path_arg.lower() == "add":
+        # if content_json.id is None:
+        #     return jsonify(f"No '_id' or 'id' key in content json: '{request.get_json().keys()}'")
+        _path_base = pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process)
+        _data_proc = FactoryLoader.load_data(str(_path_base.resolve()), process)
+        _emb_proc = FactoryLoader.load_embedding(
+            str(_path_base.resolve()),
+            process,
+            _data_proc,
+            None if content_json.vectorstore_server is None else content_json.vectorstore_server
+        )
+        if content_json.vectorstore_server is None and _emb_proc.source is None:
+            raise NotImplementedError("Only adding documents with a setup vectorstore server is supported; no vectorstore configured.")
+        if _emb_proc.source is None:
+            _emb_proc.source = content_json.vectorstore_server
+        if len(content_json.documents) > 0 and isinstance(content_json.documents[0], dict):
+            _response = add_documents_to_concept_graphs(
+                content_json.documents,
+                data_processing=_data_proc,
+                embedding_processing=_emb_proc,
+            )
+        else:
+            raise NotImplementedError("Right now only processing of documents as json is supported.")
+    elif path_arg.lower() == "delete":
+        raise NotImplementedError("'Delete' not implemented.")
+    else:
+        return jsonify(error=f"No such path argument '{path_arg}' supported.")
+    return graph_base_endpoint()
 
 
 @app.route("/graph/<path_arg>", methods=['POST', 'GET'])
@@ -263,9 +336,11 @@ def graph_creation_with_arg(path_arg):
 
 @app.route("/pipeline", methods=['POST'])
 def complete_pipeline():
+    DEFAULT_VECTOR_STORE = {"url": "http://localhost", "port": 8882}
     data = request.files.get("data", False)
     data_upload = False
     document_server_config = request.files.get("document_server_config", False)
+    vector_store_config = request.files.get("vectorstore_server_config", False)
     replace_keys = None
     label_getter = None
     labels = None
@@ -283,6 +358,7 @@ def complete_pipeline():
 
     if content_type_json:
         _document_server = config_object_json.document_server
+        vector_store_config = config_object_json.vectorstore_server if config_object_json.vectorstore_server is not None else DEFAULT_VECTOR_STORE
         if _document_server is not None:
             replace_keys = _document_server.get("replace_keys", {"text": "content"})
             label_getter = _document_server.get("label_key", None)
@@ -298,6 +374,13 @@ def complete_pipeline():
         _graph_config = config_object_json.graph
 
     else:
+        if vector_store_config:
+            if isinstance(vector_store_config, FileStorage):
+                vector_store_config = yaml.safe_load(vector_store_config.stream)
+            else:
+                vector_store_config = DEFAULT_VECTOR_STORE
+        else:
+            vector_store_config = DEFAULT_VECTOR_STORE
         if not data and not document_server_config:
             return jsonify(
                 name=query_params.process_name,
@@ -322,9 +405,18 @@ def complete_pipeline():
         _clustering_config = request.files.get(f"{StepsName.CLUSTERING}_config", None)
         _graph_config = request.files.get(f"{StepsName.GRAPH}_config", None)
 
+    if vector_store_config is not None:
+        _url = vector_store_config.pop("url", "http://localhost")
+        _port = str(vector_store_config.pop("port", 8882))
+        vector_store_config["client_url"] = f"{_url}:{_port}"
+        #ToDo: check vectorstoreconfig accessible else log warning and force pickle
+        if not marqo_external_utils.MarqoEmbeddingStore.is_accessible(vector_store_config.copy()):
+            logging.warning(f"Vector store doesn't seem to be accessible under '{vector_store_config['client_url']}'."
+                            f" Using 'pickle' storage.")
+            vector_store_config = None
     if not data_upload:
         ds_base_config = get_data_server_config(document_server_config, app)
-        if not check_data_server(url=ds_base_config["url"], port=ds_base_config["port"], index=ds_base_config["index"]):
+        if not check_data_server(ds_base_config):
             return jsonify(
                 name=query_params.process_name,
                 error=f"There is no data server at the specified location ({ds_base_config}) or it contains no data."
@@ -341,21 +433,30 @@ def complete_pipeline():
         (StepsName.DATA, PreprocessingUtil, _data_config, data_functions.DataProcessingFactory,),
         (StepsName.EMBEDDING, PhraseEmbeddingUtil, _embedding_config, embedding_functions.SentenceEmbeddingsFactory,),
         (StepsName.CLUSTERING, ClusteringUtil, _clustering_config, cluster_functions.PhraseClusterFactory,),
-        (StepsName.GRAPH, GraphCreationUtil, _graph_config, cluster_functions.WordEmbeddingClustering,)
+        (StepsName.GRAPH, GraphCreationUtil, _graph_config, cluster_functions.WordEmbeddingClustering,),
+        (StepsName.INTEGRATION, ConceptGraphIntegrationUtil, {}, integration_functions.ConceptGraphIntegrationFactory,)
     ]
     processes_threading = []
-
+    current_active_pipeline_objects[query_params.process_name] = {k: None for k in StepsName.ALL}
     for _name, _proc, _conf, _fact in processes:
-        process_obj = _proc(app=app, file_storage=FILE_STORAGE_TMP)
+        process_obj: BaseUtil = _proc(app=app, file_storage=FILE_STORAGE_TMP)
         add_status_to_running_process(query_params.process_name, _name, ProcessStatus.STARTED, running_processes)
-        if process_obj.has_pickle(query_params.process_name):
+        if process_obj.has_process(query_params.process_name):
             if _name in query_params.omitted_pipeline_steps or query_params.skip_present:
                 logging.info(f"Skipping {_name} because "
                              f"{'omitted' if _name in query_params.omitted_pipeline_steps else 'skip_present'}.")
                 add_status_to_running_process(query_params.process_name, _name, ProcessStatus.FINISHED, running_processes)
+                current_active_pipeline_objects[query_params.process_name][_name] = FactoryLoader.load(
+                    step=_name,
+                    path=str(pathlib.Path(FILE_STORAGE_TMP, query_params.process_name).resolve()),
+                    process=query_params.process_name,
+                    data_obj=current_active_pipeline_objects[query_params.process_name].get(StepsName.DATA, None),
+                    emb_obj=current_active_pipeline_objects[query_params.process_name].get(StepsName.EMBEDDING, None),
+                    vector_store=vector_store_config,
+                )
                 continue
             else:
-                process_obj.delete_pickle(query_params.process_name)
+                process_obj.delete_process(query_params.process_name)
 
         if content_type_json:
             read_config_json(app=app, processor=process_obj, process_type=_name,
@@ -366,13 +467,18 @@ def complete_pipeline():
                         process_name=query_params.process_name, config=_conf, language=query_params.language)
 
         if _name == StepsName.DATA:
+            process_obj: PreprocessingUtil
             process_obj.read_labels(labels if label_getter is None else label_getter)
             process_obj.read_data(data, replace_keys=replace_keys, label_getter=label_getter)
+        if _name == StepsName.EMBEDDING:
+            process_obj.storage_method = ("pickle", None,) if vector_store_config is None else (
+                ("vectorstore", vector_store_config,) if process_obj.storage_method == "vectorstore" else ("pickle", None, )
+            )
 
         processes_threading.append((process_obj, _fact, _name, ))
 
     pipeline_thread = StoppableThread(
-        target_args=(app, processes_threading, query_params.process_name, running_processes, pipeline_threads_store,),
+        target_args=(app, processes_threading, query_params.process_name, running_processes, pipeline_threads_store, current_active_pipeline_objects,),
         group=None, target=start_processes, name=None)
 
     start_thread(app, query_params.process_name, pipeline_thread, pipeline_threads_store)
@@ -404,6 +510,7 @@ def stop_pipeline(process_id):
             threading_store=pipeline_threads_store,
             process_tracker=running_processes
         )
+    return jsonify(f"Method not supported: {request.method}")
 
 
 @app.route("/pipeline/configuration", methods=['GET'])
@@ -446,6 +553,10 @@ def delete_process(process_id):
                         status=int(HTTPResponses.NOT_IMPLEMENTED))
 
     _process_stats = running_processes.pop(process_id)
+    for _step in [PreprocessingUtil, PhraseEmbeddingUtil, ClusteringUtil, GraphCreationUtil]:
+        _process_util = _step(app=app, file_storage=str(pathlib.Path(f_storage / process_id).resolve()))
+        _process_util.process_name = process_id
+        _process_util.delete_process()
     shutil.rmtree(pathlib.Path(f_storage / process_id))
     return Response(f"Process '{process_id}' deleted."), HTTPResponses.OK
 
@@ -494,6 +605,10 @@ def get_data_server():
                 f"Data server reachable under: '{base_config['url']}:{base_config['port']}/{base_config['index']}'"),
             int(HTTPResponses.OK)
         )
+    elif request.method == "POST":
+        return jsonify("Method 'POST' not implemented.")
+    else:
+        return jsonify(f"Method not supported: '{request.method}'.")
 
 
 if __name__ in ["__main__"]:

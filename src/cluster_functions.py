@@ -30,13 +30,12 @@ from scipy.sparse.csgraph import shortest_path, construct_dist_matrix, NegativeC
 from sklearn.feature_extraction.text import TfidfVectorizer as tfidfVec
 #import sknetwork as skn
 
-from data_functions import DataProcessingFactory, clean_span, get_actual_str
-from pruning import unimodal
-
-from embedding_functions import SentenceEmbeddingsFactory, top_k_cosine
-from graph_functions import GraphCreator, unroll_graph, simplify_graph_naive, sub_clustering
+from src.pruning import unimodal
+from src.data_functions import DataProcessingFactory, clean_span, get_actual_str
+from src.embedding_functions import SentenceEmbeddingsFactory, top_k_cosine
+from src.graph_functions import GraphCreator, unroll_graph, simplify_graph_naive, sub_clustering
 # from src.util_functions import CVAEMantle
-from util_functions import load_pickle, save_pickle, pairwise, NoneDownScaleObj, ClusterNumberDetection
+from src.util_functions import load_pickle, save_pickle, pairwise, NoneDownScaleObj, ClusterNumberDetection
 
 logging.basicConfig()
 logging.root.setLevel(logging.INFO)
@@ -142,7 +141,7 @@ class WordEmbeddingClustering:
             _dw_matrix = defaultdict(list)
             _outer = self._outer_instance
             _text_field = _outer._text_field_value if not use_lemma else _outer._lemma_field_value
-            for _d in self._data_proc.noun_chunks_corpus:
+            for _d in self._data_proc.noun_chunks_corpus():
                 _chunk_dict = clean_span(_d["spacy_chunk"])
 
                 _text = ""
@@ -261,10 +260,11 @@ class WordEmbeddingClustering:
                 restrict_to_cluster: bool = False,
         ) -> Iterable[List[int]]:
             _meaningful_clusters = []
-            tfidf_filter = self._data_proc.tfidf_filter
-            if tfidf_filter is not None: # ToDo need to check whether filtering is enabled!
-                logging.info("Filtering phrases")
+            # tfidf_filter = self._data_proc.tfidf_filter
+            # if tfidf_filter is not None: # ToDo need to check whether filtering is enabled!
+            #     logging.info("Filtering phrases")
             for i, _center in enumerate(self._outer_instance._cluster_obj.cluster_center):
+                _center = np.asarray(_center, dtype='float32')
                 if i in (self._outer_instance._exclusion_ids if exclusion_ids is None else exclusion_ids):
                     continue
                 if restrict_to_cluster:  # ToDo: results in worse figures when using same parameters...
@@ -278,7 +278,8 @@ class WordEmbeddingClustering:
                                     distance=cluster_distance, vector_dim=self._sentence_embed.embedding_dim
                                 )
                             ],
-                            tfidf_filter.get_feature_names_out().tolist() if tfidf_filter is not None else None
+                            # tfidf_filter.get_feature_names_out().tolist() if (tfidf_filter is not None and tfidf_filter.vocabulary is not None) else None
+                            None
                         )
                     )
                 else:
@@ -288,10 +289,10 @@ class WordEmbeddingClustering:
                                 _center, self._sentence_embed.sentence_embeddings,
                                 distance=cluster_distance, vector_dim=self._sentence_embed.embedding_dim
                             ),
-                            tfidf_filter.get_feature_names_out().tolist() if tfidf_filter is not None else None
+                            # tfidf_filter.get_feature_names_out().tolist() if tfidf_filter is not None else None
+                            None
                         )
                     )
-
             # ToDo: right now works just for int
             return [_cluster for _cluster in _meaningful_clusters if len(_cluster) >= cluster_min_size]
 
@@ -510,21 +511,21 @@ class WordEmbeddingClustering:
                 graph_sub_clustering: Union[float, bool] = False,
                 connection_distance: int = 2,
                 restrict_to_cluster: bool = False,
-                filter_min_df: Union[int, float] = 1,
-                filter_max_df: Union[int, float] = 1.,
-                filter_stop: Optional[list] = None,
+                # filter_min_df: Union[int, float] = 1,
+                # filter_max_df: Union[int, float] = 1.,
+                # filter_stop: Optional[list] = None,
         ):
-            filter_stop = filter_stop if (filter_stop not in [None, False]) else []
-            if (self._data_proc.tfidf_filter is not None and (
-                    self._data_proc.tfidf_filter.get_params().get("min_df", -1) != filter_min_df or
-                    self._data_proc.tfidf_filter.get_params().get("max_df", -1) != filter_max_df or
-                    self._data_proc.tfidf_filter.get_params().get("stop_words", -1) != filter_stop)) or (
-                    self._data_proc.tfidf_filter is None and (
-                    filter_min_df != 1 or filter_max_df != 1. or filter_stop is not None)):
-                logging.info(
-                    f"Resetting tfidf filter with min_df: {filter_min_df}, max_df: {filter_max_df}, stopwords: {filter_stop}")
-                self._data_proc.reset_filter(filter_min_df=filter_min_df, filter_max_df=filter_max_df,
-                                             filter_stop=filter_stop)
+            # filter_stop = filter_stop if (filter_stop not in [None, False]) else []
+            # if (self._data_proc.tfidf_filter is not None and (
+            #         self._data_proc.tfidf_filter.get_params().get("min_df", -1) != filter_min_df or
+            #         self._data_proc.tfidf_filter.get_params().get("max_df", -1) != filter_max_df or
+            #         self._data_proc.tfidf_filter.get_params().get("stop_words", -1) != filter_stop)) or (
+            #         self._data_proc.tfidf_filter is None and (
+            #         filter_min_df != 1 or filter_max_df != 1. or filter_stop is not None)):
+            #     logging.info(
+            #         f"Resetting tfidf filter with min_df: {filter_min_df}, max_df: {filter_max_df}, stopwords: {filter_stop}")
+            #     self._data_proc.reset_filter(filter_min_df=filter_min_df, filter_max_df=filter_max_df,
+            #                                  filter_stop=filter_stop)
             logging.info(f"Building Document Concept Matrix with following arguments:\n{locals()}")
             _exclusion = self._outer_instance._exclusion_ids if cluster_exclusion_ids is None else cluster_exclusion_ids
             _tqdm_sum = (len(self._outer_instance._cluster_obj.cluster_center) - len(_exclusion))
@@ -652,15 +653,26 @@ class PhraseClusterFactory:
             cluster_by_down_scale=cluster_by_down_scale,
             **kwargs
         )
+        _cluster_obj.sentence_embedding = None
         save_pickle(_cluster_obj, (cache_path / pathlib.Path(f"{cache_name}.pickle")))
         return _cluster_obj
 
-    @staticmethod
+    @classmethod
     def load(
-            data_obj_path: Union[pathlib.Path, str],
+            cls,
+            cluster_obj_path: Union[pathlib.Path, str],
+            embedding_obj: SentenceEmbeddingsFactory.SentenceEmbeddings
     ):
-        _data = load_pickle(pathlib.Path(data_obj_path).resolve())
-        assert isinstance(_data, PhraseClusterFactory.PhraseCluster)
+        _data = load_pickle(pathlib.Path(cluster_obj_path).resolve())
+        try:
+            _ = _data.cluster_center
+        except AttributeError:
+            raise AssertionError(f"The loaded object '{_data}' is not a PhraseCluster object.")
+        try:
+            _ = embedding_obj.sentence_embeddings
+        except AttributeError:
+            raise AssertionError(f"The provided object '{embedding_obj}' is not a SentenceEmbeddings object.")
+        _data.sentence_embedding = embedding_obj
         return _data
 
     class PhraseCluster:
@@ -692,8 +704,7 @@ class PhraseClusterFactory:
             #         self._kelbow_alg_kwargs["estimator"] = self._clustering_estimators_ref.get(self._kelbow_alg_kwargs.get("estimator"))
             #     else:
             #         self._kelbow_alg_kwargs.pop("estimator")
-            self._sentence_emb = sentence_embeddings.sentence_embeddings if not isinstance(sentence_embeddings,
-                                                                                           np.ndarray) else sentence_embeddings
+            self.sentence_embedding = sentence_embeddings
             self._cluster_alg = (cluster_algorithm if cluster_algorithm in ["kmeans", "kmeans-mb", "affinity-prop"]
                                  else "kmeans")
             self._cluster_obj = self._clustering_estimators_ref[self._cluster_alg]
@@ -725,6 +736,14 @@ class PhraseClusterFactory:
                 self
         ):
             return self._concept_cluster
+
+        @property
+        def sentence_embedding(self):
+            return self._sentence_emb
+
+        @sentence_embedding.setter
+        def sentence_embedding(self, value):
+            self._sentence_emb = value if isinstance(value, ndarray) else (None if value is None else value.sentence_embeddings)
 
         @property
         def get_params(
@@ -878,3 +897,8 @@ class ClusterNumberDetector:
         self._owner._cluster_alg_kwargs["n_clusters"] = int(self._k_elbow_estimation(projection))
         # if self._cluster_obj in [KMeans, MiniBatchKMeans] and "n_init" not in _cluster_args.keys():
         #     _cluster_args["n_init"] = 'auto'
+
+if __name__ == '__main__':
+    data = DataProcessingFactory.load(pathlib.Path("../tmp/grascco/grascco_data.pickle"))
+    emb = SentenceEmbeddingsFactory.load(pathlib.Path("../tmp/grascco/grascco_embedding.pickle"), data, storage_method=("vectorstore", None))
+    cluster = PhraseClusterFactory.load(pathlib.Path("../tmp/grascco/grascco_clustering.pickle"), emb)

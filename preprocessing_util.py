@@ -1,33 +1,68 @@
-import inspect
+import sys
 import zipfile
 from pathlib import Path
 from types import GeneratorType
-from typing import List, Dict, Union, Generator, Optional
+from typing import List, Dict, Union, Generator, Optional, Callable
 
 import flask.app
-import spacy
 import yaml
-from munch import Munch, unmunchify
+from dataclass_wizard import JSONSerializable
 from werkzeug.datastructures import FileStorage
-from waiting import wait, TimeoutExpired
 
-from main_utils import ProcessStatus, StepsName, add_status_to_running_process, get_bool_expression, NegspacyConfig
+sys.path.insert(0, "src")
+from main_utils import StepsName, get_bool_expression, NegspacyConfig, load_spacy_model, get_default_spacy_model, BaseUtil
+from src.data_functions import DataProcessingFactory
 from src.negspacy.utils import FeaturesOfInterest
 
-DEFAULT_SPACY_MODEL = "en_core_web_trf"
 
-
-class PreprocessingUtil:
-
-    def __init__(self, app: flask.app.Flask, file_storage: str, step_name: StepsName = StepsName.DATA):
-        self._app = app
-        self._file_storage = Path(file_storage)
-        self._process_step = step_name
-        self._process_name = None
-        self.config = None
-        self.serializable_config = None
+class PreprocessingUtil(BaseUtil):
+    def __init__(
+            self,
+            app: flask.app.Flask,
+            file_storage: str
+    ):
+        super().__init__(app, file_storage, StepsName.DATA)
         self.labels = None
         self.data = None
+        self._ext = ["pickle", "spacy"]
+
+    @property
+    def default_model(self):
+        return get_default_spacy_model()
+
+    @property
+    def language_model_map(self):
+        return {
+            "en": self.default_model,
+            "de": "de_dep_news_trf"
+        }
+
+    @property
+    def serializable_config(self) -> dict:
+        _neg_spacy: JSONSerializable =  self.config.get("negspacy_config", NegspacyConfig())
+        _serializable_conf =  self.config.copy()
+        _serializable_conf["negspacy_config"] = _neg_spacy.to_dict()
+        return _serializable_conf
+
+    @property
+    def default_config(self) -> dict:
+        return {
+            'spacy_model': self.default_model,
+            'file_encoding': 'utf-8',
+            "omit_negated_chunks": False
+        }
+
+    @property
+    def sub_config_names(self) -> list[str]:
+        return []
+
+    @property
+    def necessary_config_keys(self) -> list[str]:
+        return []
+
+    @property
+    def protected_kwargs(self) -> list[str]:
+        return ["spacy_model"]
 
     def _read_zip_content(self, zip_archive, labels) -> List[Dict[str, str]]:
         extension = self.config.get("file_extension", "txt")
@@ -36,32 +71,12 @@ class PreprocessingUtil:
                  "label": labels.get(Path(f.filename).stem, None)}
                 for f in zip_archive.filelist if (not f.is_dir()) and (Path(f.filename).suffix.lstrip('.') == extension.lstrip('.'))]
 
-    @property
-    def process_name(self):
-        return self._process_name
-
-    @process_name.setter
-    def process_name(self, name):
-        self._process_name = name
-
-    @property
-    def process_step(self):
-        return self._process_step
-
-    def set_file_storage_path(self, sub_path):
-        self._file_storage = Path(self._file_storage / sub_path)
-        self._file_storage.mkdir(exist_ok=True)  # ToDo: warning when folder exists
-
-    def has_pickle(self, process):
-        _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
-        return _pickle.exists()
-
-    def delete_pickle(self, process):
-        if self.has_pickle(process):
-            _pickle = Path(self._file_storage / process / f"{process}_{self.process_step}.pickle")
-            _pickle.unlink()
-
-    def read_data(self, data: Union[FileStorage, Path, Generator], replace_keys: Optional[dict], label_getter: Optional[str]):
+    def read_data(
+            self,
+            data: Union[FileStorage, Path, Generator],
+            replace_keys: Optional[dict],
+            label_getter: Optional[str]
+    ):
         try:
             if isinstance(data, FileStorage):
                 archive_path = Path(self._file_storage / data.filename)
@@ -96,72 +111,6 @@ class PreprocessingUtil:
         except Exception as e:
             self._app.logger.error(f"Something went wrong with data file reading: {e}")
 
-    def read_config(self, config: Optional[Union[FileStorage, dict]], process_name=None, language=None):
-        base_config = {'spacy_model': DEFAULT_SPACY_MODEL, 'file_encoding': 'utf-8', "omit_negated_chunks": False}
-        _language_model_map = {"en": DEFAULT_SPACY_MODEL, "de": "de_dep_news_trf"}
-
-        if isinstance(config, dict):
-            if isinstance(config, Munch):
-                base_config = unmunchify(config)
-            else:
-                base_config = config
-        elif isinstance(config, FileStorage):
-            try:
-                base_config = yaml.safe_load(config.stream)
-            except Exception as e:
-                self._app.logger.error(f"Couldn't read config file: {e}")
-        else:
-            self._app.logger.info("No config file provided; using default values")
-            if language is not None:
-                base_config["spacy_model"] = _language_model_map.get(language, DEFAULT_SPACY_MODEL)
-
-        if language is not None and not base_config.get("spacy_model", False):
-            base_config["spacy_model"] = _language_model_map.get(language, DEFAULT_SPACY_MODEL)
-
-        base_config["corpus_name"] = process_name.lower() if process_name is not None else base_config["corpus_name"].lower()
-        # ToDo: Since n_process > 1 would induce Multiprocessing and this doesn't work with the Threading approach
-        #  to keep the server able to respond, the value will be popped here.
-        #  Maybe I can find a solution to this problem
-        base_config.pop("n_process", None)
-
-        self.serializable_config = base_config.copy()
-        if base_config.get("negspacy", False):
-            _enabled = False
-            _neg_config = NegspacyConfig()
-            if isinstance(base_config["negspacy"], dict):
-                for k, v in base_config["negspacy"].items():
-                    if k.lower() == "enabled":
-                        _enabled = get_bool_expression(v)
-                    elif k.lower() == "configuration":
-                        _neg_config = NegspacyConfig.from_dict(v)
-            elif isinstance(base_config["negspacy"], list):
-                for _c in base_config["negspacy"]:
-                    if get_bool_expression(_c.get("enabled", "False")):
-                        _enabled = True
-                    elif _c.get("configuration", False):
-                        _neg_config = NegspacyConfig.from_dict(_c.get("configuration")[0])
-            _foi_map = {
-                "nc": FeaturesOfInterest.NOUN_CHUNKS,
-                "ne": FeaturesOfInterest.NAMED_ENTITIES,
-                "both": FeaturesOfInterest.BOTH
-            }
-            _neg_config.feat_of_interest = (
-                _foi_map.get(_neg_config.feat_of_interest.lower(), FeaturesOfInterest.NAMED_ENTITIES)
-                if isinstance(_neg_config.feat_of_interest, str) else FeaturesOfInterest.NAMED_ENTITIES
-            )
-            base_config.pop("negspacy", None)
-            base_config["negspacy_config"] = _neg_config
-            base_config["omit_negated_chunks"] = _enabled
-
-        if base_config.get("tfidf_filter", False):
-            _conf = base_config.pop("tfidf_filter")
-            if _conf.get("enabled", True):
-                base_config["filter_min_df"] = _conf.get("min_df", 1)
-                base_config["filter_max_df"] = _conf.get("max_df", 1.0)
-                base_config["filter_stop"] = _conf.get("stop", None)
-
-        self.config = base_config
-
     def read_labels(self, labels):
         base_labels = {}
         if labels is None:
@@ -176,74 +125,98 @@ class PreprocessingUtil:
                 self._app.logger.error(f"Couldn't read labels file: {e}")
         self.labels = base_labels
 
+    def read_config(
+            self,
+            config: Optional[Union[FileStorage, dict]],
+            process_name=None,
+            language=None
+    ):
+        _response = super().read_config(config, process_name, language)
+        if _response is None:
+            if language is not None and not self.config.get("spacy_model", False):
+                self.config["spacy_model"] = self.language_model_map.get(language, self.default_model)
+
+            if self.config.get("negspacy", False):
+                _enabled = False
+                _neg_config = NegspacyConfig()
+                _neg_options = self.config.pop("negspacy")
+                if isinstance(_neg_options, dict):
+                    for k, v in _neg_options.items():
+                        if k.lower() == "enabled":
+                            _enabled = get_bool_expression(v)
+                        elif k.lower() == "configuration":
+                            _neg_config = NegspacyConfig.from_dict(v)
+                elif isinstance(_neg_options, list):
+                    for _c in _neg_options:
+                        if get_bool_expression(_c.get("enabled", "False")):
+                            _enabled = True
+                        elif _c.get("configuration", False):
+                            _neg_config = NegspacyConfig.from_dict(_c.get("configuration")[0])
+                _foi_map = {
+                    "nc": FeaturesOfInterest.NOUN_CHUNKS,
+                    "ne": FeaturesOfInterest.NAMED_ENTITIES,
+                    "both": FeaturesOfInterest.BOTH
+                }
+                _neg_config.feat_of_interest = (
+                    _foi_map.get(_neg_config.feat_of_interest.lower(), FeaturesOfInterest.NAMED_ENTITIES)
+                    if isinstance(_neg_config.feat_of_interest, str) else FeaturesOfInterest.NAMED_ENTITIES
+                )
+                self.config["negspacy_config"] = _neg_config
+                self.config["omit_negated_chunks"] = _enabled
+
+            if self.config.get("tfidf_filter", False):
+                _conf = self.config.pop("tfidf_filter")
+                if _conf.get("enabled", True):
+                    self.config["filter_min_df"] = _conf.get("min_df", 1)
+                    self.config["filter_max_df"] = _conf.get("max_df", 1.0)
+                    self.config["filter_stop"] = _conf.get("stop", None)
+        return _response
+
     def read_stored_config(self, ext: str = "yaml"):
-        _file_name = f"{self.process_name}_{self.process_step}_config.{ext}"
-        _file = Path(self._file_storage / _file_name)
-        if not _file.exists():
-            return self.process_step, {}
-        config_yaml = yaml.safe_load(_file.open('rb'))
-        return self.process_step, config_yaml
+        return super().read_stored_config(ext)
 
-    def start_process(self, cache_name, process_factory, process_tracker):
-        config = self.config.copy()
-        default_args = inspect.getfullargspec(process_factory.create)[0]
-        _model = config.pop("spacy_model", DEFAULT_SPACY_MODEL)
-        try:
-            spacy_language = spacy.load(_model)
-        except IOError as e:
-            if _model != DEFAULT_SPACY_MODEL:
-                if self.is_valid_spacy_model(_model):
-                    self._app.logger.info(f"Model '{_model}' doesn't seem to be installed; trying to download model.")
-                    self.wait_for_download(_model)
-                    spacy_language = spacy.load(_model)
-                else:
-                    self._app.logger.error(f"{e}\nUsing default model {DEFAULT_SPACY_MODEL}.")
-                    try:
-                        spacy_language = spacy.load(DEFAULT_SPACY_MODEL)
-                    except IOError as e:
-                        self._app.logger.error(f"{e}\ntrying to download default model {DEFAULT_SPACY_MODEL}.")
-                        self.wait_for_download(DEFAULT_SPACY_MODEL)
-                        spacy_language = spacy.load(DEFAULT_SPACY_MODEL)
-            else:
-                self._app.logger.error(f"{e}\ntrying to download default model {DEFAULT_SPACY_MODEL}.")
-                self.wait_for_download(DEFAULT_SPACY_MODEL)
-                spacy_language = spacy.load(DEFAULT_SPACY_MODEL)
+    def has_process(
+            self,
+            process: Optional[str] = None,
+            extensions: Optional[list[str]] = None
+    ):
+        return super().has_process(process, extensions)
 
-        for x in list(config.keys()):
-            if x not in default_args:
-                config.pop(x)
+    def delete_process(
+            self,
+            process: Optional[str] = None,
+            extensions: Optional[list[str]] = None
+    ):
+        super().delete_process(process, ["pickle", "spacy"])
 
-        add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.RUNNING, process_tracker)
+    def _process_method(self) -> Optional[Callable]:
+        return DataProcessingFactory.create
+
+    def _load_pre_components(
+            self,
+            cache_name,
+            active_process_objs: Optional[dict[str, dict]] = None
+    ):
+        return None
+
+    def _start_process(
+            self,
+            process_factory,
+            *args,
+            **kwargs
+    ):
+        _model = kwargs.pop("spacy_model", get_default_spacy_model())
+        spacy_language = load_spacy_model(_model, self._app.logger, get_default_spacy_model())
         _process = None
         try:
             _process = process_factory.create(
                 pipeline=spacy_language,
                 base_data=self.data,
-                cache_name=f"{cache_name}_{self.process_step}",
+                cache_name=f"{self.process_name}_{self.process_step}",
                 cache_path=self._file_storage,
                 save_to_file=True,
-                **config
+                **kwargs
             )
-            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.FINISHED, process_tracker)
         except Exception as e:
-            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.ABORTED, process_tracker)
-            self._app.logger.error(e)
-
-        return _process
-
-    def is_valid_spacy_model(self, model: str):
-        from spacy.cli.download import get_compatibility
-        if model in get_compatibility():
-            return True
-        self._app.logger.error(f"'{model}' is not a valid model name.")
-        return False
-
-
-    def wait_for_download(self, model: str, time_out: int = 30):
-        spacy.cli.download(model)
-        wait_pred = lambda: model in spacy.util.get_installed_models()
-        try:
-            wait(wait_pred, timeout_seconds=time_out)
-        except TimeoutExpired as e:
-            self._app.logger.warning(f"TimeOut while waiting >{time_out} seconds for download to finish."
-                                     f" Hopefully this is just due to installed models not refreshing.")
+            return False, e
+        return True, _process
