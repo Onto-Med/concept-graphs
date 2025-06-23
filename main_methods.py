@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 import sys
 import pathlib
 import pickle
@@ -320,26 +321,31 @@ def start_processes(
         StepsName.INTEGRATION: "data, embedding, clustering, graph, **integration**",
     }
     for process_obj, _fact, _name in processes:
-        if thread_store.get(process_name, None) is not None:
-            if thread_store[process_name].stopped():
-                add_status_to_running_process(
-                    process_name=process_name,
-                    step_name=_name,
-                    step_status=ProcessStatus.NOT_PRESENT,
-                    running_processes=process_tracker
-                )
-                continue
+        process_obj: BaseUtil
+        this_thread: Optional[StoppableThread] = thread_store.get(process_name, None)
+        if this_thread is not None and this_thread.set_to_stop:
+            add_status_to_running_process(
+                process_name=process_name,
+                step_name=_name,
+                step_status=ProcessStatus.NOT_PRESENT,
+                running_processes=process_tracker
+            )
+            continue
         log_warning = f"Something went wrong with one of the previous steps: {_name_marker[_name]}."
         if any([True for d in process_tracker.get(process_name, {}).get("status", [])
                 if (d.get("name") == _name and d.get("status") == ProcessStatus.ABORTED)]):
             app.logger.warning(log_warning + f"\n So this one was aborted: '{_name}'.")
             continue
         try:
+            if this_thread.set_to_stop:
+                app.logger.info(f"Thread for '{process_name}' was stopped before this step '{_name}'. So subsequent steps will not be started.")
+                return
             process_obj.start_process(
                 cache_name=process_name,
                 process_factory=_fact,
                 process_tracker=process_tracker,
                 active_process_objs=active_process_objs,
+                thread=this_thread
             )
         except FileNotFoundError as e:
             app.logger.warning(log_warning +  f"\nThere is a pickle file missing: {e}")
@@ -353,8 +359,8 @@ def start_thread(
 ):
     app.logger.info(f"Starting thread for '{process_name}'.")
     pipeline_thread.start()
-    threading_store[process_name] = pipeline_thread
-    sleep(1)
+    # threading_store[process_name] = pipeline_thread
+    sleep(1.5)
     return True
 
 
@@ -368,6 +374,9 @@ def stop_thread(
     # ToDo: delete config for aborted steps
     # ToDo: maybe allow for hard stop? -> terminate the thread even if a step is not yet finished
     app.logger.info(f"Trying to stop thread for '{process_name}'.")
+    if hard_stop:
+        app.logger.warning(f"Hard stopping a thread is not implemented.")
+        hard_stop = False
     _thread = threading_store.get(process_name, None)
     _process = process_tracker.get(process_name, None)
 
@@ -381,7 +390,7 @@ def stop_thread(
         _msg = f"Couldn't find a running step in the pipeline '{process_name}'."
         logging.error(_msg)
         return Response(_msg, status=int(HTTPResponses.INTERNAL_SERVER_ERROR))
-    _thread.stop()
+    _thread.stop(hard_stop=hard_stop)
 
     try:
         for _step in sorted(_process.get('status', {}), key=lambda p: p.get('rank')):
@@ -685,6 +694,23 @@ def add_documents_to_concept_graphs(
          for idx in idx_dict.values()]
     )
     return jsonify("Processed documents.")
+
+def delete_pipeline(
+        app: flask.Flask,
+        base_path: pathlib.Path,
+        process_name: str,
+        running_processes: dict,
+        wait_for_thread: Optional[StoppableThread] = None
+):
+    if wait_for_thread is not None:
+        app.logger.info(f"Waiting for thread '{process_name}' to stop before deleting...")
+        wait_for_thread.join()
+    _process_stats = running_processes.pop(process_name, None)
+    for _step in [PreprocessingUtil, PhraseEmbeddingUtil, ClusteringUtil, GraphCreationUtil]:
+        _process_util = _step(app=app, file_storage=str(pathlib.Path(base_path / process_name).resolve()))
+        _process_util.process_name = process_name
+        _process_util.delete_process()
+    shutil.rmtree(pathlib.Path(base_path / process_name))
 
 
 if __name__ == "__main__":

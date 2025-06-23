@@ -409,7 +409,6 @@ def complete_pipeline():
         _url = vector_store_config.pop("url", "http://localhost")
         _port = str(vector_store_config.pop("port", 8882))
         vector_store_config["client_url"] = f"{_url}:{_port}"
-        #ToDo: check vectorstoreconfig accessible else log warning and force pickle
         if not marqo_external_utils.MarqoEmbeddingStore.is_accessible(vector_store_config.copy()):
             logging.warning(f"Vector store doesn't seem to be accessible under '{vector_store_config['client_url']}'."
                             f" Using 'pickle' storage.")
@@ -481,6 +480,7 @@ def complete_pipeline():
         target_args=(app, processes_threading, query_params.process_name, running_processes, pipeline_threads_store, current_active_pipeline_objects,),
         group=None, target=start_processes, name=None)
 
+    pipeline_threads_store[query_params.process_name] = pipeline_thread
     start_thread(app, query_params.process_name, pipeline_thread, pipeline_threads_store)
 
     if query_params.return_statistics:
@@ -503,12 +503,14 @@ def complete_pipeline():
 @app.route("/processes/<process_id>/stop", methods=["GET"])
 def stop_pipeline(process_id):
     if request.method == "GET":
+        hard_stop = request.args.get("hard_stop", False)
         process_id = process_id.lower()
         return stop_thread(
             app=app,
             process_name=process_id,
             threading_store=pipeline_threads_store,
-            process_tracker=running_processes
+            process_tracker=running_processes,
+            hard_stop=hard_stop,
         )
     return jsonify(f"Method not supported: {request.method}")
 
@@ -542,23 +544,30 @@ def get_pipeline_default_configuration():
 
 @app.route("/processes/<process_id>/delete", methods=["DELETE"])
 def delete_process(process_id):
+    hard_stop = request.args.get("hard_stop", False)
     process_id = process_id.lower()
     if process_id not in running_processes:
         return Response(f"There is no such process '{process_id}'.\n",
                         status=int(HTTPResponses.NOT_FOUND))
-    if any([step.get('status') == ProcessStatus.RUNNING
+    if any([step.get('status') in [ProcessStatus.RUNNING, ProcessStatus.STARTED]
             for step in running_processes.get(process_id).get("status", [])]):
-        # ToDo: threading could be made so, that we're able to stop a running thread. Right now, this is not implemented
-        return Response(f"The process '{process_id}' is currently running and it can't be stopped in the current implementation.",
-                        status=int(HTTPResponses.NOT_IMPLEMENTED))
-
-    _process_stats = running_processes.pop(process_id)
-    for _step in [PreprocessingUtil, PhraseEmbeddingUtil, ClusteringUtil, GraphCreationUtil]:
-        _process_util = _step(app=app, file_storage=str(pathlib.Path(f_storage / process_id).resolve()))
-        _process_util.process_name = process_id
-        _process_util.delete_process()
-    shutil.rmtree(pathlib.Path(f_storage / process_id))
-    return Response(f"Process '{process_id}' deleted."), HTTPResponses.OK
+        to_stop: StoppableThread
+        if to_stop := pipeline_threads_store.get(process_id, None):
+            _stop = stop_thread(
+                app=app,
+                process_name=process_id,
+                threading_store=pipeline_threads_store,
+                process_tracker=running_processes,
+                hard_stop=hard_stop
+            )
+            _delete_thread = StoppableThread(
+                target_args=(app, f_storage, process_id, running_processes, to_stop),
+                group=None,
+                target=delete_pipeline,
+                name=None
+            )
+            _delete_thread.start()
+    return Response(f"Process '{process_id}' set to be deleted."), HTTPResponses.OK
 
 
 @app.route("/processes", methods=['GET'])

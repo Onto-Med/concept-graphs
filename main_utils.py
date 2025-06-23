@@ -69,12 +69,20 @@ class StoppableThread(threading.Thread):
     def __init__(self, group, target, name, target_args):
         super().__init__(args=target_args, group=group, target=target, name=name)
         self._stop_event = threading.Event()
+        self._hard_stop_event = threading.Event()
 
-    def stop(self):
+    @property
+    def set_to_stop(self):
+        return self._stop_event.is_set() or self._hard_stop_event.is_set()
+
+    @property
+    def set_to_hard_stop(self):
+        return self._stop_event.is_set() and self._hard_stop_event.is_set()
+
+    def stop(self, hard_stop=False):
         self._stop_event.set()
-
-    def stopped(self):
-        return self._stop_event.is_set()
+        if hard_stop:
+            self._hard_stop_event.set()
 
 
 class BaseUtil(ABC):
@@ -88,6 +96,7 @@ class BaseUtil(ABC):
         self._file_storage = pathlib.Path(file_storage)
         self._process_step = step_name
         self._process_name = None
+        self._thread: Optional[StoppableThread] = None
         self.config = None
 
     def _complete_pickle_path(
@@ -122,6 +131,26 @@ class BaseUtil(ABC):
     @abstractmethod
     def protected_kwargs(self) -> list[str]:
         raise NotImplementedError()
+
+    @property
+    def this_thread(self):
+        return self._thread
+
+    @this_thread.setter
+    def this_thread(self, thread: StoppableThread):
+        self._thread = thread
+
+    @property
+    def is_threaded(self) -> bool:
+        return self.this_thread is not None
+
+    @property
+    def thread_is_set_to_stop(self) -> bool:
+        return self.is_threaded and self.this_thread.is_alive() and self.this_thread.set_to_stop
+
+    @property
+    def thread_is_set_to_hard_stop(self) -> bool:
+        return self.is_threaded and self.this_thread.is_alive() and self.this_thread.set_to_hard_stop
 
     @property
     def process_name(self) -> Optional[str]:
@@ -283,6 +312,13 @@ class BaseUtil(ABC):
             StepsName.GRAPH: [StepsName.GRAPH],
         }.get(step, StepsName.ALL)
 
+    def stop_thread(
+            self,
+            hard_stop: bool = False
+    ):
+        if self.is_threaded:
+            self.this_thread.stop(hard_stop=hard_stop)
+
     def start_process(
             self,
             cache_name: str,
@@ -290,8 +326,10 @@ class BaseUtil(ABC):
             process_tracker: dict,
             active_process_objs: Optional[dict[str, dict]] = None,
             return_result_obj: bool = False,
+            thread: Optional[StoppableThread] = None,
             **kwargs
     ):
+        self.this_thread = thread
         add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.RUNNING, process_tracker)
         _pre_components = self._load_pre_components(cache_name, active_process_objs)
         config = self.config.copy()
