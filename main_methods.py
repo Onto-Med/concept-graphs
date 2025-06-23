@@ -21,6 +21,7 @@ from pydoc import locate
 
 from clustering_util import ClusteringUtil
 from embedding_util import PhraseEmbeddingUtil
+from integration_util import ConceptGraphIntegrationUtil
 from preprocessing_util import PreprocessingUtil
 from graph_creation_util import GraphCreationUtil, visualize_graph
 from main_utils import ProcessStatus, HTTPResponses, StepsName, pipeline_query_params, steps_relation_dict, \
@@ -310,6 +311,7 @@ def start_processes(
         process_tracker: dict[str, dict],
         thread_store: dict[str, StoppableThread],
         active_process_objs: dict[str, dict],
+        last_step: str
 ):
     #ToDo: maybe think about persisting already finished objects so that each step
     # doesn't need to load them again?
@@ -347,6 +349,8 @@ def start_processes(
                 active_process_objs=active_process_objs,
                 thread=this_thread
             )
+            if _name == last_step:
+                app.logger.info(f"Pipeline finished with last step: '{_name}'.")
         except FileNotFoundError as e:
             app.logger.warning(log_warning +  f"\nThere is a pickle file missing: {e}")
 
@@ -706,7 +710,7 @@ def delete_pipeline(
         app.logger.info(f"Waiting for thread '{process_name}' to stop before deleting...")
         wait_for_thread.join()
     _process_stats = running_processes.pop(process_name, None)
-    for _step in [PreprocessingUtil, PhraseEmbeddingUtil, ClusteringUtil, GraphCreationUtil]:
+    for _step in [PreprocessingUtil, PhraseEmbeddingUtil, ClusteringUtil, GraphCreationUtil, ConceptGraphIntegrationUtil]:
         _process_util = _step(app=app, file_storage=str(pathlib.Path(base_path / process_name).resolve()))
         _process_util.process_name = process_name
         _process_util.delete_process()

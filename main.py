@@ -437,6 +437,8 @@ def complete_pipeline():
     ]
     processes_threading = []
     current_active_pipeline_objects[query_params.process_name] = {k: None for k in StepsName.ALL}
+    _prev_step_present = True
+    _last_step = StepsName.INTEGRATION
     for _name, _proc, _conf, _fact in processes:
         process_obj: BaseUtil = _proc(app=app, file_storage=FILE_STORAGE_TMP)
         add_status_to_running_process(query_params.process_name, _name, ProcessStatus.STARTED, running_processes)
@@ -445,17 +447,22 @@ def complete_pipeline():
                 logging.info(f"Skipping {_name} because "
                              f"{'omitted' if _name in query_params.omitted_pipeline_steps else 'skip_present'}.")
                 add_status_to_running_process(query_params.process_name, _name, ProcessStatus.FINISHED, running_processes)
-                current_active_pipeline_objects[query_params.process_name][_name] = FactoryLoader.load(
-                    step=_name,
-                    path=str(pathlib.Path(FILE_STORAGE_TMP, query_params.process_name).resolve()),
-                    process=query_params.process_name,
-                    data_obj=current_active_pipeline_objects[query_params.process_name].get(StepsName.DATA, None),
-                    emb_obj=current_active_pipeline_objects[query_params.process_name].get(StepsName.EMBEDDING, None),
-                    vector_store=vector_store_config,
-                )
+                if _prev_step_present:
+                    current_active_pipeline_objects[query_params.process_name][_name] = FactoryLoader.load(
+                        step=_name,
+                        path=str(pathlib.Path(FILE_STORAGE_TMP, query_params.process_name).resolve()),
+                        process=query_params.process_name,
+                        data_obj=current_active_pipeline_objects[query_params.process_name].get(StepsName.DATA, None),
+                        emb_obj=current_active_pipeline_objects[query_params.process_name].get(StepsName.EMBEDDING, None),
+                        vector_store=vector_store_config,
+                    )
                 continue
             else:
                 process_obj.delete_process(query_params.process_name)
+                _last_step = _name
+        else:
+            _last_step = _name
+            _prev_step_present = False
 
         if content_type_json:
             read_config_json(app=app, processor=process_obj, process_type=_name,
@@ -477,7 +484,7 @@ def complete_pipeline():
         processes_threading.append((process_obj, _fact, _name, ))
 
     pipeline_thread = StoppableThread(
-        target_args=(app, processes_threading, query_params.process_name, running_processes, pipeline_threads_store, current_active_pipeline_objects,),
+        target_args=(app, processes_threading, query_params.process_name, running_processes, pipeline_threads_store, current_active_pipeline_objects, _last_step,),
         group=None, target=start_processes, name=None)
 
     pipeline_threads_store[query_params.process_name] = pipeline_thread
@@ -549,9 +556,10 @@ def delete_process(process_id):
     if process_id not in running_processes:
         return Response(f"There is no such process '{process_id}'.\n",
                         status=int(HTTPResponses.NOT_FOUND))
+    to_stop = None
     if any([step.get('status') in [ProcessStatus.RUNNING, ProcessStatus.STARTED]
             for step in running_processes.get(process_id).get("status", [])]):
-        to_stop: StoppableThread
+        to_stop: Optional[StoppableThread]
         if to_stop := pipeline_threads_store.get(process_id, None):
             _stop = stop_thread(
                 app=app,
@@ -560,13 +568,13 @@ def delete_process(process_id):
                 process_tracker=running_processes,
                 hard_stop=hard_stop
             )
-            _delete_thread = StoppableThread(
-                target_args=(app, f_storage, process_id, running_processes, to_stop),
-                group=None,
-                target=delete_pipeline,
-                name=None
-            )
-            _delete_thread.start()
+    _delete_thread = StoppableThread(
+        target_args=(app, f_storage, process_id, running_processes, to_stop),
+        group=None,
+        target=delete_pipeline,
+        name=None
+    )
+    _delete_thread.start()
     return Response(f"Process '{process_id}' set to be deleted."), HTTPResponses.OK
 
 
