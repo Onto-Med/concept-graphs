@@ -515,7 +515,7 @@ def read_config(
             if isinstance(v, str) and v.lower() == "none":
                 processor.config[k] = None
     app.logger.info(
-        f"Parsed the following arguments for {processor}:\n\t{processor.config}"
+        f"Parsed the following arguments for '{processor.process_name}':\n\t{processor.config}"
     )
     process_name_conf = processor.config.pop("corpus_name", "default")
     if process_name is None:

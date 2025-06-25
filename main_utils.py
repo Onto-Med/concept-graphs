@@ -370,7 +370,7 @@ class BaseUtil(ABC):
                 self._app.logger.error(
                     _process_status[1]
                     if (
-                        len(_process_status) > 1 and isinstance(_process_status[1], str)
+                        len(_process_status) > 1 and (isinstance(_process_status[1], str) or isinstance(_process_status[1], Exception))
                     )
                     else "No error message given."
                 )

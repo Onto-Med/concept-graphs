@@ -1,11 +1,9 @@
 import json
+import logging
 
 from flask import Flask
 from flask.logging import default_handler
 
-from clustering_util import ClusteringUtil
-from embedding_util import PhraseEmbeddingUtil
-from graph_creation_util import GraphCreationUtil
 from load_utils import FactoryLoader
 from main_methods import *
 from main_utils import (
@@ -28,9 +26,13 @@ import marqo_external_utils
 
 werkzeug_logger = logging.getLogger("werkzeug")
 werkzeug_logger.setLevel(logging.WARN)
-root = logging.getLogger()
-root.addHandler(default_handler)
-[default_handler.setLevel(h) for h in werkzeug_logger.handlers]
+marqo_logger = logging.getLogger("marqo")
+marqo_logger.setLevel(logging.WARN)
+root_logger = logging.getLogger()
+root_logger.propagate = False
+if root_logger.hasHandlers():
+    root_logger.handlers.clear()
+root_logger.addHandler(default_handler)
 app = Flask(__name__)
 
 
