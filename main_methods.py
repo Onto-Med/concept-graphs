@@ -372,8 +372,6 @@ def start_processes(
     active_process_objs: dict[str, dict],
     last_step: str,
 ):
-    # ToDo: maybe think about persisting already finished objects so that each step
-    # doesn't need to load them again?
     _name_marker = {
         StepsName.DATA: "**data**, embedding, clustering, graph, integration",
         StepsName.EMBEDDING: "data, **embedding**, clustering, graph, integration",
@@ -514,15 +512,15 @@ def read_config(
         for k, v in processor.config.items():
             if isinstance(v, str) and v.lower() == "none":
                 processor.config[k] = None
-    app.logger.info(
-        f"Parsed the following arguments for '{processor.process_name}':\n\t{processor.config}"
-    )
     process_name_conf = processor.config.pop("corpus_name", "default")
     if process_name is None:
         process_name = process_name_conf
     process_name = string_conformity(process_name)
     processor.file_storage_path = process_name
     processor.process_name = process_name
+    app.logger.info(
+        f"Parsed the following arguments for '{processor.process_name}':\n\t{processor.config}"
+    )
 
     with pathlib.Path(
         pathlib.Path(processor._file_storage)

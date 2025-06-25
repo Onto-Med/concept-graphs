@@ -3,6 +3,7 @@ import enum
 import io
 import itertools
 import json
+import logging
 import pathlib
 import pickle
 from collections import Counter, defaultdict
@@ -75,7 +76,9 @@ def pairwise(iterable):
     return zip(a, b)
 
 
-def load_pickle(file_path: Union[pathlib.Path, str, io.IOBase]):
+def load_pickle(file_path: Union[pathlib.Path, str, io.IOBase], logger: logging.Logger = None) -> Any:
+    if logger is None:
+        logger = logging.getLogger()
     if isinstance(file_path, str):
         file_path = pathlib.Path(file_path).absolute()
     elif isinstance(file_path, pathlib.Path):
@@ -88,7 +91,11 @@ def load_pickle(file_path: Union[pathlib.Path, str, io.IOBase]):
 
     if not isinstance(file_path, io.IOBase):
         with file_path.open("rb") as f:
-            return pickle.load(f)
+            try:
+                return pickle.load(f)
+            except EOFError as e:
+                logger.error(f"Unable to load {file_path}: {e}")
+                return None
     else:
         loaded_object = pickle.load(file_path)
         file_path.close()

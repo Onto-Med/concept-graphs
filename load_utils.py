@@ -45,6 +45,8 @@ class FactoryLoader:
                 data_obj=cls.load_data(path, process) if data_obj is None else data_obj,
                 storage_method=('vector_store', _vec,)
             )
+        else:
+            sent_emb.data_processing_obj = cls.load_data(path, process) if data_obj is None else data_obj
         if not hasattr(sent_emb, "sentence_embeddings"):
             raise AttributeError("The provided object is not a SentenceEmbeddings object.")
         else:

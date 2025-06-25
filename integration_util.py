@@ -78,11 +78,13 @@ class ConceptGraphIntegrationUtil(BaseUtil):
             cache_name,
             active_process_objs: Optional[dict[str, dict]] = None
     ) -> Optional[Union[tuple, list]]:
-        _emb_config = Path(self._file_storage / f"{cache_name}_embedding.pickle")
+        _emb_config = load_pickle(Path(self._file_storage / f"{cache_name}_embedding.pickle"))
+        if not isinstance(_emb_config, dict):
+            logging.warning(f"It seems you didn't configure a vector store for the embeddings. Therefore the step '{self.process_step}' is skipped")
+            return None
         embedding_store: EmbeddingStore = locate(self._embedding_store_cls)
         if not embedding_store.is_accessible(_emb_config):
-            _conf = load_pickle(_emb_config)
-            logging.error(f"Couldn't access embedding store for '{cache_name}'. Check if the server is running for the following configuration:\n{_conf}.")
+            logging.error(f"Couldn't access embedding store for '{cache_name}'. Check if the server is running for the following configuration:\n{_emb_config}.")
             raise RuntimeError("Embedding store not present.")
         embedding_store_impl: EmbeddingStore = embedding_store.existing_from_config(_emb_config)
         graph_list = load_pickle(Path(self._file_storage / f"{cache_name}_graph.pickle"))
@@ -98,7 +100,10 @@ class ConceptGraphIntegrationUtil(BaseUtil):
             *args,
             **kwargs
     ):
-        emb_store, graphs = args
+        if len(args) == 2:
+            emb_store, graphs = args
+        else:
+            return False, "No prerequisite components seem to have been loaded; see the logs, where an error might have occurred."
         try:
             int_obj = process_factory.create(
                 embedding_store=emb_store,

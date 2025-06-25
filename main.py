@@ -555,13 +555,16 @@ def complete_pipeline():
             _graph_config,
             cluster_functions.WordEmbeddingClustering,
         ),
-        (
-            StepsName.INTEGRATION,
-            ConceptGraphIntegrationUtil,
-            {},
-            integration_functions.ConceptGraphIntegrationFactory,
-        ),
     ]
+    if vector_store_config is not None:
+        processes.append(
+            (
+                StepsName.INTEGRATION,
+                ConceptGraphIntegrationUtil,
+                {},
+                integration_functions.ConceptGraphIntegrationFactory,
+            )
+        )
     processes_threading = []
     current_active_pipeline_objects[query_params.process_name] = {
         k: None for k in StepsName.ALL
