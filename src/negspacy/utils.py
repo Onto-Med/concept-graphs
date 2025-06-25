@@ -12,7 +12,7 @@ class LeftsDependencyLabels:
     def labels(lang: str):
         return {
             "de": LeftsDependencyLabels.GERMAN,
-            "en": LeftsDependencyLabels.ENGLISH
+            "en": LeftsDependencyLabels.ENGLISH,
         }.get(lang, LeftsDependencyLabels.ENGLISH)
 
 
@@ -24,5 +24,5 @@ class RightsDependencyLabels:
     def labels(lang: str):
         return {
             "de": RightsDependencyLabels.GERMAN,
-            "en": RightsDependencyLabels.ENGLISH
+            "en": RightsDependencyLabels.ENGLISH,
         }.get(lang, RightsDependencyLabels.ENGLISH)

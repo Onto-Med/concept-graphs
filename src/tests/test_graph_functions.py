@@ -1,11 +1,10 @@
 import pathlib
-import re
 import random
 from unittest import TestCase
+
+from data_functions import clean_span
 from graph_functions import GraphCreator
 from util_functions import unpickle_or_run
-from data_functions import clean_span
-from spacy.tokens import Doc
 
 
 class TestGraphCreator(TestCase):

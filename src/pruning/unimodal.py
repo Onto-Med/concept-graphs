@@ -1,4 +1,4 @@
-'''
+"""
 Created on May 6, 2021
 
 @author: Navid Dianati
@@ -7,20 +7,19 @@ Created on May 6, 2021
 Implements the Marginal Likelihood Filter which computes a significance score for each
 edge of an integer-weighted graph based on a maximum likelihood null model derived
 from the configuration model
-'''
+"""
 
 # import igraph as ig
 # import pandas as pd
 import copy
-
-import numpy as np
-import networkx as nx
-from scipy.stats import binom_test
-
 import logging
 
+import networkx as nx
+import numpy as np
+from scipy.stats import binom_test
+
 logger = logging.getLogger()
-logger.setLevel('DEBUG')
+logger.setLevel("DEBUG")
 
 # clip log of binomtest p-values to this value.
 MAX_NEG_LOG = np.log(np.finfo(np.float64).max)
@@ -29,33 +28,35 @@ MAX_NEG_LOG = np.log(np.finfo(np.float64).max)
 
 
 class MLF:
-    '''
+    """
     Under the hood, if graph is not an instance of igraph.Graph, first it will
-    be converted to one before the filter is applied. 
-         
-    '''
+    be converted to one before the filter is applied.
+
+    """
 
     def __init__(self, directed=True):
         self.directed = directed
 
-    def fit_transform(self, graph: nx.Graph, weight_as_percentile=True, return_copy=False):
-        '''
-         Receive a representation of the graph and return a similar
-         representation, only with a significance score calculated
-         for each edge. 
-         
-         Graph is one of the following:
-         - A list of tuples: (node_id1, node_id_2, weight) where node_id1 and node_id2
-         can be integers or strings and weight is integer. The output list will consist
-         of 4-tuples and the 4th tuple is the significance score.
-         - an igraph.Graph instance where each edge has an integer attribute "weight".
-         The output will be a Graph instance with an additional edge attribute
-         "significance"
-         - a pandas.DataFrame with three columns: "source", "target", "weight" where
-         "weight" values are positive integers. The output will have an additional
-         column "significance".
-         Graph must be simple: no loops and no multiple edges
-         '''
+    def fit_transform(
+        self, graph: nx.Graph, weight_as_percentile=True, return_copy=False
+    ):
+        """
+        Receive a representation of the graph and return a similar
+        representation, only with a significance score calculated
+        for each edge.
+
+        Graph is one of the following:
+        - A list of tuples: (node_id1, node_id_2, weight) where node_id1 and node_id2
+        can be integers or strings and weight is integer. The output list will consist
+        of 4-tuples and the 4th tuple is the significance score.
+        - an igraph.Graph instance where each edge has an integer attribute "weight".
+        The output will be a Graph instance with an additional edge attribute
+        "significance"
+        - a pandas.DataFrame with three columns: "source", "target", "weight" where
+        "weight" values are positive integers. The output will have an additional
+        column "significance".
+        Graph must be simple: no loops and no multiple edges
+        """
         # self._check_types(graph)
         # dtype = type(graph)
         #
@@ -64,10 +65,17 @@ class MLF:
 
         if return_copy:
             h = copy.deepcopy(graph)
-            g = self._compute_significance(graph=h, weight_is_percentile=weight_as_percentile, directed=h.is_directed())
+            g = self._compute_significance(
+                graph=h,
+                weight_is_percentile=weight_as_percentile,
+                directed=h.is_directed(),
+            )
         else:
-            g = self._compute_significance(graph=graph, weight_is_percentile=weight_as_percentile,
-                                           directed=graph.is_directed())
+            g = self._compute_significance(
+                graph=graph,
+                weight_is_percentile=weight_as_percentile,
+                directed=graph.is_directed(),
+            )
         # if graph.is_directed():
         #     g = self._compute_significance_directed(graph, weight_as_percentile)
         # else:
@@ -98,48 +106,69 @@ class MLF:
     #     else:
     #         raise(TypeError('Can only recast the graph into one of: igraph.Graph, a DataFrame or a list of 3-tuples'))
 
-    def _compute_significance(self, graph: nx.Graph, weight_is_percentile: bool, directed: bool):
+    def _compute_significance(
+        self, graph: nx.Graph, weight_is_percentile: bool, directed: bool
+    ):
         mult = 1
         if weight_is_percentile:
             mult = 100
-        ks = graph.degree(weight='weight')
+        ks = graph.degree(weight="weight")
         total_degree = sum(dict(ks).values()) * mult
 
         for i0, i1, d in graph.edges(data=True):
             p = None
             try:
                 if directed:
-                    p = _pvalue_directed(w_uv=d['weight'] * mult, ku_out=ks[i0] * mult,
-                                         kv_in=ks[i1] * mult, q=total_degree / 2.0,)
+                    p = _pvalue_directed(
+                        w_uv=d["weight"] * mult,
+                        ku_out=ks[i0] * mult,
+                        kv_in=ks[i1] * mult,
+                        q=total_degree / 2.0,
+                    )
                 else:
-                    p = _pvalue_undirected(w=d['weight'] * mult, ku=ks[i0] * mult,
-                                           kv=ks[i1] * mult, q=total_degree / 2.0,)
+                    p = _pvalue_undirected(
+                        w=d["weight"] * mult,
+                        ku=ks[i0] * mult,
+                        kv=ks[i1] * mult,
+                        q=total_degree / 2.0,
+                    )
                 # Due to instabilities in binomtest at p-values
                 # near "tiny", we clip all significance values
                 # to MAX_NEG_LOG
-                d['significance'] = min(
+                d["significance"] = min(
                     MAX_NEG_LOG, MAX_NEG_LOG if p <= 0 else -np.log(p)
                 )
             except ValueError as error:
                 logger.warning("warning: ValueError {}".format(str(error)))
-                logger.debug("ValueError weight: {} ks[i0]:{} ks[i1]:{} total_degree:{} p:{}"
-                             .format(d['weight'], ks[i0], ks[i1], total_degree, p))
-                d['significance'] = None
+                logger.debug(
+                    "ValueError weight: {} ks[i0]:{} ks[i1]:{} total_degree:{} p:{}".format(
+                        d["weight"], ks[i0], ks[i1], total_degree, p
+                    )
+                )
+                d["significance"] = None
             except Exception as error:
                 logger.warning("warning: Exception {}".format(str(error)))
-                d['significance'] = None
+                d["significance"] = None
                 # print "error computing significance", p
 
         try:
-            max_sig = max([s for s in graph.edges(data=True) if s is not None],
-                          key=lambda edge: edge[2].get("significance", .0),
-                          default=(0, 0, {'significance': 0.0},))[2]["significance"]
-        except TypeError as te:  #ToDo: there were case where TypeErrors were thrown (comparison btw. 'NoneType') but I thought I made sure no 'NoneType' was allowed in the list...
+            max_sig = max(
+                [s for s in graph.edges(data=True) if s is not None],
+                key=lambda edge: edge[2].get("significance", 0.0),
+                default=(
+                    0,
+                    0,
+                    {"significance": 0.0},
+                ),
+            )[2]["significance"]
+        except (
+            TypeError
+        ) as te:  # ToDo: there were case where TypeErrors were thrown (comparison btw. 'NoneType') but I thought I made sure no 'NoneType' was allowed in the list...
             logging.error(f"{te}\n-->\t{graph.edges(data=True)}")
             max_sig = 0.0
         for _, _, d in graph.edges(data=True):
-            if d['significance'] is None:
-                d['significance'] = max_sig
+            if d["significance"] is None:
+                d["significance"] = max_sig
 
         return graph
 

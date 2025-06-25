@@ -1,8 +1,4 @@
 import spacy
-from spacy import displacy
-
-import negation
-from utils import FeaturesOfInterest
 
 
 def build_docs():

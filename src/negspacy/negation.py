@@ -1,14 +1,14 @@
+import logging
 import pathlib
 from itertools import islice
 from typing import Union, Optional
 
 from spacy.language import Language
-from spacy.tokens import Doc, Span, SpanGroup
 from spacy.matcher import PhraseMatcher
-import logging
+from spacy.tokens import Doc, Span, SpanGroup
 
-from .utils import FeaturesOfInterest, LeftsDependencyLabels, RightsDependencyLabels
 from .termsets import termset
+from .utils import FeaturesOfInterest, LeftsDependencyLabels, RightsDependencyLabels
 
 default_ts = termset("en_clinical").get_patterns()
 
@@ -23,7 +23,7 @@ default_ts = termset("en_clinical").get_patterns()
         "neg_termset_file": None,
         "feat_of_interest": FeaturesOfInterest.NAMED_ENTITIES,
         "scope": None,
-        "language": None
+        "language": None,
     },
 )
 class Negex:
@@ -60,23 +60,24 @@ class Negex:
          to the number of dependent children under scrutiny. If set to true, scope is 1
     language: str
     """
+
     @classmethod
     def set_extension(cls, ext_name: str):
         if not Span.has_extension(ext_name):
             Span.set_extension(ext_name, default=False, force=True)
 
     def __init__(
-            self,
-            nlp: Language,
-            name: str,
-            neg_termset: Optional[dict],
-            feat_types: list,
-            extension_name: str,
-            chunk_prefix: list,
-            neg_termset_file: Union[pathlib.Path, str, None],
-            feat_of_interest: list[str],
-            scope: Union[str, int, bool, None],
-            language: Optional[str]
+        self,
+        nlp: Language,
+        name: str,
+        neg_termset: Optional[dict],
+        feat_types: list,
+        extension_name: str,
+        chunk_prefix: list,
+        neg_termset_file: Union[pathlib.Path, str, None],
+        feat_of_interest: list[str],
+        scope: Union[str, int, bool, None],
+        language: Optional[str],
     ):
         # if not termset_lang in LANGUAGES:
         #     raise KeyError(
@@ -94,12 +95,19 @@ class Negex:
             elif isinstance(neg_termset_file, pathlib.Path):
                 rules = neg_termset_file.read_text().splitlines()
             else:
-                logging.info("'neg_termset_file' could not be read. Reverting to default 'neg_termset'.")
+                logging.info(
+                    "'neg_termset_file' could not be read. Reverting to default 'neg_termset'."
+                )
 
             if rules is not None:
-                _map = {"[CONJ]": "termination", "[PSEU]": "pseudo_negations",
-                        "[POST]": "following_negations", "[PREN]": "preceding_negations",
-                        "[PREP]": "preceding_speculation", "[POSP]": "following_speculation"}
+                _map = {
+                    "[CONJ]": "termination",
+                    "[PSEU]": "pseudo_negations",
+                    "[POST]": "following_negations",
+                    "[PREN]": "preceding_negations",
+                    "[PREP]": "preceding_speculation",
+                    "[POSP]": "following_speculation",
+                }
                 ts = {
                     "pseudo_negations": [],
                     "preceding_negations": [],
@@ -107,10 +115,10 @@ class Negex:
                     "termination": [],
                     "preceding_speculation": [],
                     "following_speculation": [],
-                    "none": []
+                    "none": [],
                 }
                 for rule in rules:
-                    _str, _tag = rule.split('\t\t')
+                    _str, _tag = rule.split("\t\t")
                     ts[_map.get(_tag, "none")].append(_str)
         expected_keys = [
             "pseudo_negations",
@@ -128,7 +136,8 @@ class Negex:
             if len(ts.keys()) > len(expected_keys):
                 logging.warning(
                     f"There are trigger types in the termset that are not expected by negspacy and won't be processed:"
-                    f" {set(ts.keys()).difference(expected_keys)}")
+                    f" {set(ts.keys()).difference(expected_keys)}"
+                )
 
         if (isinstance(scope, str) and scope.isdigit()) or isinstance(scope, float):
             scope = int(scope)
@@ -141,7 +150,7 @@ class Negex:
             feat_of_interest = {
                 "nc": FeaturesOfInterest.NOUN_CHUNKS,
                 "ne": FeaturesOfInterest.NAMED_ENTITIES,
-                "both": FeaturesOfInterest.BOTH
+                "both": FeaturesOfInterest.BOTH,
             }.get(feat_of_interest.lower(), FeaturesOfInterest.NAMED_ENTITIES)
 
         self.pseudo_negations = ts["pseudo_negations"]
@@ -155,7 +164,11 @@ class Negex:
         self.extension_name = extension_name
         self.features_of_interest = feat_of_interest
         self.scope = scope
-        self.language = language if language is not None else (nlp.lang if nlp.lang is not None else "en")
+        self.language = (
+            language
+            if language is not None
+            else (nlp.lang if nlp.lang is not None else "en")
+        )
         self.chunk_prefix = list(nlp.tokenizer.pipe(chunk_prefix))
         self.build_patterns()
 
@@ -219,7 +232,7 @@ class Negex:
             for match_id, start, end in matches
             if self.nlp.vocab.strings[match_id] == "pseudo"
         ]
-        _pseudo_spans = [doc[p[1]:p[2]] for p in pseudo]
+        _pseudo_spans = [doc[p[1] : p[2]] for p in pseudo]
 
         for match_id, start, end in matches:
             if self.nlp.vocab.strings[match_id] == "pseudo":
@@ -290,67 +303,107 @@ class Negex:
             sub_following = [i for i in following if b[0] <= i[1] < b[1]]
 
             for foi in self.features_of_interest:
-                for ft in getattr(doc[b[0]: b[1]], foi):
+                for ft in getattr(doc[b[0] : b[1]], foi):
                     if self.feature_types:
                         if ft.label_ not in self.feature_types:
                             continue
                     # ft shouldn't be the same as something from the chunk_prefix list
-                    if self.chunk_prefix and not any([(s[1] == ft.start and s[2] == ft.end) for s in sub_preceding]):
+                    if self.chunk_prefix and not any(
+                        [(s[1] == ft.start and s[2] == ft.end) for s in sub_preceding]
+                    ):
                         if self.scope is not None and self.scope > 0:
-                            if set(f.text.lower() for f in islice(ft.root.lefts, self.scope)).intersection(
-                                    cp.text.lower() for cp in self.chunk_prefix):
+                            if set(
+                                f.text.lower()
+                                for f in islice(ft.root.lefts, self.scope)
+                            ).intersection(cp.text.lower() for cp in self.chunk_prefix):
                                 ft._.set(self.extension_name, True)
                                 continue
                         elif any(
-                                ft.text.lower().startswith(c.text.lower())
-                                for c in self.chunk_prefix
+                            ft.text.lower().startswith(c.text.lower())
+                            for c in self.chunk_prefix
                         ):
                             ft._.set(self.extension_name, True)
                             continue
                     # sorts by biggest span; i.e. token count - most first
-                    sorted_sub_preceding = sorted(sub_preceding, key=lambda s: s[2] - s[1], reverse=True)
+                    sorted_sub_preceding = sorted(
+                        sub_preceding, key=lambda s: s[2] - s[1], reverse=True
+                    )
                     if any(pre[1] < ft.start for pre in sorted_sub_preceding):
                         if self.scope is not None and self.scope > 0:
-                            _span_group = self._get_span_groups_right(doc, ft, sorted_sub_preceding[0])
+                            _span_group = self._get_span_groups_right(
+                                doc, ft, sorted_sub_preceding[0]
+                            )
                             if not _span_group.has_overlap:
                                 continue
                         ft._.set(self.extension_name, True)
                         continue
-                    sorted_sub_following = sorted(sub_following, key=lambda s: s[2] - s[1], reverse=True)
+                    sorted_sub_following = sorted(
+                        sub_following, key=lambda s: s[2] - s[1], reverse=True
+                    )
                     if any(fol[2] > ft.end for fol in sorted_sub_following):
                         if self.scope is not None and self.scope > 0:
-                            _span_group = self._get_span_groups_left(doc, ft, sorted_sub_following[0])
+                            _span_group = self._get_span_groups_left(
+                                doc, ft, sorted_sub_following[0]
+                            )
                             if not _span_group.has_overlap:
                                 continue
                         ft._.set(self.extension_name, True)
                         continue
         return doc
 
-    def _get_span_groups_right(self, doc, feature, negation_span, is_root=False, prev_root=None):
+    def _get_span_groups_right(
+        self, doc, feature, negation_span, is_root=False, prev_root=None
+    ):
         # if scope is set, checks whether the dependents of the negation ('_rights') are within scope
         #  and only negates the ones that are
-        _negation_root = doc[negation_span[1]:negation_span[2]].root
-        _right_children = [c for c in _negation_root.rights if c.dep_ in RightsDependencyLabels.labels(self.language)]
+        _negation_root = doc[negation_span[1] : negation_span[2]].root
+        _right_children = [
+            c
+            for c in _negation_root.rights
+            if c.dep_ in RightsDependencyLabels.labels(self.language)
+        ]
         if _right_children:
-            return SpanGroup(doc, spans=[doc[t.i:t.i + 1] for t in _right_children[:self.scope]] + [feature])
+            return SpanGroup(
+                doc,
+                spans=[doc[t.i : t.i + 1] for t in _right_children[: self.scope]]
+                + [feature],
+            )
         elif _negation_root.head:
             if is_root or _negation_root == prev_root:
                 return SpanGroup(doc, spans=[])
             return self._get_span_groups_right(
-                doc, feature, (-1, _negation_root.head.i, _negation_root.head.i + 1),
-                _negation_root.head.dep == "ROOT", prev_root=_negation_root)
+                doc,
+                feature,
+                (-1, _negation_root.head.i, _negation_root.head.i + 1),
+                _negation_root.head.dep == "ROOT",
+                prev_root=_negation_root,
+            )
 
-    def _get_span_groups_left(self, doc, feature, negation_span, is_root=False, prev_root=None):
-        _negation_root = doc[negation_span[1]:negation_span[2]].root
-        _left_children = [c for c in _negation_root.lefts if c.dep_ in LeftsDependencyLabels.labels(self.language)]
+    def _get_span_groups_left(
+        self, doc, feature, negation_span, is_root=False, prev_root=None
+    ):
+        _negation_root = doc[negation_span[1] : negation_span[2]].root
+        _left_children = [
+            c
+            for c in _negation_root.lefts
+            if c.dep_ in LeftsDependencyLabels.labels(self.language)
+        ]
         if _left_children:
-            return SpanGroup(doc, spans=[doc[t.i:t.i + 1] for t in _left_children[:self.scope]] + [feature])
+            return SpanGroup(
+                doc,
+                spans=[doc[t.i : t.i + 1] for t in _left_children[: self.scope]]
+                + [feature],
+            )
         elif _negation_root.head:
             if is_root or _negation_root == prev_root:
                 return SpanGroup(doc, spans=[])
             return self._get_span_groups_left(
-                doc, feature, (-1, _negation_root.head.i, _negation_root.head.i + 1),
-                _negation_root.head.dep == "ROOT", prev_root=_negation_root)
+                doc,
+                feature,
+                (-1, _negation_root.head.i, _negation_root.head.i + 1),
+                _negation_root.head.dep == "ROOT",
+                prev_root=_negation_root,
+            )
 
     def __call__(self, doc):
         return self.negex(doc)

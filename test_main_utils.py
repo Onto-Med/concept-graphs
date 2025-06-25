@@ -21,10 +21,19 @@ class TestLoadFactory(unittest.TestCase):
         _ = FactoryLoader.load_graph(str(self.test_path.resolve()), "grascco")
 
     def test_load(self):
-        data = FactoryLoader.load(StepsName.DATA, str(self.test_path.resolve()), "grascco")
-        emb = FactoryLoader.load(StepsName.EMBEDDING, str(self.test_path.resolve()), "grascco", data)
-        cluster = FactoryLoader.load(StepsName.CLUSTERING, str(self.test_path.resolve()), "grascco", data, emb)
-        graph = FactoryLoader.load(StepsName.GRAPH, str(self.test_path.resolve()), "grascco")
+        data = FactoryLoader.load(
+            StepsName.DATA, str(self.test_path.resolve()), "grascco"
+        )
+        emb = FactoryLoader.load(
+            StepsName.EMBEDDING, str(self.test_path.resolve()), "grascco", data
+        )
+        cluster = FactoryLoader.load(
+            StepsName.CLUSTERING, str(self.test_path.resolve()), "grascco", data, emb
+        )
+        graph = FactoryLoader.load(
+            StepsName.GRAPH, str(self.test_path.resolve()), "grascco"
+        )
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()

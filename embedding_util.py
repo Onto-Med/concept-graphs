@@ -2,7 +2,6 @@ import sys
 from typing import Optional, Union, Callable
 
 import flask
-
 from werkzeug.datastructures import FileStorage
 
 sys.path.insert(0, "src")

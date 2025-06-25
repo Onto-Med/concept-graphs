@@ -10,18 +10,19 @@ class ConceptGraphIntegrationFactory:
 
     @staticmethod
     def create(
-            embedding_store: EmbeddingStore,
-            graphs: list[nx.Graph],
-            cache_path: pathlib.Path,
-            cache_name: str,
+        embedding_store: EmbeddingStore,
+        graphs: list[nx.Graph],
+        cache_path: pathlib.Path,
+        cache_name: str,
     ):
-        _file_path = (cache_path / pathlib.Path(f"{cache_name}.pickle"))
+        _file_path = cache_path / pathlib.Path(f"{cache_name}.pickle")
         doc_dict = {}
         for i, g in enumerate(graphs):
             for n, d in g.nodes(True):
                 doc_dict[str(n)] = {
                     "_id": str(n),
-                    "graph_cluster": doc_dict.get(str(n), {}).get("graph_cluster", []) + [str(i)],
+                    "graph_cluster": doc_dict.get(str(n), {}).get("graph_cluster", [])
+                    + [str(i)],
                 }
         ids, values = tee(doc_dict.items(), 2)
         _res = embedding_store.update_embeddings(

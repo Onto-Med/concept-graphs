@@ -5,10 +5,9 @@ import itertools
 import json
 import pathlib
 import pickle
-from typing import Callable, Any, Optional, Union, Iterable
-from threading import Lock
-
 from collections import Counter, defaultdict
+from threading import Lock
+from typing import Callable, Any, Optional, Union, Iterable
 
 # from cvae import cvae
 import numpy as np
@@ -28,6 +27,7 @@ class ConfigLoadMethods:
             "yaml": yaml.load,
             "yml": yaml.load,
         }.get(file_ending[1:] if file_ending[0] == "." else file_ending, json.load)
+
 
 class ClusterNumberDetection(enum.Enum):
     DISTORTION = 1
@@ -52,10 +52,11 @@ class SingletonMeta(type):
                 cls._instances[cls] = instance
         return cls._instances[cls]
 
+
 # ToDo: this needs to be called whenever a data_proc object is used/loaded by another class
-def set_spacy_extensions(
-) -> None:
+def set_spacy_extensions() -> None:
     from spacy.tokens import Doc
+
     if not Doc.has_extension("doc_id"):
         Doc.set_extension("doc_id", default=None)
     if not Doc.has_extension("doc_index"):
@@ -67,15 +68,14 @@ def set_spacy_extensions(
     if not Doc.has_extension("offset_in_doc"):
         Doc.set_extension("offset_in_doc", default=None)
 
+
 def pairwise(iterable):
     a, b = itertools.tee(iterable)
     next(b, None)
     return zip(a, b)
 
 
-def load_pickle(
-        file_path: Union[pathlib.Path, str, io.IOBase]
-):
+def load_pickle(file_path: Union[pathlib.Path, str, io.IOBase]):
     if isinstance(file_path, str):
         file_path = pathlib.Path(file_path).absolute()
     elif isinstance(file_path, pathlib.Path):
@@ -87,7 +87,7 @@ def load_pickle(
         raise FileNotFoundError(f"{file_path.resolve()}")
 
     if not isinstance(file_path, io.IOBase):
-        with file_path.open('rb') as f:
+        with file_path.open("rb") as f:
             return pickle.load(f)
     else:
         loaded_object = pickle.load(file_path)
@@ -95,25 +95,22 @@ def load_pickle(
         return loaded_object
 
 
-def save_pickle(
-        dump_obj: Any,
-        file_path: pathlib.Path
-):
+def save_pickle(dump_obj: Any, file_path: pathlib.Path):
     file_path.parent.mkdir(parents=True, exist_ok=True)
     if not file_path.suffix == ".pickle":
         file_path = pathlib.Path(f"{file_path}.pickle")
-    with file_path.open('wb') as f:
+    with file_path.open("wb") as f:
         pickle.dump(dump_obj, f)
         print(f"Saved under: {file_path.resolve()}")
 
 
 def unpickle_or_run(
-        base_path: pathlib.Path,
-        filename: str,
-        overwrite: bool = False,
-        run: Optional[Callable] = None,
-        args: Optional[list] = None,
-        kwargs: Optional[dict] = None,
+    base_path: pathlib.Path,
+    filename: str,
+    overwrite: bool = False,
+    run: Optional[Callable] = None,
+    args: Optional[list] = None,
+    kwargs: Optional[dict] = None,
 ) -> Any:
     args = [] if args is None else args
     kwargs = {} if kwargs is None else kwargs
@@ -123,23 +120,27 @@ def unpickle_or_run(
             print("No Callable given for 'run' argument.")
             return
         if not _path.exists():
-            print(f"'{_path}' does not exist; executing function '{run}' with given args & kwargs.")
+            print(
+                f"'{_path}' does not exist; executing function '{run}' with given args & kwargs."
+            )
         else:
-            print(f"Choose to overwrite; executing function '{run}' with given args & kwargs.")
+            print(
+                f"Choose to overwrite; executing function '{run}' with given args & kwargs."
+            )
         _result = run(*args, **kwargs)
-        with _path.open('wb') as f:
+        with _path.open("wb") as f:
             pickle.dump(_result, f)
     else:
         print(f"Unpickling '{_path}' ...")
-        with _path.open('rb') as f:
+        with _path.open("rb") as f:
             _result = pickle.load(f)
     return _result
 
 
 def cluster_purity(
-        cluster_obj: Union['KMeans', 'AgglomerativeClustering'],
-        targets: np.ndarray,
-        print_df: bool = False
+    cluster_obj: Union["KMeans", "AgglomerativeClustering"],
+    targets: np.ndarray,
+    print_df: bool = False,
 ) -> float:
     counter = {}
     for c in range(cluster_obj.n_clusters):
@@ -156,9 +157,7 @@ def cluster_purity(
 
 
 def add_offset_to_documents_dicts_by_id(
-        documents: list[dict],
-        doc_id: str,
-        offset: tuple[int, int]
+    documents: list[dict], doc_id: str, offset: tuple[int, int]
 ):
     # ---> _docs = [{"id": doc_id, "offsets": [offset_of_nc_in_doc]}, ...]
     _added_offset = False
@@ -173,146 +172,146 @@ def add_offset_to_documents_dicts_by_id(
 
 def pick_color(cname=None):
     cnames = {
-        'aliceblue':            '#F0F8FF',
-        'antiquewhite':         '#FAEBD7',
-        'aqua':                 '#00FFFF',
-        'aquamarine':           '#7FFFD4',
-        'azure':                '#F0FFFF',
-        'beige':                '#F5F5DC',
-        'bisque':               '#FFE4C4',
-        'black':                '#000000',
-        'blanchedalmond':       '#FFEBCD',
-        'blue':                 '#0000FF',
-        'blueviolet':           '#8A2BE2',
-        'brown':                '#A52A2A',
-        'burlywood':            '#DEB887',
-        'cadetblue':            '#5F9EA0',
-        'chartreuse':           '#7FFF00',
-        'chocolate':            '#D2691E',
-        'coral':                '#FF7F50',
-        'cornflowerblue':       '#6495ED',
-        'cornsilk':             '#FFF8DC',
-        'crimson':              '#DC143C',
-        'cyan':                 '#00FFFF',
-        'darkblue':             '#00008B',
-        'darkcyan':             '#008B8B',
-        'darkgoldenrod':        '#B8860B',
-        'darkgray':             '#A9A9A9',
-        'darkgreen':            '#006400',
-        'darkkhaki':            '#BDB76B',
-        'darkmagenta':          '#8B008B',
-        'darkolivegreen':       '#556B2F',
-        'darkorange':           '#FF8C00',
-        'darkorchid':           '#9932CC',
-        'darkred':              '#8B0000',
-        'darksalmon':           '#E9967A',
-        'darkseagreen':         '#8FBC8F',
-        'darkslateblue':        '#483D8B',
-        'darkslategray':        '#2F4F4F',
-        'darkturquoise':        '#00CED1',
-        'darkviolet':           '#9400D3',
-        'deeppink':             '#FF1493',
-        'deepskyblue':          '#00BFFF',
-        'dimgray':              '#696969',
-        'dodgerblue':           '#1E90FF',
-        'firebrick':            '#B22222',
-        'floralwhite':          '#FFFAF0',
-        'forestgreen':          '#228B22',
-        'fuchsia':              '#FF00FF',
-        'gainsboro':            '#DCDCDC',
-        'ghostwhite':           '#F8F8FF',
-        'gold':                 '#FFD700',
-        'goldenrod':            '#DAA520',
-        'gray':                 '#808080',
-        'green':                '#008000',
-        'greenyellow':          '#ADFF2F',
-        'honeydew':             '#F0FFF0',
-        'hotpink':              '#FF69B4',
-        'indianred':            '#CD5C5C',
-        'indigo':               '#4B0082',
-        'ivory':                '#FFFFF0',
-        'khaki':                '#F0E68C',
-        'lavender':             '#E6E6FA',
-        'lavenderblush':        '#FFF0F5',
-        'lawngreen':            '#7CFC00',
-        'lemonchiffon':         '#FFFACD',
-        'lightblue':            '#ADD8E6',
-        'lightcoral':           '#F08080',
-        'lightcyan':            '#E0FFFF',
-        'lightgoldenrodyellow': '#FAFAD2',
-        'lightgreen':           '#90EE90',
-        'lightgray':            '#D3D3D3',
-        'lightpink':            '#FFB6C1',
-        'lightsalmon':          '#FFA07A',
-        'lightseagreen':        '#20B2AA',
-        'lightskyblue':         '#87CEFA',
-        'lightslategray':       '#778899',
-        'lightsteelblue':       '#B0C4DE',
-        'lightyellow':          '#FFFFE0',
-        'lime':                 '#00FF00',
-        'limegreen':            '#32CD32',
-        'linen':                '#FAF0E6',
-        'magenta':              '#FF00FF',
-        'maroon':               '#800000',
-        'mediumaquamarine':     '#66CDAA',
-        'mediumblue':           '#0000CD',
-        'mediumorchid':         '#BA55D3',
-        'mediumpurple':         '#9370DB',
-        'mediumseagreen':       '#3CB371',
-        'mediumslateblue':      '#7B68EE',
-        'mediumspringgreen':    '#00FA9A',
-        'mediumturquoise':      '#48D1CC',
-        'mediumvioletred':      '#C71585',
-        'midnightblue':         '#191970',
-        'mintcream':            '#F5FFFA',
-        'mistyrose':            '#FFE4E1',
-        'moccasin':             '#FFE4B5',
-        'navajowhite':          '#FFDEAD',
-        'navy':                 '#000080',
-        'oldlace':              '#FDF5E6',
-        'olive':                '#808000',
-        'olivedrab':            '#6B8E23',
-        'orange':               '#FFA500',
-        'orangered':            '#FF4500',
-        'orchid':               '#DA70D6',
-        'palegoldenrod':        '#EEE8AA',
-        'palegreen':            '#98FB98',
-        'paleturquoise':        '#AFEEEE',
-        'palevioletred':        '#DB7093',
-        'papayawhip':           '#FFEFD5',
-        'peachpuff':            '#FFDAB9',
-        'peru':                 '#CD853F',
-        'pink':                 '#FFC0CB',
-        'plum':                 '#DDA0DD',
-        'powderblue':           '#B0E0E6',
-        'purple':               '#800080',
-        'red':                  '#FF0000',
-        'rosybrown':            '#BC8F8F',
-        'royalblue':            '#4169E1',
-        'saddlebrown':          '#8B4513',
-        'salmon':               '#FA8072',
-        'sandybrown':           '#FAA460',
-        'seagreen':             '#2E8B57',
-        'seashell':             '#FFF5EE',
-        'sienna':               '#A0522D',
-        'silver':               '#C0C0C0',
-        'skyblue':              '#87CEEB',
-        'slateblue':            '#6A5ACD',
-        'slategray':            '#708090',
-        'snow':                 '#FFFAFA',
-        'springgreen':          '#00FF7F',
-        'steelblue':            '#4682B4',
-        'tan':                  '#D2B48C',
-        'teal':                 '#008080',
-        'thistle':              '#D8BFD8',
-        'tomato':               '#FF6347',
-        'turquoise':            '#40E0D0',
-        'violet':               '#EE82EE',
-        'wheat':                '#F5DEB3',
-        'white':                '#FFFFFF',
-        'whitesmoke':           '#F5F5F5',
-        'yellow':               '#FFFF00',
-        'yellowgreen':          '#9ACD32'
+        "aliceblue": "#F0F8FF",
+        "antiquewhite": "#FAEBD7",
+        "aqua": "#00FFFF",
+        "aquamarine": "#7FFFD4",
+        "azure": "#F0FFFF",
+        "beige": "#F5F5DC",
+        "bisque": "#FFE4C4",
+        "black": "#000000",
+        "blanchedalmond": "#FFEBCD",
+        "blue": "#0000FF",
+        "blueviolet": "#8A2BE2",
+        "brown": "#A52A2A",
+        "burlywood": "#DEB887",
+        "cadetblue": "#5F9EA0",
+        "chartreuse": "#7FFF00",
+        "chocolate": "#D2691E",
+        "coral": "#FF7F50",
+        "cornflowerblue": "#6495ED",
+        "cornsilk": "#FFF8DC",
+        "crimson": "#DC143C",
+        "cyan": "#00FFFF",
+        "darkblue": "#00008B",
+        "darkcyan": "#008B8B",
+        "darkgoldenrod": "#B8860B",
+        "darkgray": "#A9A9A9",
+        "darkgreen": "#006400",
+        "darkkhaki": "#BDB76B",
+        "darkmagenta": "#8B008B",
+        "darkolivegreen": "#556B2F",
+        "darkorange": "#FF8C00",
+        "darkorchid": "#9932CC",
+        "darkred": "#8B0000",
+        "darksalmon": "#E9967A",
+        "darkseagreen": "#8FBC8F",
+        "darkslateblue": "#483D8B",
+        "darkslategray": "#2F4F4F",
+        "darkturquoise": "#00CED1",
+        "darkviolet": "#9400D3",
+        "deeppink": "#FF1493",
+        "deepskyblue": "#00BFFF",
+        "dimgray": "#696969",
+        "dodgerblue": "#1E90FF",
+        "firebrick": "#B22222",
+        "floralwhite": "#FFFAF0",
+        "forestgreen": "#228B22",
+        "fuchsia": "#FF00FF",
+        "gainsboro": "#DCDCDC",
+        "ghostwhite": "#F8F8FF",
+        "gold": "#FFD700",
+        "goldenrod": "#DAA520",
+        "gray": "#808080",
+        "green": "#008000",
+        "greenyellow": "#ADFF2F",
+        "honeydew": "#F0FFF0",
+        "hotpink": "#FF69B4",
+        "indianred": "#CD5C5C",
+        "indigo": "#4B0082",
+        "ivory": "#FFFFF0",
+        "khaki": "#F0E68C",
+        "lavender": "#E6E6FA",
+        "lavenderblush": "#FFF0F5",
+        "lawngreen": "#7CFC00",
+        "lemonchiffon": "#FFFACD",
+        "lightblue": "#ADD8E6",
+        "lightcoral": "#F08080",
+        "lightcyan": "#E0FFFF",
+        "lightgoldenrodyellow": "#FAFAD2",
+        "lightgreen": "#90EE90",
+        "lightgray": "#D3D3D3",
+        "lightpink": "#FFB6C1",
+        "lightsalmon": "#FFA07A",
+        "lightseagreen": "#20B2AA",
+        "lightskyblue": "#87CEFA",
+        "lightslategray": "#778899",
+        "lightsteelblue": "#B0C4DE",
+        "lightyellow": "#FFFFE0",
+        "lime": "#00FF00",
+        "limegreen": "#32CD32",
+        "linen": "#FAF0E6",
+        "magenta": "#FF00FF",
+        "maroon": "#800000",
+        "mediumaquamarine": "#66CDAA",
+        "mediumblue": "#0000CD",
+        "mediumorchid": "#BA55D3",
+        "mediumpurple": "#9370DB",
+        "mediumseagreen": "#3CB371",
+        "mediumslateblue": "#7B68EE",
+        "mediumspringgreen": "#00FA9A",
+        "mediumturquoise": "#48D1CC",
+        "mediumvioletred": "#C71585",
+        "midnightblue": "#191970",
+        "mintcream": "#F5FFFA",
+        "mistyrose": "#FFE4E1",
+        "moccasin": "#FFE4B5",
+        "navajowhite": "#FFDEAD",
+        "navy": "#000080",
+        "oldlace": "#FDF5E6",
+        "olive": "#808000",
+        "olivedrab": "#6B8E23",
+        "orange": "#FFA500",
+        "orangered": "#FF4500",
+        "orchid": "#DA70D6",
+        "palegoldenrod": "#EEE8AA",
+        "palegreen": "#98FB98",
+        "paleturquoise": "#AFEEEE",
+        "palevioletred": "#DB7093",
+        "papayawhip": "#FFEFD5",
+        "peachpuff": "#FFDAB9",
+        "peru": "#CD853F",
+        "pink": "#FFC0CB",
+        "plum": "#DDA0DD",
+        "powderblue": "#B0E0E6",
+        "purple": "#800080",
+        "red": "#FF0000",
+        "rosybrown": "#BC8F8F",
+        "royalblue": "#4169E1",
+        "saddlebrown": "#8B4513",
+        "salmon": "#FA8072",
+        "sandybrown": "#FAA460",
+        "seagreen": "#2E8B57",
+        "seashell": "#FFF5EE",
+        "sienna": "#A0522D",
+        "silver": "#C0C0C0",
+        "skyblue": "#87CEEB",
+        "slateblue": "#6A5ACD",
+        "slategray": "#708090",
+        "snow": "#FFFAFA",
+        "springgreen": "#00FF7F",
+        "steelblue": "#4682B4",
+        "tan": "#D2B48C",
+        "teal": "#008080",
+        "thistle": "#D8BFD8",
+        "tomato": "#FF6347",
+        "turquoise": "#40E0D0",
+        "violet": "#EE82EE",
+        "wheat": "#F5DEB3",
+        "white": "#FFFFFF",
+        "whitesmoke": "#F5F5F5",
+        "yellow": "#FFFF00",
+        "yellowgreen": "#9ACD32",
     }
     if cname is not None:
         return cnames[cname]
@@ -350,12 +349,20 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def store_embedding(self, embedding: Any, check_for_same: bool, **kwargs) -> Iterable[str]:
+    def store_embedding(
+        self, embedding: Any, check_for_same: bool, **kwargs
+    ) -> Iterable[str]:
         """Store the embedding and return its id"""
         raise NotImplementedError
 
     @abc.abstractmethod
-    def store_embeddings(self, embeddings: Iterable, embeddings_repr: Iterable, vector_name: str, check_for_same: bool) -> Iterable[str]:
+    def store_embeddings(
+        self,
+        embeddings: Iterable,
+        embeddings_repr: Iterable,
+        vector_name: str,
+        check_for_same: bool,
+    ) -> Iterable[str]:
         """Store the embeddings and return their ids"""
         raise NotImplementedError
 
@@ -372,7 +379,9 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def update_embeddings(self, embedding_ids: list[str], values: list[dict]) -> list[str]:
+    def update_embeddings(
+        self, embedding_ids: list[str], values: list[dict]
+    ) -> list[str]:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -408,8 +417,21 @@ def harmonic_mean(scores: Iterable[tuple[str, float]]) -> list[tuple[str, float]
     scores_by_class = defaultdict(list)
     for cls, score in scores:
         scores_by_class[cls].append(score)
-    return sorted([(cls, 2 * _avg(l) * len(l) / (_avg(l) + len(l)) if (_avg(l) + len(l)) != 0 else 0)
-            for cls, l in scores_by_class.items()], key=lambda x: x[1], reverse=True)
+    return sorted(
+        [
+            (
+                cls,
+                (
+                    2 * _avg(l) * len(l) / (_avg(l) + len(l))
+                    if (_avg(l) + len(l)) != 0
+                    else 0
+                ),
+            )
+            for cls, l in scores_by_class.items()
+        ],
+        key=lambda x: x[1],
+        reverse=True,
+    )
 
 
 # class CVAEMantle:

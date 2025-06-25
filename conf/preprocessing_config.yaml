@@ -34,13 +34,13 @@ disable: None
 negspacy:
   - enabled: true
   - configuration:
-    - chunk_prefix:
-        - kein
-        - keine
-        - keinen
-      neg_termset_file: ./conf/negex_files/negex_trigger_german_biotxtm_2016_extended.txt
-      scope: 1
-      language: de
-      feat_of_interest: NC
+      - chunk_prefix:
+          - kein
+          - keine
+          - keinen
+        neg_termset_file: ./conf/negex_files/negex_trigger_german_biotxtm_2016_extended.txt
+        scope: 1
+        language: de
+        feat_of_interest: NC
 # Meaningless property
 i_am_meaningless: None

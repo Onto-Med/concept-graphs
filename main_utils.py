@@ -1,24 +1,23 @@
 import logging
 import pathlib
-import threading
 import re
+import threading
+from abc import ABC, abstractmethod
 from collections import namedtuple
 from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum, IntEnum
-from abc import ABC, abstractmethod
 from inspect import getfullargspec
 from pathlib import Path
 from typing import Union, Optional, Any, Callable, Tuple
-
-from flask import jsonify, Response
-from munch import Munch, unmunchify
-from waiting import wait, TimeoutExpired
 
 import flask
 import spacy
 import yaml
 from dataclass_wizard import JSONWizard
+from flask import jsonify, Response
+from munch import Munch, unmunchify
+from waiting import wait, TimeoutExpired
 from werkzeug.datastructures import FileStorage
 
 
@@ -64,7 +63,8 @@ class NegspacyConfig(JSONWizard):
 class StoppableThread(threading.Thread):
     """Thread class with a stop() method. The thread itself has to check
     regularly for the stopped() condition.
-    From: https://stackoverflow.com/questions/323972/is-there-any-way-to-kill-a-thread"""
+    From: https://stackoverflow.com/questions/323972/is-there-any-way-to-kill-a-thread
+    """
 
     def __init__(self, group, target, name, target_args):
         super().__init__(args=target_args, group=group, target=target, name=name)
@@ -86,12 +86,7 @@ class StoppableThread(threading.Thread):
 
 
 class BaseUtil(ABC):
-    def __init__(
-            self,
-            app: flask.app.Flask,
-            file_storage: str,
-            step_name: str
-    ):
+    def __init__(self, app: flask.app.Flask, file_storage: str, step_name: str):
         self._app = app
         self._file_storage = pathlib.Path(file_storage)
         self._process_step = step_name
@@ -100,12 +95,15 @@ class BaseUtil(ABC):
         self.config = None
 
     def _complete_pickle_path(
-            self,
-            process: Optional[str],
-            extension: str = "pickle",
+        self,
+        process: Optional[str],
+        extension: str = "pickle",
     ) -> pathlib.Path:
-        return Path(self._file_storage / (process if process is not None else "") /
-                    f"{self.process_name if process is None else process}_{self.process_step}.{extension}")
+        return Path(
+            self._file_storage
+            / (process if process is not None else "")
+            / f"{self.process_name if process is None else process}_{self.process_step}.{extension}"
+        )
 
     @property
     @abstractmethod
@@ -146,21 +144,26 @@ class BaseUtil(ABC):
 
     @property
     def thread_is_set_to_stop(self) -> bool:
-        return self.is_threaded and self.this_thread.is_alive() and self.this_thread.set_to_stop
+        return (
+            self.is_threaded
+            and self.this_thread.is_alive()
+            and self.this_thread.set_to_stop
+        )
 
     @property
     def thread_is_set_to_hard_stop(self) -> bool:
-        return self.is_threaded and self.this_thread.is_alive() and self.this_thread.set_to_hard_stop
+        return (
+            self.is_threaded
+            and self.this_thread.is_alive()
+            and self.this_thread.set_to_hard_stop
+        )
 
     @property
     def process_name(self) -> Optional[str]:
         return self._process_name
 
     @process_name.setter
-    def process_name(
-            self,
-            name: str
-    ) -> None:
+    def process_name(self, name: str) -> None:
         self._process_name = name
 
     @property
@@ -172,28 +175,25 @@ class BaseUtil(ABC):
         return self._file_storage
 
     @file_storage_path.setter
-    def file_storage_path(
-            self,
-            sub_path: Union[str, pathlib.Path]
-    ) -> None:
+    def file_storage_path(self, sub_path: Union[str, pathlib.Path]) -> None:
         self._file_storage = Path(self._file_storage / sub_path)
         self._file_storage.mkdir(exist_ok=True)  # ToDo: warning when folder exists
 
     @abstractmethod
     def has_process(
-            self,
-            process: Optional[str] = None,
-            extensions: Optional[list[str]] = None
+        self, process: Optional[str] = None, extensions: Optional[list[str]] = None
     ) -> bool:
         if extensions is None:
             return self._complete_pickle_path(process).exists()
-        return all([self._complete_pickle_path(process, ext).exists() for ext in extensions])
+        return all(
+            [self._complete_pickle_path(process, ext).exists() for ext in extensions]
+        )
 
     @abstractmethod
     def delete_process(
-            self,
-            process: Optional[str] = None,
-            extensions: Optional[list[str]] = None,
+        self,
+        process: Optional[str] = None,
+        extensions: Optional[list[str]] = None,
     ) -> None:
         if self.has_process(process, extensions):
             if extensions is None:
@@ -204,10 +204,10 @@ class BaseUtil(ABC):
 
     @abstractmethod
     def read_config(
-            self,
-            config: Optional[Union[FileStorage, dict]],
-            process_name=None,
-            language=None
+        self,
+        config: Optional[Union[FileStorage, dict]],
+        process_name=None,
+        language=None,
     ) -> Optional[Response]:
         base_config = self.default_config
         is_default_config = True
@@ -238,7 +238,11 @@ class BaseUtil(ABC):
             _inter = set(base_config.keys()).intersection(self.necessary_config_keys)
             if not len(_inter) == len(self.necessary_config_keys):
                 raise KeyError(f"Missing necessary config values: '{_inter}'.")
-        base_config["corpus_name"] = process_name.lower() if process_name is not None else base_config["corpus_name"].lower()
+        base_config["corpus_name"] = (
+            process_name.lower()
+            if process_name is not None
+            else base_config["corpus_name"].lower()
+        )
         self.config = base_config
         # ToDo: Since n_process > 1 would induce Multiprocessing and this doesn't work with the Threading approach
         #  to keep the server able to respond, the value will be popped here.
@@ -247,16 +251,13 @@ class BaseUtil(ABC):
         return None
 
     @abstractmethod
-    def read_stored_config(
-            self,
-            ext: str = "yaml"
-    ) -> tuple[str, dict]:
+    def read_stored_config(self, ext: str = "yaml") -> tuple[str, dict]:
         _sub_configs = {k: {} for k in self.sub_config_names}
         _file_name = f"{self.process_name}_{self.process_step}_config.{ext}"
         _file = Path(self._file_storage / _file_name)
         if not _file.exists():
             return self.process_step, {}
-        config_yaml = yaml.safe_load(_file.open('rb'))
+        config_yaml = yaml.safe_load(_file.open("rb"))
         for key, value in config_yaml.copy().items():
             _sub_key_split = key.split("_")
             if len(_sub_key_split) > 1 and _sub_key_split[0] in _sub_configs.keys():
@@ -271,9 +272,7 @@ class BaseUtil(ABC):
 
     @abstractmethod
     def _load_pre_components(
-            self,
-            cache_name,
-            active_process_objs: Optional[dict[str, dict]] = None
+        self, cache_name, active_process_objs: Optional[dict[str, dict]] = None
     ) -> Optional[Union[tuple, list]]:
         """
         Pre Components should be returned as a tuple or list; they will be provided to
@@ -284,10 +283,7 @@ class BaseUtil(ABC):
 
     @abstractmethod
     def _start_process(
-            self,
-            process_factory,
-            *args,
-            **kwargs
+        self, process_factory, *args, **kwargs
     ) -> Tuple[bool, Union[str, Any]]:
         """
         Should return whether process was successful (and with it could provide the resulting object)
@@ -303,68 +299,115 @@ class BaseUtil(ABC):
 
     @staticmethod
     def abort_chain(
-            step: str,
+        step: str,
     ) -> list:
         return {
             StepsName.DATA: StepsName.ALL,
-            StepsName.EMBEDDING: [StepsName.EMBEDDING, StepsName.CLUSTERING, StepsName.GRAPH],
-            StepsName.CLUSTERING: [StepsName.CLUSTERING, StepsName.GRAPH],
-            StepsName.GRAPH: [StepsName.GRAPH],
+            StepsName.EMBEDDING: [
+                StepsName.EMBEDDING,
+                StepsName.CLUSTERING,
+                StepsName.GRAPH,
+                StepsName.INTEGRATION,
+            ],
+            StepsName.CLUSTERING: [
+                StepsName.CLUSTERING,
+                StepsName.GRAPH,
+                StepsName.INTEGRATION,
+            ],
+            StepsName.GRAPH: [StepsName.GRAPH, StepsName.INTEGRATION],
+            StepsName.INTEGRATION: [StepsName.INTEGRATION],
         }.get(step, StepsName.ALL)
 
-    def stop_thread(
-            self,
-            hard_stop: bool = False
-    ):
+    def stop_thread(self, hard_stop: bool = False):
         if self.is_threaded:
             self.this_thread.stop(hard_stop=hard_stop)
 
     def start_process(
-            self,
-            cache_name: str,
-            process_factory,
-            process_tracker: dict,
-            active_process_objs: Optional[dict[str, dict]] = None,
-            return_result_obj: bool = False,
-            thread: Optional[StoppableThread] = None,
-            **kwargs
+        self,
+        cache_name: str,
+        process_factory,
+        process_tracker: dict,
+        active_process_objs: Optional[dict[str, dict]] = None,
+        return_result_obj: bool = False,
+        thread: Optional[StoppableThread] = None,
+        **kwargs,
     ):
         self.this_thread = thread
-        add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.RUNNING, process_tracker)
+        add_status_to_running_process(
+            self.process_name, self.process_step, ProcessStatus.RUNNING, process_tracker
+        )
         _pre_components = self._load_pre_components(cache_name, active_process_objs)
         config = self.config.copy()
         try:
-            _valid_config = getfullargspec(self._process_method()).args if self._process_method() is not None else None
+            _valid_config = (
+                getfullargspec(self._process_method()).args
+                if self._process_method() is not None
+                else None
+            )
             if _valid_config is not None:
                 for _arg in config.copy().keys():
-                    if _arg not in _valid_config and not self._in_protected_kwargs(_arg):
+                    if _arg not in _valid_config and not self._in_protected_kwargs(
+                        _arg
+                    ):
                         config.pop(_arg)
                 config.update(kwargs)
             _process_status = None
             if _pre_components is None:
                 _process_status = self._start_process(process_factory, **config)
             else:
-                _process_status = self._start_process(process_factory, *_pre_components, **config)
+                _process_status = self._start_process(
+                    process_factory, *_pre_components, **config
+                )
 
             if _process_status[0]:
-                add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.FINISHED, process_tracker)
+                add_status_to_running_process(
+                    self.process_name,
+                    self.process_step,
+                    ProcessStatus.FINISHED,
+                    process_tracker,
+                )
             else:
-                self._app.logger.error(_process_status[1] if (len(_process_status) > 1 and isinstance(_process_status[1], str)) else "No error message given.")
+                self._app.logger.error(
+                    _process_status[1]
+                    if (
+                        len(_process_status) > 1 and isinstance(_process_status[1], str)
+                    )
+                    else "No error message given."
+                )
                 for _step in BaseUtil.abort_chain(self.process_step):
-                    add_status_to_running_process(self.process_name, _step, ProcessStatus.ABORTED, process_tracker)
+                    add_status_to_running_process(
+                        self.process_name, _step, ProcessStatus.ABORTED, process_tracker
+                    )
 
-            if active_process_objs is not None and hasattr(active_process_objs, "update"):
-                active_process_objs[self.process_name][self.process_step] = deepcopy(_process_status[1])
+            if active_process_objs is not None and hasattr(
+                active_process_objs, "update"
+            ):
+                active_process_objs[self.process_name][self.process_step] = deepcopy(
+                    _process_status[1]
+                )
             if return_result_obj:
                 return _process_status[1] if len(_process_status) > 1 else None
         except Exception as e:
-            add_status_to_running_process(self.process_name, self.process_step, ProcessStatus.ABORTED, process_tracker)
+            add_status_to_running_process(
+                self.process_name,
+                self.process_step,
+                ProcessStatus.ABORTED,
+                process_tracker,
+            )
             self._app.logger.error(e)
         return None
 
 
 pipeline_query_params = namedtuple(
-    "PipelineQueryParams", ["process_name", "language", "skip_present", "omitted_pipeline_steps", "return_statistics"])
+    "PipelineQueryParams",
+    [
+        "process_name",
+        "language",
+        "skip_present",
+        "omitted_pipeline_steps",
+        "return_statistics",
+    ],
+)
 
 steps_relation_dict = {
     StepsName.DATA: 1,
@@ -382,7 +425,7 @@ class PipelineLanguage:
         "englisch": "en",
         "de": "de",
         "german": "de",
-        "deutsch": "de"
+        "deutsch": "de",
     }
 
     @staticmethod
@@ -391,15 +434,15 @@ class PipelineLanguage:
 
 
 def add_status_to_running_process(
-        process_name: str,
-        step_name: str,
-        step_status: ProcessStatus,
-        running_processes: dict
+    process_name: str,
+    step_name: str,
+    step_status: ProcessStatus,
+    running_processes: dict,
 ):
     _step = {
         "name": step_name,
         "rank": steps_relation_dict[step_name],
-        "status": step_status
+        "status": step_status,
     }
     _remove = -1
     if not running_processes.get(process_name, False):
@@ -427,8 +470,15 @@ def get_bool_expression(str_bool: str, default: Union[bool, str] = False) -> boo
         return str_bool
     elif isinstance(str_bool, str):
         return {
-            'true': True, 'yes': True, 'y': True, 'ja': True, 'j': True,
-            'false': False, 'no': False, 'n': False, 'nein': False,
+            "true": True,
+            "yes": True,
+            "y": True,
+            "ja": True,
+            "j": True,
+            "false": False,
+            "no": False,
+            "n": False,
+            "nein": False,
         }.get(str_bool.lower(), default)
     else:
         return False
@@ -441,11 +491,11 @@ def string_conformity(s: str):
 def load_spacy_model(spacy_model: str, logger: logging.Logger, default_model: str):
     def is_valid_spacy_model(model: str):
         from spacy.cli.download import get_compatibility
+
         if model in get_compatibility():
             return True
         logger.error(f"'{model}' is not a valid model name.")
         return False
-
 
     def wait_for_download(model: str, time_out: int = 30):
         spacy.cli.download(model)
@@ -453,15 +503,20 @@ def load_spacy_model(spacy_model: str, logger: logging.Logger, default_model: st
         try:
             wait(wait_pred, timeout_seconds=time_out)
         except TimeoutExpired:
-            logger.warning(f"TimeOut while waiting >{time_out} seconds for download to finish."
-                           f" Hopefully this is just due to installed models not refreshing.")
+            logger.warning(
+                f"TimeOut while waiting >{time_out} seconds for download to finish."
+                f" Hopefully this is just due to installed models not refreshing."
+            )
+
     spacy_language = None
     try:
         spacy_language = spacy.load(spacy_model)
     except IOError as e:
         if spacy_model != default_model:
             if is_valid_spacy_model(spacy_model):
-                logger.info(f"Model '{spacy_model}' doesn't seem to be installed; trying to download model.")
+                logger.info(
+                    f"Model '{spacy_model}' doesn't seem to be installed; trying to download model."
+                )
                 wait_for_download(spacy_model)
                 spacy_language = spacy.load(spacy_model)
             else:
@@ -469,7 +524,9 @@ def load_spacy_model(spacy_model: str, logger: logging.Logger, default_model: st
                 try:
                     spacy_language = spacy.load(default_model)
                 except IOError as e:
-                    logger.error(f"{e}\ntrying to download default model {default_model}.")
+                    logger.error(
+                        f"{e}\ntrying to download default model {default_model}."
+                    )
                     wait_for_download(default_model)
                     spacy_language = spacy.load(default_model)
         else:
@@ -477,6 +534,7 @@ def load_spacy_model(spacy_model: str, logger: logging.Logger, default_model: st
             wait_for_download(default_model)
             spacy_language = spacy.load(default_model)
     return spacy_language
+
 
 def get_default_spacy_model():
     return "en_core_web_trf"

@@ -1,8 +1,7 @@
+import sys
 from typing import Optional, Union, Callable
 
 import flask
-import sys
-
 from werkzeug.datastructures import FileStorage
 
 from load_utils import FactoryLoader
