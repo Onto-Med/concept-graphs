@@ -470,7 +470,7 @@ def stop_thread(
     _thread.stop(hard_stop=hard_stop)
 
     try:
-        for _step in sorted(_process.get("status", {}), key=lambda p: p.get("rank")):
+        for _step in sorted(_process.get("status", {}), key=lambda p: p.get("rank", 99)):
             if _step.get("rank") <= _current_step.get("rank"):
                 if _step.get("name") == _current_step.get("name"):
                     process_tracker[process_name]["status"][_step.get("rank") - 1][
