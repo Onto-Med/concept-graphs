@@ -1,0 +1,631 @@
+openapi: "3.0.3"
+info:
+  title: Concept Graphs API
+  description: API for managing concept graphs
+  version: "1.0"
+servers:
+  - url: http://top-prod:9007
+  - url: http://localhost:9007
+paths:
+  /preprocessing:
+    post:
+      summary: Upload text data to be preprocessed
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: string
+                  format: binary
+                  description: Zip file containing text data
+                config:
+                  type: string
+                  format: binary
+                  description: YAML config file (optional)
+                labels:
+                  type: string
+                  format: binary
+                  description: YAML labels file (optional)
+      responses:
+        "200":
+          description: Preprocessing started
+  /preprocessing/statistics:
+    get:
+      summary: Get basic statistics for the corpus
+      parameters:
+        - name: process
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Name of the process
+      responses:
+        "200":
+          description: Corpus statistics
+  /preprocessing/noun_chunks:
+    get:
+      summary: Get all noun chunks found
+      parameters:
+        - name: process
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Name of the process
+      responses:
+        "200":
+          description: Noun chunks
+  /embedding:
+    get:
+      summary: Get embedding information
+      parameters:
+        - name: process
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Name of the process
+      responses:
+        "200":
+          description: Embedding info
+    post:
+      summary: Upload config for embedding step
+      requestBody:
+        required: false
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                config:
+                  type: string
+                  format: binary
+                  description: YAML config file (optional)
+      responses:
+        "200":
+          description: Embedding started
+  /embedding/statistics:
+    get:
+      summary: Get basic statistics for the embedding object
+      parameters:
+        - name: process
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Name of the process
+      responses:
+        "200":
+          description: Embedding statistics
+  /clustering:
+    get:
+      summary: Get clustering information
+      parameters:
+        - name: process
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Name of the process
+      responses:
+        "200":
+          description: Clustering info
+    post:
+      summary: Upload config for clustering step
+      requestBody:
+        required: false
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                config:
+                  type: string
+                  format: binary
+                  description: YAML config file (optional)
+      responses:
+        "200":
+          description: Clustering started
+  /clustering/concepts:
+    get:
+      summary: Show concepts that were found
+      parameters:
+        - name: process
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Name of the process
+        - name: top_k
+          in: query
+          required: false
+          schema:
+            type: integer
+          description: Number of top k representatives
+        - name: distance
+          in: query
+          required: false
+          schema:
+            type: number
+          description: Cosine distance threshold
+      responses:
+        "200":
+          description: Concepts found
+  /graph/creation:
+    get:
+      summary: Create graphs according to config
+      parameters:
+        - name: process
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Name of the process
+        - name: exclusion_ids
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Comma-separated list of concept ids to exclude
+      responses:
+        "200":
+          description: Graphs created
+    post:
+      summary: Upload config for graph creation
+      requestBody:
+        required: false
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                config:
+                  type: string
+                  format: binary
+                  description: YAML config file (optional)
+      responses:
+        "200":
+          description: Graph creation started
+  /graph/statistics:
+    get:
+      summary: Get basic statistics for the graphs
+      parameters:
+        - name: process
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Name of the process
+      responses:
+        "200":
+          description: Graph statistics
+  /graph/{graph_id}:
+    get:
+      summary: Get nodes and adjacency information for a specific graph
+      parameters:
+        - name: graph_id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: ID of the graph
+        - name: draw
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: If true, response is a rendered graph
+      responses:
+        "200":
+          description: Graph data
+  /pipeline:
+    post:
+      summary: Start a complete pipeline with all sub steps
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                data:
+                  type: string
+                  format: binary
+                  description: Zip file containing text data (optional)
+                document_server_config:
+                  type: string
+                  format: binary
+                  description: Document server config file (optional)
+                data_config:
+                  type: string
+                  format: binary
+                  description: Preprocessing config file (optional)
+                embedding_config:
+                  type: string
+                  format: binary
+                  description: Embedding config file (optional)
+                clustering_config:
+                  type: string
+                  format: binary
+                  description: Clustering config file (optional)
+                graph_config:
+                  type: string
+                  format: binary
+                  description: Graph config file (optional)
+      responses:
+        "200":
+          description: Pipeline started
+  /pipeline/configuration:
+    get:
+      summary: Get pipeline configuration
+      parameters:
+        - name: process
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Name of the process
+        - name: default
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: If true, returns default configuration
+      responses:
+        "200":
+          description: Pipeline configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PipelineConfiguration"
+  /processes:
+    get:
+      summary: Get all stored processes
+      responses:
+        "200":
+          description: List of all stored processes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessesResponse"
+  /status:
+    get:
+      summary: Get the status of a specified process
+      parameters:
+        - name: process
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The name of the process to get the status for
+      responses:
+        "200":
+          description: Status of the specified process
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProcessesResponse"
+        "404":
+          description: Process not found
+  /status/document-server:
+    post:
+      summary: Check if the data server specified in an uploaded document_server_config file is reachable
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/DocumentServerConfigUpload"
+      responses:
+        "200":
+          description: Document server is reachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentServerStatus"
+        "503":
+          description: Document server is not reachable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentServerStatus"
+components:
+  schemas:
+    Status:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "data"
+        rank:
+          type: integer
+          example: 1
+        status:
+          type: string
+          example: "running"
+      required:
+        - name
+        - rank
+        - status
+    Process:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "process1"
+        status:
+          type: array
+          items:
+            $ref: "#/components/schemas/Status"
+      required:
+        - name
+        - status
+    ProcessesResponse:
+      type: object
+      properties:
+        processes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Process"
+      required:
+        - processes
+    DocumentServerConfigUpload:
+      type: object
+      properties:
+        document_server_config:
+          type: string
+          format: binary
+          description: The configuration file for the document server
+      required:
+        - document_server_config
+    DocumentServerStatus:
+      type: object
+      properties:
+        reachable:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Document server is reachable."
+      required:
+        - reachable
+        - message
+    PipelineConfiguration:
+      type: object
+      properties:
+        config:
+          type: object
+          properties:
+            clustering:
+              type: object
+              properties:
+                algorithm:
+                  type: string
+                  example: "kmeans"
+                clustering:
+                  type: object
+                  example: {}
+                deduction:
+                  type: object
+                  properties:
+                    enabled:
+                      type: boolean
+                      example: true
+                    k_max:
+                      type: integer
+                      example: 100
+                    k_min:
+                      type: integer
+                      example: 2
+                    n_samples:
+                      type: integer
+                      example: 15
+                    regression_poly_degree:
+                      type: integer
+                      example: 5
+                    sample_fraction:
+                      type: integer
+                      example: 25
+                downscale:
+                  type: string
+                  example: "umap"
+                missing_as_recommended:
+                  type: boolean
+                  example: true
+                scaling:
+                  type: object
+                  properties:
+                    min_dist:
+                      type: number
+                      example: 0.1
+                    n_components:
+                      type: integer
+                      example: 100
+                    n_neighbors:
+                      type: integer
+                      example: 10
+            data:
+              type: object
+              properties:
+                case_sensitive:
+                  type: boolean
+                  example: false
+                disable:
+                  type: string
+                  nullable: true
+                  example: null
+                file_encoding:
+                  type: string
+                  example: "utf-8"
+                file_extension:
+                  type: string
+                  example: "txt"
+                head_only:
+                  type: boolean
+                  example: false
+                n_process:
+                  type: integer
+                  example: 1
+                negspacy:
+                  type: object
+                  properties:
+                    configuration:
+                      type: object
+                      properties:
+                        feat_of_interest:
+                          type: string
+                          example: "NC"
+                        language:
+                          type: string
+                          example: "en"
+                        scope:
+                          type: integer
+                          example: 1
+                    enabled:
+                      type: boolean
+                      example: true
+                prepend_head:
+                  type: boolean
+                  example: false
+                spacy_model:
+                  type: string
+                  example: "en_core_web_trf"
+                tfidf_filter:
+                  type: object
+                  properties:
+                    enabled:
+                      type: boolean
+                      example: false
+                    max_df:
+                      type: integer
+                      example: 1
+                    min_df:
+                      type: integer
+                      example: 1
+                    stop:
+                      type: string
+                      nullable: true
+                      example: null
+                use_lemma:
+                  type: boolean
+                  example: false
+            embedding:
+              type: object
+              properties:
+                model:
+                  type: string
+                  example: "sentence-transformers/paraphrase-albert-small-v2"
+                n_process:
+                  type: integer
+                  example: 1
+                storage:
+                  type: object
+                  properties:
+                    config:
+                      type: object
+                      properties:
+                        annParameters:
+                          type: object
+                          properties:
+                            parameters:
+                              type: object
+                              properties:
+                                efConstruction:
+                                  type: integer
+                                  example: 1024
+                                m:
+                                  type: integer
+                                  example: 16
+                            spaceType:
+                              type: string
+                              example: "dotproduct"
+                        normalizeEmbeddings:
+                          type: boolean
+                          example: false
+                    method:
+                      type: string
+                      example: "vectorstore"
+            graph:
+              type: object
+              properties:
+                cluster:
+                  type: object
+                  properties:
+                    distance:
+                      type: number
+                      example: 0.7
+                    min_size:
+                      type: integer
+                      example: 4
+                graph:
+                  type: object
+                  properties:
+                    cosine_weight:
+                      type: number
+                      example: 0.6
+                    graph_weight_cut_off:
+                      type: number
+                      example: 0.6
+                    merge_threshold:
+                      type: number
+                      example: 0.9
+                    simplify:
+                      type: number
+                      example: 0.5
+                    simplify_alg:
+                      type: string
+                      example: "significance"
+                    sub_clustering:
+                      type: boolean
+                      example: false
+                    unroll:
+                      type: boolean
+                      example: false
+                restrict_to_cluster:
+                  type: boolean
+                  example: true
+        document_server:
+          type: object
+          properties:
+            index:
+              type: string
+              example: "documents"
+            label_key:
+              type: string
+              example: "label"
+            other_id:
+              type: string
+              example: "id"
+            port:
+              type: integer
+              example: 9008
+            replace_keys:
+              type: object
+              properties:
+                text:
+                  type: string
+                  example: "content"
+            size:
+              type: integer
+              example: 30
+            url:
+              type: string
+              example: "http://localhost"
+        language:
+          type: string
+          example: "en"
+        name:
+          type: string
+          example: "default"
+        vectorstore_server:
+          type: object
+          properties:
+            port:
+              type: integer
+              example: 8882
+            url:
+              type: string
+              example: "http://localhost"
