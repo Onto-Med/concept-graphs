@@ -49,7 +49,7 @@ class PreprocessingUtil(BaseUtil):
     @property
     def default_config(self) -> dict:
         return {
-            "spacy_model": self.default_model,
+            # "spacy_model": self.default_model,
             "file_encoding": "utf-8",
             "omit_negated_chunks": False,
         }

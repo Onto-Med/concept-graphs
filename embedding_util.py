@@ -65,7 +65,7 @@ class PhraseEmbeddingUtil(BaseUtil):
     @property
     def default_config(self) -> dict:
         return {
-            'model': self.default_model,
+            # 'model': self.default_model,
             'down_scale_algorithm': None,
             'storage': {
                 'method': 'pickle'
@@ -92,6 +92,10 @@ class PhraseEmbeddingUtil(BaseUtil):
     ):
         _response = super().read_config(config, process_name, language)
         if _response is None:
+            if language is not None and not self.config.get("model", False):
+                self.config["model"] = self.language_model_map.get(
+                    language, self.default_model
+                )
             _storage = self.config.pop("storage", None)
             if _storage is not None and isinstance(_storage, dict):
                 self.config["storage_method"] = _storage.get("method", self.default_storage_method)
