@@ -1,0 +1,18 @@
+services:
+  concept-graphs-api:
+    image: imise/top/concept-graphs-api:0.8.2
+    restart: unless-stopped
+    ports:
+      - 9007:9007
+    volumes:
+      - results:/rest_api/tmp
+    networks:
+      - concept-graphs-network
+
+volumes:
+  results:
+
+networks:
+  concept-graphs-network:
+    external: true
+    name: concept-graphs-network

@@ -1,6 +1,8 @@
 # python 3.10
 -f https://download.pytorch.org/whl/cpu/torch_stable.html
 
+curated-tokenizers==0.0.9
+curated-transformers==0.1.1
 scipy==1.11.4
 llvmlite==0.42.0
 numba==0.59.0
