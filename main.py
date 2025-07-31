@@ -309,6 +309,7 @@ def graph_base_endpoint():
 
 @app.route("/graph/document/<path_arg>", methods=["POST"])
 def graph_document(path_arg):
+    # ToDo: add getting documents from document_server
     # ToDo: resolve not implemented exceptions
     """
     request.json = {
@@ -353,7 +354,7 @@ def graph_document(path_arg):
         )
         if content_json.vectorstore_server is None and _emb_proc.source is None:
             raise NotImplementedError(
-                "Only adding documents with a setup vectorstore server is supported; no vectorstore configured."
+                "Only adding documents with a vectorstore server setup is supported; no vectorstore configured."
             )
         if _emb_proc.source is None:
             _emb_proc.source = content_json.vectorstore_server
@@ -365,15 +366,13 @@ def graph_document(path_arg):
                 data_processing=_data_proc,
                 embedding_processing=_emb_proc,
             )
+            return _response, HTTPResponses.OK  #ToDo: don't wait for return (-> threading)
         else:
-            raise NotImplementedError(
-                "Right now only processing of documents as json is supported."
-            )
+            return jsonify(error="Right now only processing of documents as json is supported."), HTTPResponses.NOT_IMPLEMENTED
     elif path_arg.lower() == "delete":
-        raise NotImplementedError("'Delete' not implemented.")
+        return jsonify(error="'Delete' not implemented."), HTTPResponses.NOT_IMPLEMENTED
     else:
-        return jsonify(error=f"No such path argument '{path_arg}' supported.")
-    return graph_base_endpoint()
+        return graph_base_endpoint()
 
 
 @app.route("/graph/<path_arg>", methods=["POST", "GET"])
@@ -866,8 +865,8 @@ def get_data_server():
             ),
             int(HTTPResponses.OK),
         )
-    elif request.method == "POST":
-        return jsonify("Method 'POST' not implemented.")
+    elif request.method == "GET":
+        return jsonify("Method 'GET' not yet implemented.")
     else:
         return jsonify(f"Method not supported: '{request.method}'.")
 

@@ -6,6 +6,7 @@ info:
 servers:
   - url: http://top-prod:9007
   - url: http://localhost:9007
+  - url: http://localhost:9010
 paths:
   /preprocessing:
     post:
@@ -189,6 +190,51 @@ paths:
       responses:
         "200":
           description: Graph creation started
+  /graph/document/add:
+    parameters:
+      - name: process
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Name of the process/corpus to add this/these document/s to
+    post:
+      summary: Adds document/s to an existing vector store index and integrates its/their phrases into the graphs that were built for the corpus
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                vectorstore_server:
+                  type: object
+                  required: false
+                document_server:
+                  type: object
+                  required: false
+                language:
+                  type: string
+                  required: true
+                documents:
+                  type: array
+                  items:
+                    type: object
+                    required: true
+                    properties:
+                      name:
+                        type: string
+                      content:
+                        type: string
+                      label:
+                        type: string
+      responses:
+        "200":
+          description: "Added document/s."
+        "404":
+          description: "Path with specific argument not found."
+        "501":
+          description: "Path with specific argument not yet implemented."
   /graph/statistics:
     get:
       summary: Get basic statistics for the graphs
@@ -227,6 +273,9 @@ paths:
       requestBody:
         required: true
         content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PipelineConfiguration"
           multipart/form-data:
             schema:
               type: object
@@ -239,6 +288,10 @@ paths:
                   type: string
                   format: binary
                   description: Document server config file (optional)
+                vectorstore_server_config:
+                  type: string
+                  format: binary
+                  description: Vector store server config file (optional)
                 data_config:
                   type: string
                   format: binary
