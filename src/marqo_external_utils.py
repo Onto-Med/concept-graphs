@@ -449,7 +449,7 @@ class MarqoDocumentStore(DocumentStore):
             embeddings=document.as_tuples, check_for_same=True
         )
         if not any(_ids):
-            return
+            return set()
 
         _added_ids = [(idx, i) for idx, i in enumerate(_ids) if int(i) > _last_store_id]
         _gcs = []

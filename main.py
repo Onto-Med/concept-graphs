@@ -1,5 +1,4 @@
 import json
-import logging
 
 from flask import Flask
 from flask.logging import default_handler
@@ -33,7 +32,7 @@ root_logger.propagate = False
 if root_logger.hasHandlers():
     root_logger.handlers.clear()
 root_logger.addHandler(default_handler)
-app = Flask(__name__)
+app = Flask(__name__, static_folder="api", static_url_path="")
 
 
 FILE_STORAGE_TMP = "./tmp"
@@ -62,19 +61,14 @@ populate_running_processes(app, FILE_STORAGE_TMP, running_processes)
 # ToDo: adapt README
 
 
-@app.route("/")
+@app.route("/", methods=["GET"])
 def index():
-    return jsonify(
-        available_endpoints=[
-            "/preprocessing",
-            "/embedding",
-            "/clustering",
-            "/graph",
-            "/pipeline",
-            "/processes",
-            "/status",
-        ]
-    )
+    return openapi()
+
+
+@app.route("/openapi", methods=["GET"])
+def openapi():
+    return app.send_static_file("index.html")
 
 
 @app.route("/preprocessing", methods=["GET", "POST"])
@@ -340,18 +334,24 @@ def graph_document(path_arg):
     if path_arg.lower() == "add":
         # if content_json.id is None:
         #     return jsonify(f"No '_id' or 'id' key in content json: '{request.get_json().keys()}'")
-        _path_base = pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process)
-        _data_proc = FactoryLoader.load_data(str(_path_base.resolve()), process)
-        _emb_proc = FactoryLoader.load_embedding(
-            str(_path_base.resolve()),
-            process,
-            _data_proc,
-            (
-                None
-                if content_json.vectorstore_server is None
-                else content_json.vectorstore_server
-            ),
-        )
+        _data_proc = None
+        _emb_proc = None
+        try:
+            _path_base = pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process)
+            _data_proc = FactoryLoader.load_data(str(_path_base.resolve()), process)
+            _emb_proc = FactoryLoader.load_embedding(
+                str(_path_base.resolve()),
+                process,
+                _data_proc,
+                (
+                    None
+                    if content_json.vectorstore_server is None
+                    else content_json.vectorstore_server
+                ),
+            )
+        except FileNotFoundError as e:
+            _missing = "data" if _data_proc is None else "embedding"
+            return jsonify(error=f"The object for {_missing} doesn't seem to be present. Please finish the complete pipeline for the process '{process}' first."), HTTPResponses.NOT_FOUND
         if content_json.vectorstore_server is None and _emb_proc.source is None:
             raise NotImplementedError(
                 "Only adding documents with a vectorstore server setup is supported; no vectorstore configured."

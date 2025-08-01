@@ -483,6 +483,8 @@ def get_bool_expression(str_bool: str, default: Union[bool, str] = False) -> boo
 
 
 def string_conformity(s: str):
+    if s is None:
+        return None
     return re.sub(r"\s+", "_", s.lower())
 
 
