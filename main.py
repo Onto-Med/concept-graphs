@@ -1,5 +1,4 @@
 import json
-import logging
 
 from flask import Flask
 from flask.logging import default_handler
@@ -33,7 +32,7 @@ root_logger.propagate = False
 if root_logger.hasHandlers():
     root_logger.handlers.clear()
 root_logger.addHandler(default_handler)
-app = Flask(__name__)
+app = Flask(__name__, static_folder="api", static_url_path="")
 
 
 FILE_STORAGE_TMP = "./tmp"
@@ -62,19 +61,14 @@ populate_running_processes(app, FILE_STORAGE_TMP, running_processes)
 # ToDo: adapt README
 
 
-@app.route("/")
+@app.route("/", methods=["GET"])
 def index():
-    return jsonify(
-        available_endpoints=[
-            "/preprocessing",
-            "/embedding",
-            "/clustering",
-            "/graph",
-            "/pipeline",
-            "/processes",
-            "/status",
-        ]
-    )
+    return openapi()
+
+
+@app.route("/openapi", methods=["GET"])
+def openapi():
+    return app.send_static_file("index.html")
 
 
 @app.route("/preprocessing", methods=["GET", "POST"])
@@ -309,6 +303,7 @@ def graph_base_endpoint():
 
 @app.route("/graph/document/<path_arg>", methods=["POST"])
 def graph_document(path_arg):
+    # ToDo: add getting documents from document_server
     # ToDo: resolve not implemented exceptions
     """
     request.json = {
@@ -339,21 +334,27 @@ def graph_document(path_arg):
     if path_arg.lower() == "add":
         # if content_json.id is None:
         #     return jsonify(f"No '_id' or 'id' key in content json: '{request.get_json().keys()}'")
-        _path_base = pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process)
-        _data_proc = FactoryLoader.load_data(str(_path_base.resolve()), process)
-        _emb_proc = FactoryLoader.load_embedding(
-            str(_path_base.resolve()),
-            process,
-            _data_proc,
-            (
-                None
-                if content_json.vectorstore_server is None
-                else content_json.vectorstore_server
-            ),
-        )
+        _data_proc = None
+        _emb_proc = None
+        try:
+            _path_base = pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process)
+            _data_proc = FactoryLoader.load_data(str(_path_base.resolve()), process)
+            _emb_proc = FactoryLoader.load_embedding(
+                str(_path_base.resolve()),
+                process,
+                _data_proc,
+                (
+                    None
+                    if content_json.vectorstore_server is None
+                    else content_json.vectorstore_server
+                ),
+            )
+        except FileNotFoundError as e:
+            _missing = "data" if _data_proc is None else "embedding"
+            return jsonify(error=f"The object for {_missing} doesn't seem to be present. Please finish the complete pipeline for the process '{process}' first."), HTTPResponses.NOT_FOUND
         if content_json.vectorstore_server is None and _emb_proc.source is None:
             raise NotImplementedError(
-                "Only adding documents with a setup vectorstore server is supported; no vectorstore configured."
+                "Only adding documents with a vectorstore server setup is supported; no vectorstore configured."
             )
         if _emb_proc.source is None:
             _emb_proc.source = content_json.vectorstore_server
@@ -365,15 +366,13 @@ def graph_document(path_arg):
                 data_processing=_data_proc,
                 embedding_processing=_emb_proc,
             )
+            return _response, HTTPResponses.OK  #ToDo: don't wait for return (-> threading)
         else:
-            raise NotImplementedError(
-                "Right now only processing of documents as json is supported."
-            )
+            return jsonify(error="Right now only processing of documents as json is supported."), HTTPResponses.NOT_IMPLEMENTED
     elif path_arg.lower() == "delete":
-        raise NotImplementedError("'Delete' not implemented.")
+        return jsonify(error="'Delete' not implemented."), HTTPResponses.NOT_IMPLEMENTED
     else:
-        return jsonify(error=f"No such path argument '{path_arg}' supported.")
-    return graph_base_endpoint()
+        return graph_base_endpoint()
 
 
 @app.route("/graph/<path_arg>", methods=["POST", "GET"])
@@ -866,8 +865,8 @@ def get_data_server():
             ),
             int(HTTPResponses.OK),
         )
-    elif request.method == "POST":
-        return jsonify("Method 'POST' not implemented.")
+    elif request.method == "GET":
+        return jsonify("Method 'GET' not yet implemented.")
     else:
         return jsonify(f"Method not supported: '{request.method}'.")
 

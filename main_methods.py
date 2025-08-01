@@ -760,7 +760,7 @@ def get_query_param_help_text(param: str):
 
 
 def get_omit_pipeline_steps(steps: object) -> list[str]:
-    step_set = {"data", "embedding", "clustering", "graph"}
+    step_set = {"data", "embedding", "clustering", "graph", "integration"}
     if isinstance(steps, str):
         steps = steps.strip("([{}])")
         return [s.lower() for s in steps.split(",") if s.lower() in step_set]
