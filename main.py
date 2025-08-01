@@ -351,7 +351,7 @@ def graph_document(path_arg):
             )
         except FileNotFoundError as e:
             _missing = "data" if _data_proc is None else "embedding"
-            return jsonify(error=f"The object for {_missing} doesn't seem to be present. Please finish the complete pipeline for the process '{process}' first."), HTTPResponses.NOT_FOUND
+            return jsonify(error=f"The serialized object for '{_missing}' doesn't seem to be present. Please finish the complete pipeline for the process '{process}' first."), HTTPResponses.NOT_FOUND
         if content_json.vectorstore_server is None and _emb_proc.source is None:
             raise NotImplementedError(
                 "Only adding documents with a vectorstore server setup is supported; no vectorstore configured."
@@ -660,6 +660,8 @@ def complete_pipeline():
                         )
                     )
                 )
+            if _name == StepsName.INTEGRATION:
+                process_obj.config["check_for_reasonable_result"] = True
 
             processes_threading.append(
                 (

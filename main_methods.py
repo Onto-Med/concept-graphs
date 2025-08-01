@@ -862,7 +862,7 @@ def add_documents_to_concept_graphs(
             for idx in idx_dict.values()
         ]
     )
-    return jsonify("Processed documents.")
+    return jsonify(added_embeddings)
 
 
 def delete_pipeline(

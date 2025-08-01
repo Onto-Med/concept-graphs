@@ -110,6 +110,7 @@ class ConceptGraphIntegrationUtil(BaseUtil):
                 graphs=graphs,
                 cache_path=self._file_storage,
                 cache_name=f"{self.process_name}_{self.process_step}",
+                **kwargs
             )
         except Exception as e:
             return False, e
