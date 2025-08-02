@@ -358,8 +358,10 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def store_embedding(
         self, embedding: Any, check_for_same: bool, **kwargs
-    ) -> Iterable[str]:
-        """Store the embedding and return its id"""
+    ) -> dict[str, set]:
+        """Store the embedding and return its id in a dictionary with the following keys:
+            'added', 'retained', 'added_idx', 'retained_idx'
+        """
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -369,8 +371,9 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
         embeddings_repr: Iterable,
         vector_name: str,
         check_for_same: bool,
-    ) -> Iterable[str]:
-        """Store the embeddings and return their ids"""
+    ) -> dict[str, set]:
+        """Store the embeddings and return their ids (as well as their indices) in a dictionary with the following keys:
+            'added', 'retained', 'added_idx', 'retained_idx'"""
         raise NotImplementedError
 
     @abc.abstractmethod
