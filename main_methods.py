@@ -775,6 +775,9 @@ def add_documents_to_concept_graphs(
     embedding_processing: Optional[
         embedding_functions.SentenceEmbeddingsFactory.SentenceEmbeddings
     ] = None,
+    graph_processing: Optional[
+        list[nx.Graph]
+    ] = None,
     document_store_cls: str = "src.marqo_external_utils.MarqoDocumentStore",
     embedding_store_cls: str = "src.marqo_external_utils.MarqoEmbeddingStore",
     document_cls: str = "src.marqo_external_utils.MarqoDocument",
@@ -870,6 +873,7 @@ def delete_pipeline(
     base_path: pathlib.Path,
     process_name: str,
     running_processes: dict,
+    cached_processes: dict,
     wait_for_thread: Optional[StoppableThread] = None,
 ):
     app.logger.info(f"Deleting pipeline '{process_name}'.")
@@ -878,7 +882,8 @@ def delete_pipeline(
             f"Waiting for running pipeline thread of '{process_name}' to stop before deleting..."
         )
         wait_for_thread.join()
-    _process_stats = running_processes.pop(process_name, None)
+    for _store in [running_processes, cached_processes]:
+        _ = _store.pop(process_name, None)
     for _step in [
         PreprocessingUtil,
         PhraseEmbeddingUtil,

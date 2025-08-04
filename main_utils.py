@@ -485,7 +485,7 @@ def get_bool_expression(str_bool: str, default: Union[bool, str] = False) -> boo
 def string_conformity(s: str):
     if s is None:
         return None
-    return re.sub(r"\s+", "_", s.lower())
+    return re.sub(r"\s+|-+", "_", s.lower())
 
 
 def load_spacy_model(spacy_model: str, logger: logging.Logger, default_model: str):

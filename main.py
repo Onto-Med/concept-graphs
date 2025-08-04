@@ -1,4 +1,5 @@
 import json
+import logging
 
 from flask import Flask
 from flask.logging import default_handler
@@ -324,7 +325,7 @@ def graph_document(path_arg):
         ]
     }
     """
-    process = request.args.get("process", "default").lower()
+    process = string_conformity(request.args.get("process", "default"))
     if request.headers.get("Content-Type") == "application/json":
         content_json = parse_document_adding_json(request.get_json())
         if content_json is None:
@@ -334,11 +335,12 @@ def graph_document(path_arg):
     if path_arg.lower() == "add":
         # if content_json.id is None:
         #     return jsonify(f"No '_id' or 'id' key in content json: '{request.get_json().keys()}'")
-        _data_proc = None
-        _emb_proc = None
+        _data_proc = current_active_pipeline_objects.get(process, {}).get(StepsName.DATA, None)
+        _emb_proc = current_active_pipeline_objects.get(process, {}).get(StepsName.EMBEDDING, None)
+        _graph_proc = current_active_pipeline_objects.get(process, {}).get(StepsName.GRAPH, None)
+        _path_base = pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process)
         try:
-            _path_base = pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process)
-            _data_proc = FactoryLoader.load_data(str(_path_base.resolve()), process)
+            _data_proc = FactoryLoader.load_data(str(_path_base.resolve()), process) if _data_proc is None else _data_proc
             _emb_proc = FactoryLoader.load_embedding(
                 str(_path_base.resolve()),
                 process,
@@ -348,10 +350,16 @@ def graph_document(path_arg):
                     if content_json.vectorstore_server is None
                     else content_json.vectorstore_server
                 ),
-            )
+            ) if _emb_proc is None else _emb_proc
         except FileNotFoundError as e:
             _missing = "data" if _data_proc is None else "embedding"
             return jsonify(error=f"The serialized object for '{_missing}' doesn't seem to be present. Please finish the complete pipeline for the process '{process}' first."), HTTPResponses.NOT_FOUND
+        has_graph = True
+        try:
+            _graph_proc = FactoryLoader.load_graph(str(_path_base.resolve()), process) if _graph_proc is None else _graph_proc
+        except FileNotFoundError as e:
+            has_graph = False
+            logging.warning(f"The serialized object for 'graph' doesn't seem to be present. Storing the document into the vector store will still be performed.")
         if content_json.vectorstore_server is None and _emb_proc.source is None:
             raise NotImplementedError(
                 "Only adding documents with a vectorstore server setup is supported; no vectorstore configured."
@@ -365,6 +373,7 @@ def graph_document(path_arg):
                 content_json.documents,
                 data_processing=_data_proc,
                 embedding_processing=_emb_proc,
+                graph_processing=_graph_proc
             )
             return _response, HTTPResponses.OK  #ToDo: don't wait for return (-> threading)
         else:
@@ -785,8 +794,8 @@ def get_pipeline_default_configuration():
 @app.route("/processes/<process_id>/delete", methods=["DELETE"])
 def delete_process(process_id):
     hard_stop = request.args.get("hard_stop", False)
-    process_id = process_id.lower()
-    if process_id not in running_processes:
+    process_id = string_conformity(process_id)
+    if process_id not in set(running_processes.keys()).union(current_active_pipeline_objects.keys()):
         return Response(
             f"There is no such process '{process_id}'.\n",
             status=int(HTTPResponses.NOT_FOUND),
@@ -808,7 +817,7 @@ def delete_process(process_id):
                 hard_stop=hard_stop,
             )
     _delete_thread = StoppableThread(
-        target_args=(app, f_storage, process_id, running_processes, to_stop),
+        target_args=(app, f_storage, process_id, running_processes, current_active_pipeline_objects, to_stop),
         group=None,
         target=delete_pipeline,
         name=None,

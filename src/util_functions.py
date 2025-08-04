@@ -410,11 +410,32 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
 class DocumentStore(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
-    def add_document(self, document: Document) -> set[str]:
+    def add_document(self, document: Document) -> dict[str, dict[str,list[str]]]:
+        """
+        Adds a document to the store
+
+        :param document: an instance of a ::class::`Document`
+        :return: {
+            "with_graph": {
+                "added": [],
+                "incorporated": []
+            },
+            "without_graph": {
+                "added": [],
+                "incorporated": [],
+            }
+        }
+        """
         raise NotImplementedError
 
     @abc.abstractmethod
-    def add_documents(self, document: Iterable[Document]) -> set[str]:
+    def add_documents(self, document: Iterable[Document]) -> dict[str, dict[str, dict[str,list[str]]]]:
+        """
+        Adds documents from the Iterable to the store
+
+        :param document: ::class::`Iterable` of ::class::`Document`
+        :return: dictionary of results (see :func:`~DocumentStore.add_document`) keyed by document id (or if not give their index in the given iterable)
+        """
         raise NotImplementedError
 
     @abc.abstractmethod
