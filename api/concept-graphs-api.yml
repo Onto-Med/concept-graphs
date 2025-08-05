@@ -222,12 +222,16 @@ paths:
                     type: object
                     required: true
                     properties:
+                      id:
+                        type: string
+                        required: false
                       name:
                         type: string
                       content:
                         type: string
                       label:
                         type: string
+                        required: false
       responses:
         "200":
           description: "Added document/s."

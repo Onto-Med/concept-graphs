@@ -316,7 +316,6 @@ def graph_document(path_arg):
                 {
                     id: str
                     content: str
-                    corpus: str
                     label: str
                     name: str
                 },

@@ -20,13 +20,18 @@ CLIENT_BATCH_SIZE = 128
 
 
 class MarqoDocument(Document):
-    def __init__(self, phrases: list[str], embeddings: list[Union[list, np.ndarray]]):
+    def __init__(self, phrases: list[str], embeddings: list[Union[list, np.ndarray]], doc_id: Optional[str] = None):
         if len(phrases) != len(embeddings):
             raise ValueError(
                 f"Phrases (len={len(phrases)}) and embeddings (len={len(embeddings)}) must have same length"
             )
+        self._id = doc_id
         self._embeddings = embeddings
         self._phrases = phrases
+
+    @property
+    def id(self) -> Optional[str]:
+        return self._id
 
     @property
     def embeddings(self) -> list[Union[np.ndarray, list]]:
@@ -521,8 +526,8 @@ class MarqoDocumentStore(DocumentStore):
 
     def add_documents(self, documents: Iterable[MarqoDocument]) -> dict[str, dict[str, dict[str, list]]]:
         return_dict = dict()
-        for i, document in enumerate(documents):
-            return_dict[i] = self.add_document(document)
+        for document in documents:
+            return_dict[document.id] = self.add_document(document)
         return return_dict
 
     def suggest_graph_cluster(self, document: MarqoDocument) -> Optional[str]:

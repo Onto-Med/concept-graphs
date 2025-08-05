@@ -1,9 +1,11 @@
+import collections
 import logging
 import os
 import pathlib
 import pickle
 import shutil
 import sys
+import uuid
 from collections import OrderedDict, defaultdict, namedtuple
 from pydoc import locate
 from time import sleep
@@ -564,18 +566,18 @@ def load_configs(
             ConceptGraphIntegrationUtil,
         ),
     ]
-    _language = set()
+    _language = collections.Counter()
     for _step, _proc in processes:
         process_obj: BaseUtil = _proc(app=app, file_storage=path_to_configs)
         process_obj.process_name = process_name
         process_obj.file_storage_path = process_name
         key, val = process_obj.read_stored_config()
-        _language.add(val.pop("language", "en"))
+        _language.update({val.pop("language", "en"): 1})
         final_config["config"][key] = val
-    if len(_language) == 1:
-        _language = _language.pop()
-    else:
+    if len(_language) == 0:
         _language = "en"
+    else:
+        _language = _language.most_common(1)[0][0]
     final_config["language"] = _language
     return final_config
 
@@ -788,7 +790,6 @@ def add_documents_to_concept_graphs(
             {
                 id: str
                 content: str
-                corpus: str
                 label: str
                 name: str
             },
@@ -820,12 +821,14 @@ def add_documents_to_concept_graphs(
     )
     _index_key = _index_key[0] if len(_index_key) > 0 else None
 
+    doc_content = lambda x: x if isinstance(x, dict) else {"content": x}
     _chunk_result = data_processing.process_external_docs(
         content=[
             {
-                "name": doc.get("name", None),
-                "content": doc.get("content", ""),
-                "label": doc.get("label", None),
+                "id": doc_content(doc).get("id", str(uuid.uuid4())),
+                "name": doc_content(doc).get("name", None),
+                "content": doc_content(doc).get("content", ""),
+                "label": doc_content(doc).get("label", None),
             }
             for doc in content
         ]
@@ -861,8 +864,9 @@ def add_documents_to_concept_graphs(
             document(
                 phrases=np.take(text_list, idx, 0),
                 embeddings=np.take(_embedding_result.astype("float64"), idx, 0),
+                doc_id=_id
             )
-            for idx in idx_dict.values()
+            for _id, idx in idx_dict.items()
         ]
     )
     return jsonify(added_embeddings)
