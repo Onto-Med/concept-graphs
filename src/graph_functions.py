@@ -231,6 +231,18 @@ class GraphIncorp:
     def with_graphs(cls, graphs: Iterable[nx.Graph]):
         return cls(graphs)
 
+    # graph 06, node 1271:
+    # {'documents': [{'id': 'ca2f0f95-f3e3-40aa-9c30-a6e916546281',
+    #                 'offsets': [(2190, 2206)]}],
+    # 'label': 'sicheren zeichen'}
+    def _update_documents_in_graph(self, graph: nx.Graph, phrase_id: int, documents):
+        _docs = nx.get_node_attributes(graph, "documents").get(phrase_id, [])
+        _docs.extend(documents)
+        nx.set_node_attributes(graph, {phrase_id: _docs}, "documents")
+
+    def _adding_phrase_to_graph(self, graph, phrase_id, documents):
+        pass
+
     def get_graph_by_id(self, graph_id: str) -> nx.Graph:
         return self.graphs[int(graph_id)]
 
@@ -240,27 +252,27 @@ class GraphIncorp:
     def incorporate_phrase(self, phrase: dict):
         graph_id = int(phrase.get("graph")) if phrase.get("graph", False) else None
         phrase_id = int(phrase.get("id")) if phrase.get("id", False) else None
+        documents = phrase.get("documents", [])
         if graph_id is None or phrase_id is None:
             logging.error(f"'graph_id' or 'phrase_id' not in '{phrase}'. Can't incorporate phrase without.")
             return False
 
         # phrase from 'add_documents_to_concept_graph.added_embeddings'
-        # 'with_graph' :{'added': [{'_id': '5182', 'graph_cluster': ['6']}], 'incorporated': [{'_id': '1529', 'graph_cluster': ['8']}, {'_id': '2003', 'graph_cluster': ['24']}]}
+        # 'with_graph' :{'added': [{'_id': '5182', 'graph_cluster': ['6']}],
+        #                'incorporated': [{'_id': '1529', 'graph_cluster': ['8']},
+        #                                 {'_id': '2003', 'graph_cluster': ['24']}]}
         graph = self.get_graph_by_idx(graph_id)
-        # graph 06, node 1271: {'documents': [{'id': 'ca2f0f95-f3e3-40aa-9c30-a6e916546281', 'offsets': [(2190, 2206)]}], 'label': 'sicheren zeichen'}
         if phrase_id in graph.nodes():
             logging.info(f" Phrase with id '{phrase_id}' seems already to be present in graph '{graph_id}'."
                          f" Updating document info.")
-            self._update_documents_in_graph(graph, phrase_id)
+            self._update_documents_in_graph(graph, phrase_id, documents)
         else:
             logging.info(f"Phrase with id '{phrase_id}' is not present in graph '{graph_id}'. Adding it.")
-            documents = phrase.get("documents", [])
             self._adding_phrase_to_graph(graph, phrase_id, documents)
         return True
 
     def incorporate_phrases(self, phrases: Iterable[dict]):
         pass
-
 
 
 def rank_nodes(graph: nx.Graph, algorithm="naive", **kwargs) -> dict:
