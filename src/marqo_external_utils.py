@@ -167,7 +167,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
             )
         return self.client
 
-    def _check_for_same_embedding(self, check_id: Union[str, Iterable[str]]) -> dict[str, set]:
+    def _check_for_same_embedding(self, check_id: Union[str, Iterable[str]]) -> dict[str, list]:
         _field = "graph_cluster"
         _check_id_iter = lambda x: (
             enumerate(check_id) if isinstance(check_id, Iterable) else [(0, check_id,)]
@@ -211,10 +211,10 @@ class MarqoEmbeddingStore(EmbeddingStore):
         _added = self.store_embeddings(_documents).get("added", set())
         _added_idx = [i for i, _ in _additions]
         return {
-            "added": set(_added),
-            "retained": set(_retained),
-            "retained_idx": set(range(_max)).difference(_added_idx),
-            "added_idx": set(_added_idx),
+            "added": _added,
+            "retained": _retained,
+            "retained_idx": [i for i in range(_max) if i not in set(_added_idx)],
+            "added_idx": _added_idx,
         }
 
     def store_embedding(
@@ -224,7 +224,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
         ],
         check_for_same: bool = False,
         **kwargs,
-    ) -> dict[str, set]:
+    ) -> dict[str, list]:
         """ See `self.store_embeddings`
 
         :param embedding:
@@ -246,7 +246,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
             mappings={self._vector_name: {"type": "custom_vector"}},
         )
         return self._check_for_same_embedding(_id) if check_for_same else {
-            "added": {_id}, "retained": set(), "added_idx": {0}, "retained_idx": set()}
+            "added": _id, "retained": [], "added_idx": [0], "retained_idx": []}
 
     def store_embeddings(
         self,
@@ -259,7 +259,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
         embeddings_repr: list[str] = None,
         vector_name: Optional[str] = None,
         check_for_same: bool = False,
-    ) -> dict[str, set]:
+    ) -> dict[str, list]:
         """Takes embeddings (with optional textual representation), and stores them in the vector store.
 
         :param embeddings: Either an ::class::`Iterable` of vector representations (in various forms)
@@ -279,7 +279,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
         try:
             list(embeddings)[0]
         except IndexError:
-            return {"added": set(), "retained": set(), "added_idx": set(), "retained_idx": set()}
+            return {"added": list(), "retained": list(), "added_idx": list(), "retained_idx": list()}
         if not isinstance(embeddings, np.ndarray) and isinstance(
             list(embeddings)[0], dict
         ):
@@ -322,7 +322,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
                     _idx.append(_idx_count)
                 _idx_count += 1
         return self._check_for_same_embedding(_ids) if check_for_same else {
-            "added": set(_ids), "retained": set(), "added_idx": set(_idx), "retained_idx": set()}
+            "added": _ids, "retained": [], "added_idx": _idx, "retained_idx": []}
 
     def get_embedding(self, embedding_id: str) -> Optional[np.ndarray]:
         try:
@@ -468,12 +468,12 @@ class MarqoDocumentStore(DocumentStore):
     def __init__(self, embedding_store: MarqoEmbeddingStore):
         self._embedding_store = embedding_store
 
-    def add_document(self, document: MarqoDocument) -> dict[str, dict[str, list]]:
+    def add_document(self, document: Union[MarqoDocument, tuple[MarqoDocument, dict]], as_tuple: bool = False) -> dict[str, dict[str, list]]:
         #ToDo: this method doesn't utilize "score_frac" of "best_hits_for_field" which governs how similar phrases should be
         _field = "graph_cluster"
         _last_store_id: int = self._embedding_store.store_size - 1
         _stored = self._embedding_store.store_embeddings(
-            embeddings=document.as_tuples, check_for_same=True
+            embeddings=document[0].as_tuples if as_tuple and isinstance(document, tuple) else document.as_tuples, check_for_same=True
         )
         _ids = _stored.get("added", set())
         if not any(_ids):
@@ -488,7 +488,7 @@ class MarqoDocumentStore(DocumentStore):
                 }
             }
 
-        _added_ids = [(idx, i) for idx, i in enumerate(_ids) if int(i) > _last_store_id]
+        _added_ids = [(idx, i, x) for idx, (i, x) in enumerate(zip(_ids, _stored.get("added_idx"))) if int(i) > _last_store_id]
         _gcs = []
         for _id_tuple in _added_ids:
             _res = self._embedding_store.best_hits_for_field(
@@ -501,33 +501,41 @@ class MarqoDocumentStore(DocumentStore):
 
         _updated_docs = []
         for _id_tuple in itertools.compress(_added_ids, _gcs):
-            _updated_docs.append(
-                {
+            _to_append = {
                     "_id": _id_tuple[1],
                     _field: [_gcs[_id_tuple[0]]],
                 }
+            if as_tuple:
+                _to_append = (_to_append, {k: v for i,(k,v) in enumerate(document[1].items()) if i in _id_tuple[2]},)
+            _updated_docs.append(
+                _to_append
             )
+        read_tuple_lambda = lambda x, y: [(d[y] if as_tuple else d) for d in x]
         if _updated_docs:
             self._embedding_store.marqo_index.update_documents(
-                _updated_docs, client_batch_size=CLIENT_BATCH_SIZE
+                read_tuple_lambda(_updated_docs, 0), client_batch_size=CLIENT_BATCH_SIZE
             )
 
         _x = [{"_id": x.get("_id"), _field: x.get(_field)} for x in self._embedding_store.marqo_index.get_documents(list(_stored.get("retained", set()))).get("results", []) if x.get(_field, False)]
-        return {
+        return_dict = {
             "with_graph": {
-                "added": _updated_docs,
-                "incorporated": _x
+                "added": {"documents": read_tuple_lambda(_updated_docs, 0)},
+                "incorporated": {"documents": _x}
             },
             "without_graph": {
-                "added": list(_stored.get("added", {}).difference([x["_id"] for x in _updated_docs])),
-                "incorporated": list(_stored.get("retained", {}).difference([x["_id"] for x in _x])),
+                "added": [i for i in _stored.get("added", []) if i not in set([x["_id"] for x in read_tuple_lambda(_updated_docs, 0)])],
+                "incorporated": [i for i in _stored.get("retained", []) if i not in set([x["_id"] for x in _x])],
             }
         }
+        if as_tuple:
+            return_dict["with_graph"]["added"]["additional_info"] = read_tuple_lambda(_updated_docs, 1)
+            return_dict["with_graph"]["incorporated"]["additional_info"] = {k: v for k,v in document[1].items()}
+        return return_dict
 
-    def add_documents(self, documents: Iterable[MarqoDocument]) -> dict[str, dict[str, dict[str, list]]]:
+    def add_documents(self, documents: Union[Iterable[MarqoDocument], Iterable[tuple[MarqoDocument, dict]]], as_tuple: bool = False) -> dict[str, dict[str, dict[str, list]]]:
         return_dict = dict()
         for document in documents:
-            return_dict[document.id] = self.add_document(document)
+            return_dict[document[0].id if as_tuple and isinstance(document, tuple) else document.id] = self.add_document(document, as_tuple)
         return return_dict
 
     def suggest_graph_cluster(self, document: MarqoDocument) -> Optional[str]:

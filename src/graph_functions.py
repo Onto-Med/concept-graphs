@@ -257,10 +257,6 @@ class GraphIncorp:
             logging.error(f"'graph_id' or 'phrase_id' not in '{phrase}'. Can't incorporate phrase without.")
             return False
 
-        # phrase from 'add_documents_to_concept_graph.added_embeddings'
-        # 'with_graph' :{'added': [{'_id': '5182', 'graph_cluster': ['6']}],
-        #                'incorporated': [{'_id': '1529', 'graph_cluster': ['8']},
-        #                                 {'_id': '2003', 'graph_cluster': ['24']}]}
         graph = self.get_graph_by_idx(graph_id)
         if phrase_id in graph.nodes():
             logging.info(f" Phrase with id '{phrase_id}' seems already to be present in graph '{graph_id}'."

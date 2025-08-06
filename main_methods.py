@@ -39,6 +39,7 @@ from main_utils import (
     BaseUtil,
 )
 from preprocessing_util import PreprocessingUtil
+from src.graph_functions import GraphIncorp
 
 sys.path.insert(0, "src")
 from src import data_functions, cluster_functions, embedding_functions
@@ -836,16 +837,16 @@ def add_documents_to_concept_graphs(
     text_list = []
     idx_dict = defaultdict(list)
     for idx, _chunk in enumerate(
-        sorted(
+        # sorted(
             (
                 (
                     _result["text"],
                     set(_doc["id"] for _doc in _result["doc"]),
                 )
                 for _result in _chunk_result
-            ),
-            key=lambda _result: _result[0],
-        )
+            )#,
+            # key=lambda _result: _result[0],
+        # )
     ):
         for _doc in _chunk[1]:
             idx_dict[_doc].append(idx)
@@ -861,14 +862,29 @@ def add_documents_to_concept_graphs(
     doc_store_impl: DocumentStore = document_store(embedding_store=embedding_store_impl)
     added_embeddings = doc_store_impl.add_documents(
         [
-            document(
-                phrases=np.take(text_list, idx, 0),
-                embeddings=np.take(_embedding_result.astype("float64"), idx, 0),
-                doc_id=_id
+            (
+                document(
+                    phrases=np.take(text_list, idx, 0),
+                    embeddings=np.take(_embedding_result.astype("float64"), idx, 0),
+                    doc_id=_id
+                ),
+                {
+                    "offsets": [x.get("offsets", []) for _dict in np.take(_chunk_result, idx, 0) for x in _dict.get("doc", []) if x.get("id", "") == _id],
+                    "text": [_dict.get("text", "") for _dict in np.take(_chunk_result, idx, 0)]
+                },
             )
             for _id, idx in idx_dict.items()
-        ]
+        ],
+        as_tuple=True
     )
+    # ToDo:
+    # 'added_embeddings':
+    #   'with_graph' :{'added': [{'_id': '5182', 'graph_cluster': ['6']}],
+    #                  'incorporated': [{'_id': '1529', 'graph_cluster': ['8']},
+    #                                   {'_id': '2003', 'graph_cluster': ['24']}]}
+    # needs to be transformed to:
+    # {'graph': graph_id, 'id': phrase_id, 'documents': [{'id': document_id1, 'offsets': [offsets_of_phrase_in_doc]}]
+    GraphIncorp.with_graphs(graph_processing).incorporate_phrases()
     return jsonify(added_embeddings)
 
 
