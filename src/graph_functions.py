@@ -240,8 +240,8 @@ class GraphIncorp:
         _docs.extend(documents)
         nx.set_node_attributes(graph, {phrase_id: _docs}, "documents")
 
-    def _adding_phrase_to_graph(self, graph, phrase_id, documents):
-        pass
+    def _adding_phrase_to_graph(self, graph: nx.Graph, phrase_id: int, documents: list, label: str):
+        graph.add_node(phrase_id, documents=documents, label=label)
 
     def get_graph_by_id(self, graph_id: str) -> nx.Graph:
         return self.graphs[int(graph_id)]
@@ -253,6 +253,7 @@ class GraphIncorp:
         graph_id = int(phrase.get("graph")) if phrase.get("graph", False) else None
         phrase_id = int(phrase.get("id")) if phrase.get("id", False) else None
         documents = phrase.get("documents", [])
+        label = phrase.get("label")
         if graph_id is None or phrase_id is None:
             logging.error(f"'graph_id' or 'phrase_id' not in '{phrase}'. Can't incorporate phrase without.")
             return False
@@ -264,11 +265,12 @@ class GraphIncorp:
             self._update_documents_in_graph(graph, phrase_id, documents)
         else:
             logging.info(f"Phrase with id '{phrase_id}' is not present in graph '{graph_id}'. Adding it.")
-            self._adding_phrase_to_graph(graph, phrase_id, documents)
+            self._adding_phrase_to_graph(graph, phrase_id, documents, label)
         return True
 
-    def incorporate_phrases(self, phrases: Iterable[dict]):
-        pass
+    def incorporate_phrases(self, phrases: Iterable[tuple[str, dict]]):
+        return [(_id, self.incorporate_phrase(d),) for _id, d in phrases]
+
 
 
 def rank_nodes(graph: nx.Graph, algorithm="naive", **kwargs) -> dict:

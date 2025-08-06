@@ -36,7 +36,7 @@ from main_utils import (
     get_bool_expression,
     StoppableThread,
     string_conformity,
-    BaseUtil,
+    BaseUtil, transform_document_addition_results,
 )
 from preprocessing_util import PreprocessingUtil
 from src.graph_functions import GraphIncorp
@@ -877,14 +877,92 @@ def add_documents_to_concept_graphs(
         ],
         as_tuple=True
     )
-    # ToDo:
-    # 'added_embeddings':
-    #   'with_graph' :{'added': [{'_id': '5182', 'graph_cluster': ['6']}],
-    #                  'incorporated': [{'_id': '1529', 'graph_cluster': ['8']},
-    #                                   {'_id': '2003', 'graph_cluster': ['24']}]}
-    # needs to be transformed to:
-    # {'graph': graph_id, 'id': phrase_id, 'documents': [{'id': document_id1, 'offsets': [offsets_of_phrase_in_doc]}]
-    GraphIncorp.with_graphs(graph_processing).incorporate_phrases()
+    #ToDo: save graphs!
+    GraphIncorp.with_graphs(graph_processing).incorporate_phrases(
+        transform_document_addition_results(((k, v.get("with_graph"),) for k, v in added_embeddings.items())).items())
+    # {
+    #     "01": {
+    #         "with_graph": {
+    #             "added": {
+    #                 "additional_info": [
+    #                     {
+    #                         "offsets": [
+    #                             [
+    #                                 54,
+    #                                 70
+    #                             ]
+    #                         ],
+    #                         "text": "lungenentzündung"
+    #                     }
+    #                 ],
+    #                 "phrases": [
+    #                     {
+    #                         "_id": "5175",
+    #                         "graph_cluster": [
+    #                             "11"
+    #                         ]
+    #                     }
+    #                 ]
+    #             },
+    #             "incorporated": {
+    #                 "additional_info": [
+    #                     {
+    #                         "offsets": [
+    #                             [
+    #                                 17,
+    #                                 25
+    #                             ]
+    #                         ],
+    #                         "text": "dokument"
+    #                     },
+    #                     {
+    #                         "offsets": [
+    #                             [
+    #                                 36,
+    #                                 44
+    #                             ]
+    #                         ],
+    #                         "text": "psychose"
+    #                     },
+    #                     {
+    #                         "offsets": [
+    #                             [
+    #                                 76,
+    #                                 81
+    #                             ]
+    #                         ],
+    #                         "text": "atmen"
+    #                     }
+    #                 ],
+    #                 "phrases": [
+    #                     {
+    #                         "_id": "5172",
+    #                         "graph_cluster": [
+    #                             "22"
+    #                         ]
+    #                     },
+    #                     {
+    #                         "_id": "2004",
+    #                         "graph_cluster": [
+    #                             "32"
+    #                         ]
+    #                     },
+    #                     {
+    #                         "_id": "5173",
+    #                         "graph_cluster": [
+    #                             "11"
+    #                         ]
+    #                     }
+    #                 ]
+    #             }
+    #         },
+    #         "without_graph": {
+    #             "added": [],
+    #             "incorporated": [
+    #                 "68"
+    #             ]
+    #         }
+    #     }, #ToDo: should there some info be removed from jsonify; i.e. 'additional_info' -> I only need 'phrases' info for further processing (i.e. Neo4j)?
     return jsonify(added_embeddings)
 
 
