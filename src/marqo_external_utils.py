@@ -506,7 +506,7 @@ class MarqoDocumentStore(DocumentStore):
                     _field: [_gcs[_id_tuple[0]]],
                 }
             if as_tuple:
-                _to_append = (_to_append, {k: v for i,(k,v) in enumerate(document[1].items()) if i in _id_tuple[2]},)
+                _to_append = (_to_append, {k: v[_id_tuple[2]] for k,v in document[1].items()},)
             _updated_docs.append(
                 _to_append
             )
@@ -516,20 +516,21 @@ class MarqoDocumentStore(DocumentStore):
                 read_tuple_lambda(_updated_docs, 0), client_batch_size=CLIENT_BATCH_SIZE
             )
 
-        _x = [{"_id": x.get("_id"), _field: x.get(_field)} for x in self._embedding_store.marqo_index.get_documents(list(_stored.get("retained", set()))).get("results", []) if x.get(_field, False)]
+        _x = [(({"_id": x.get("_id"), _field: x.get(_field, None)}, {k: v[_stored.get("retained_idx")[i]] for k, v in document[1].items()},) if as_tuple else {"_id": x.get("_id"), _field: x.get(_field, None)})
+              for i, x in enumerate(self._embedding_store.marqo_index.get_documents(list(_stored.get("retained", set()))).get("results", []))]
         return_dict = {
             "with_graph": {
-                "added": {"documents": read_tuple_lambda(_updated_docs, 0)},
-                "incorporated": {"documents": _x}
+                "added": {"phrases": read_tuple_lambda(_updated_docs, 0)},
+                "incorporated": {"phrases": [x for x in read_tuple_lambda(_x, 0) if x.get(_field) is not None]},
             },
             "without_graph": {
                 "added": [i for i in _stored.get("added", []) if i not in set([x["_id"] for x in read_tuple_lambda(_updated_docs, 0)])],
-                "incorporated": [i for i in _stored.get("retained", []) if i not in set([x["_id"] for x in _x])],
+                "incorporated": [i for i in _stored.get("retained", []) if i not in set([x["_id"] for x in read_tuple_lambda(_x, 0) if x.get(_field) is not None])],
             }
         }
         if as_tuple:
             return_dict["with_graph"]["added"]["additional_info"] = read_tuple_lambda(_updated_docs, 1)
-            return_dict["with_graph"]["incorporated"]["additional_info"] = {k: v for k,v in document[1].items()}
+            return_dict["with_graph"]["incorporated"]["additional_info"] = [x for x, y in zip(read_tuple_lambda(_x, 1), read_tuple_lambda(_x, 0)) if y.get(_field) is not None]
         return return_dict
 
     def add_documents(self, documents: Union[Iterable[MarqoDocument], Iterable[tuple[MarqoDocument, dict]]], as_tuple: bool = False) -> dict[str, dict[str, dict[str, list]]]:
