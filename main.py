@@ -306,85 +306,38 @@ def graph_base_endpoint():
 def graph_document(path_arg):
     # ToDo: add getting documents from document_server
     # ToDo: resolve not implemented exceptions
-    """
-    request.json = {
-        vectorstore_server: Optional[dict]
-        document_server: Optional[dict]
-        language: str
-        documents: [
-            Union[
-                {
-                    id: str
-                    content: str
-                    label: str
-                    name: str
-                },
-                str
-            ]
-        ]
-    }
-    """
     process = string_conformity(request.args.get("process", "default"))
     if request.headers.get("Content-Type") == "application/json":
         content_json = parse_document_adding_json(request.get_json())
         if content_json is None:
-            return jsonify(f"Could not parse json provided in request.")
+            return jsonify(error=f"Could not parse json provided in request."), HTTPResponses.BAD_REQUEST
     else:
-        raise NotImplementedError("Only json request body is supported.")
+        return jsonify(error="Only json request body is supported."), HTTPResponses.NOT_IMPLEMENTED
     if path_arg.lower() == "add":
-        # if content_json.id is None:
-        #     return jsonify(f"No '_id' or 'id' key in content json: '{request.get_json().keys()}'")
         _data_proc = current_active_pipeline_objects.get(process, {}).get(StepsName.DATA, None)
         _emb_proc = current_active_pipeline_objects.get(process, {}).get(StepsName.EMBEDDING, None)
         _graph_proc = current_active_pipeline_objects.get(process, {}).get(StepsName.GRAPH, None)
         _path_base = pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process)
-        try:
-            _data_proc = FactoryLoader.load_data(str(_path_base.resolve()), process) if _data_proc is None else _data_proc
-            _emb_proc = FactoryLoader.load_embedding(
-                str(_path_base.resolve()),
-                process,
-                _data_proc,
-                (
-                    None
-                    if content_json.vectorstore_server is None
-                    else content_json.vectorstore_server
-                ),
-            ) if _emb_proc is None else _emb_proc
-        except FileNotFoundError as e:
-            _missing = "data" if _data_proc is None else "embedding"
-            return jsonify(error=f"The serialized object for '{_missing}' doesn't seem to be present. Please finish the complete pipeline for the process '{process}' first."), HTTPResponses.NOT_FOUND
-        has_graph = True
-        try:
-            _graph_proc = FactoryLoader.load_graph(str(_path_base.resolve()), process) if _graph_proc is None else _graph_proc
-        except FileNotFoundError as e:
-            has_graph = False
-            logging.warning(f"The serialized object for 'graph' doesn't seem to be present. Storing the document into the vector store will still be performed.")
-        if content_json.vectorstore_server is None and _emb_proc.source is None:
-            raise NotImplementedError(
-                "Only adding documents with a vectorstore server setup is supported; no vectorstore configured."
-            )
-        if _emb_proc.source is None:
-            _emb_proc.source = content_json.vectorstore_server
-        if len(content_json.documents) > 0 and isinstance(
-            content_json.documents[0], dict
-        ):
-            document_adding_thread = StoppableThread(
-                target_args=(content_json.documents, ),
-                target_kwargs={
-                    "data_processing": _data_proc,
-                    "embedding_processing": _emb_proc,
-                    "graph_processing": _graph_proc,
-                    "storage_path": pathlib.Path(_path_base / f"{process}_{StepsName.GRAPH}").resolve(),
-                },
-                group=None,
-                target=add_documents_to_concept_graphs,
-                name=None
-            )
-            pipeline_threads_store[f"document_addition_{process}"] = document_adding_thread
-            start_thread(app, f"document_addition_{process}", document_adding_thread, None)
-            return jsonify(f"Started thread for adding documents for process {process}."), HTTPResponses.OK
-        else:
-            return jsonify(error="Right now only processing of documents as json is supported."), HTTPResponses.NOT_IMPLEMENTED
+
+        ###
+        document_adding_thread = StoppableThread(
+            target_args=(content_json.documents,),
+            target_kwargs={
+                "data_processing": _data_proc,
+                "embedding_processing": _emb_proc,
+                "graph_processing": _graph_proc,
+                "storage_path": _path_base,
+                "process_name": process,
+                "content_json": content_json,
+            },
+            group=None,
+            target=add_documents_to_concept_graphs,
+            name=None
+        )
+        pipeline_threads_store[f"document_addition_{process}"] = document_adding_thread
+        start_thread(app, f"document_addition_{process}", document_adding_thread, None)
+        return jsonify(f"Started thread for adding documents for process {process}."), HTTPResponses.OK
+        ###
     elif path_arg.lower() == "delete":
         return jsonify(error="'Delete' not implemented."), HTTPResponses.NOT_IMPLEMENTED
     else:
@@ -398,9 +351,9 @@ def graph_document_status():
     if _id not in pipeline_threads_store:
         return jsonify(error=f"No document addition thread (running or completed) for '{process}' found."), HTTPResponses.NOT_FOUND
     else:
-        if return_value := pipeline_threads_store.get(_id):
-            return jsonify(return_value), HTTPResponses.OK
-        return jsonify(f"Document addition thread for '{process}' seems to be still running."), HTTPResponses.OK
+        if return_value := pipeline_threads_store.get(_id).return_value:
+            return jsonify(return_value[0]), return_value[1]
+        return jsonify(f"Document addition thread for '{process}' seems to be still running."), HTTPResponses.ACCEPTED
 
 
 @app.route("/graph/<path_arg>", methods=["POST", "GET"])

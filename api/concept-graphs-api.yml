@@ -251,9 +251,17 @@ paths:
           description: Name of the process
       responses:
         "200":
-          description: Result of the document addition task if it's finished or whether it's still running
+          description: Result of the document addition task
+        "202":
+          description: Request was accepted but thread task is still running
+        "400":
+          description: Some necessary input was not provided or is malformed (e.g. document content)
         "404":
           description: There was no such process found
+        "500":
+          description: Some unforeseen error happened; only the logs can shed light
+        "501":
+          description: Some methods are still not implemented
   /graph/statistics:
     get:
       summary: Get basic statistics for the graphs
