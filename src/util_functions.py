@@ -410,7 +410,7 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
 class DocumentStore(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
-    def add_document(self, document: Union[Document, tuple[Document, dict]], as_tuple: bool = False) -> dict[str, dict[str,list[str]]]:
+    def add_document(self, document: Union[Document, tuple[Document, dict]], as_tuple: bool = False) -> dict[str, dict[str, dict[str,list[str]]]]:
         """
         Adds a document to the store
 
@@ -430,7 +430,7 @@ class DocumentStore(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def add_documents(self, document: Union[Iterable[Document], Iterable[tuple[Document, dict]]], as_tuple: bool = False) -> dict[str, dict[str, dict[str,list[str]]]]:
+    def add_documents(self, document: Union[Iterable[Document], Iterable[tuple[Document, dict]]], as_tuple: bool = False) -> dict[str, dict[str, dict[str, dict[str, list[str]]]]]:
         """
         Adds documents from the Iterable to the store
 

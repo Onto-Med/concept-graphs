@@ -43,7 +43,7 @@ from src.graph_functions import GraphIncorp
 
 sys.path.insert(0, "src")
 from src import data_functions, cluster_functions, embedding_functions
-from src.util_functions import DocumentStore, EmbeddingStore
+from src.util_functions import DocumentStore, EmbeddingStore, save_pickle
 
 pipeline_json_config = namedtuple(
     "pipeline_json_config",
@@ -426,11 +426,11 @@ def start_thread(
     app: flask.Flask,
     process_name: str,
     pipeline_thread: StoppableThread,
-    threading_store: dict[str, StoppableThread],
+    threading_store: Optional[dict[str, StoppableThread]],
 ):
     app.logger.info(f"Starting thread for '{process_name}'.")
     pipeline_thread.start()
-    # threading_store[process_name] = pipeline_thread
+    # if threading_store is not None: threading_store[process_name] = pipeline_thread
     sleep(1.5)
     return True
 
@@ -781,6 +781,7 @@ def add_documents_to_concept_graphs(
     graph_processing: Optional[
         list[nx.Graph]
     ] = None,
+    storage_path: Optional[Union[str, pathlib.Path]] = None,
     document_store_cls: str = "src.marqo_external_utils.MarqoDocumentStore",
     embedding_store_cls: str = "src.marqo_external_utils.MarqoEmbeddingStore",
     document_cls: str = "src.marqo_external_utils.MarqoDocument",
@@ -877,9 +878,10 @@ def add_documents_to_concept_graphs(
         ],
         as_tuple=True
     )
-    #ToDo: save graphs!
-    GraphIncorp.with_graphs(graph_processing).incorporate_phrases(
-        transform_document_addition_results(((k, v.get("with_graph"),) for k, v in added_embeddings.items())).items())
+    if storage_path is not None and isinstance(storage_path, (pathlib.Path, str,)):
+        save_pickle(GraphIncorp.with_graphs(graph_processing).incorporate_phrases(
+            transform_document_addition_results(((k, v.get("with_graph"),) for k, v in added_embeddings.items())).items()
+        ).graphs, storage_path if isinstance(storage_path, pathlib.Path) else pathlib.Path(storage_path))
     # {
     #     "01": {
     #         "with_graph": {

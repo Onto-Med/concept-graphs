@@ -468,7 +468,7 @@ class MarqoDocumentStore(DocumentStore):
     def __init__(self, embedding_store: MarqoEmbeddingStore):
         self._embedding_store = embedding_store
 
-    def add_document(self, document: Union[MarqoDocument, tuple[MarqoDocument, dict]], as_tuple: bool = False) -> dict[str, dict[str, list]]:
+    def add_document(self, document: Union[MarqoDocument, tuple[MarqoDocument, dict]], as_tuple: bool = False) -> dict[str, dict[str, dict[str, list]]]:
         #ToDo: this method doesn't utilize "score_frac" of "best_hits_for_field" which governs how similar phrases should be
         _field = "graph_cluster"
         _last_store_id: int = self._embedding_store.store_size - 1
@@ -533,7 +533,7 @@ class MarqoDocumentStore(DocumentStore):
             return_dict["with_graph"]["incorporated"]["additional_info"] = [x for x, y in zip(read_tuple_lambda(_x, 1), read_tuple_lambda(_x, 0)) if y.get(_field) is not None]
         return return_dict
 
-    def add_documents(self, documents: Union[Iterable[MarqoDocument], Iterable[tuple[MarqoDocument, dict]]], as_tuple: bool = False) -> dict[str, dict[str, dict[str, list]]]:
+    def add_documents(self, documents: Union[Iterable[MarqoDocument], Iterable[tuple[MarqoDocument, dict]]], as_tuple: bool = False) -> dict[str, dict[str, dict[str, dict[str, list]]]]:
         return_dict = dict()
         for document in documents:
             return_dict[document[0].id if as_tuple and isinstance(document, tuple) else document.id] = self.add_document(document, as_tuple)

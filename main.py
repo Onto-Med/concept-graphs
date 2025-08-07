@@ -368,13 +368,21 @@ def graph_document(path_arg):
         if len(content_json.documents) > 0 and isinstance(
             content_json.documents[0], dict
         ):
-            _response = add_documents_to_concept_graphs(
-                content_json.documents,
-                data_processing=_data_proc,
-                embedding_processing=_emb_proc,
-                graph_processing=_graph_proc
+            document_adding_thread = StoppableThread(
+                target_args=(content_json.documents, ),
+                target_kwargs={
+                    "data_processing": _data_proc,
+                    "embedding_processing": _emb_proc,
+                    "graph_processing": _graph_proc,
+                    "storage_path": pathlib.Path(_path_base / f"{process}_{StepsName.GRAPH}").resolve(),
+                },
+                group=None,
+                target=add_documents_to_concept_graphs,
+                name=None
             )
-            return _response, HTTPResponses.OK  #ToDo: don't wait for return (-> threading)
+            pipeline_threads_store[f"document_addition_{process}"] = document_adding_thread
+            start_thread(app, process, document_adding_thread, None)
+            return jsonify(f"Started thread for adding documents."), HTTPResponses.OK
         else:
             return jsonify(error="Right now only processing of documents as json is supported."), HTTPResponses.NOT_IMPLEMENTED
     elif path_arg.lower() == "delete":
@@ -585,7 +593,7 @@ def complete_pipeline():
             k: None for k in StepsName.ALL
         }
         _prev_step_present = True
-        _last_step = StepsName.INTEGRATION
+        _last_step = StepsName.INTEGRATION if vector_store_config is not None else StepsName.GRAPH
         for _name, _proc, _conf, _fact in processes:
             process_obj: BaseUtil = _proc(app=app, file_storage=FILE_STORAGE_TMP)
             add_status_to_running_process(
