@@ -239,6 +239,21 @@ paths:
           description: "Path with specific argument not found."
         "501":
           description: "Path with specific argument not yet implemented."
+  /graph/document/add/status:
+    get:
+      summary: Get the status/result for a document addition task.
+      parameters:
+        - name: process
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Name of the process
+      responses:
+        "200":
+          description: Result of the document addition task if it's finished or whether it's still running
+        "404":
+          description: There was no such process found
   /graph/statistics:
     get:
       summary: Get basic statistics for the graphs

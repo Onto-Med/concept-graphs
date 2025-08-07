@@ -381,14 +381,26 @@ def graph_document(path_arg):
                 name=None
             )
             pipeline_threads_store[f"document_addition_{process}"] = document_adding_thread
-            start_thread(app, process, document_adding_thread, None)
-            return jsonify(f"Started thread for adding documents."), HTTPResponses.OK
+            start_thread(app, f"document_addition_{process}", document_adding_thread, None)
+            return jsonify(f"Started thread for adding documents for process {process}."), HTTPResponses.OK
         else:
             return jsonify(error="Right now only processing of documents as json is supported."), HTTPResponses.NOT_IMPLEMENTED
     elif path_arg.lower() == "delete":
         return jsonify(error="'Delete' not implemented."), HTTPResponses.NOT_IMPLEMENTED
     else:
         return graph_base_endpoint()
+
+
+@app.route("/graph/document/add/status", methods=["GET"])
+def graph_document_status():
+    process = string_conformity(request.args.get("process", "default"))
+    _id = f"document_addition_{process}"
+    if _id not in pipeline_threads_store:
+        return jsonify(error=f"No document addition thread (running or completed) for '{process}' found."), HTTPResponses.NOT_FOUND
+    else:
+        if return_value := pipeline_threads_store.get(_id):
+            return jsonify(return_value), HTTPResponses.OK
+        return jsonify(f"Document addition thread for '{process}' seems to be still running."), HTTPResponses.OK
 
 
 @app.route("/graph/<path_arg>", methods=["POST", "GET"])
