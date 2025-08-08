@@ -772,7 +772,7 @@ def get_omit_pipeline_steps(steps: object) -> list[str]:
 
 
 def add_documents_to_concept_graphs(
-    content: Iterable[Union[str, dict]],
+    content_json: document_adding_json,
     data_processing: Optional[
         data_functions.DataProcessingFactory.DataProcessing
     ] = None,
@@ -784,7 +784,7 @@ def add_documents_to_concept_graphs(
     ] = None,
     storage_path: Optional[Union[str, pathlib.Path]] = None,
     process_name: str = "default",
-    content_json: document_adding_json = None,
+    store_permanently: bool = True,
     document_store_cls: str = "src.marqo_external_utils.MarqoDocumentStore",
     embedding_store_cls: str = "src.marqo_external_utils.MarqoEmbeddingStore",
     document_cls: str = "src.marqo_external_utils.MarqoDocument",
@@ -794,7 +794,7 @@ def add_documents_to_concept_graphs(
         embedding_store = locate(embedding_store_cls)
         document = locate(document_cls)
 
-        if content is None:
+        if content_json.documents is None:
             return {"error": "No content provided."}, HTTPResponses.BAD_REQUEST
 
         ###
@@ -861,7 +861,7 @@ def add_documents_to_concept_graphs(
                     "content": doc_content(doc).get("content", ""),
                     "label": doc_content(doc).get("label", None),
                 }
-                for doc in content
+                for doc in content_json.documents
             ]
         )
         text_list = []
@@ -907,10 +907,11 @@ def add_documents_to_concept_graphs(
             ],
             as_tuple=True
         )
-        graph_storage_path = pathlib.Path(storage_path / f"{process_name}_{StepsName.GRAPH}").resolve()
-        save_pickle(GraphIncorp.with_graphs(graph_processing).incorporate_phrases(
-            transform_document_addition_results(((k, v.get("with_graph"),) for k, v in added_embeddings.items())).items()
-        ).graphs, graph_storage_path)
+        if store_permanently:
+            graph_storage_path = pathlib.Path(storage_path / f"{process_name}_{StepsName.GRAPH}").resolve()
+            save_pickle(GraphIncorp.with_graphs(graph_processing).incorporate_phrases(
+                transform_document_addition_results(((k, v.get("with_graph"),) for k, v in added_embeddings.items())).items()
+            ).graphs, graph_storage_path)
     except Exception as e:
         return {"error": str(e) + "\n--- please consult the logs!"}, HTTPResponses.INTERNAL_SERVER_ERROR
     return added_embeddings, HTTPResponses.OK

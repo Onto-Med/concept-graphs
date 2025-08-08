@@ -302,60 +302,6 @@ def graph_base_endpoint():
     )
 
 
-@app.route("/graph/document/<path_arg>", methods=["POST"])
-def graph_document(path_arg):
-    # ToDo: add getting documents from document_server
-    # ToDo: resolve not implemented exceptions
-    process = string_conformity(request.args.get("process", "default"))
-    if request.headers.get("Content-Type") == "application/json":
-        content_json = parse_document_adding_json(request.get_json())
-        if content_json is None:
-            return jsonify(error=f"Could not parse json provided in request."), HTTPResponses.BAD_REQUEST
-    else:
-        return jsonify(error="Only json request body is supported."), HTTPResponses.NOT_IMPLEMENTED
-    if path_arg.lower() == "add":
-        _data_proc = current_active_pipeline_objects.get(process, {}).get(StepsName.DATA, None)
-        _emb_proc = current_active_pipeline_objects.get(process, {}).get(StepsName.EMBEDDING, None)
-        _graph_proc = current_active_pipeline_objects.get(process, {}).get(StepsName.GRAPH, None)
-        _path_base = pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process)
-
-        ###
-        document_adding_thread = StoppableThread(
-            target_args=(content_json.documents,),
-            target_kwargs={
-                "data_processing": _data_proc,
-                "embedding_processing": _emb_proc,
-                "graph_processing": _graph_proc,
-                "storage_path": _path_base,
-                "process_name": process,
-                "content_json": content_json,
-            },
-            group=None,
-            target=add_documents_to_concept_graphs,
-            name=None
-        )
-        pipeline_threads_store[f"document_addition_{process}"] = document_adding_thread
-        start_thread(app, f"document_addition_{process}", document_adding_thread, None)
-        return jsonify(f"Started thread for adding documents for process {process}."), HTTPResponses.OK
-        ###
-    elif path_arg.lower() == "delete":
-        return jsonify(error="'Delete' not implemented."), HTTPResponses.NOT_IMPLEMENTED
-    else:
-        return graph_base_endpoint()
-
-
-@app.route("/graph/document/add/status", methods=["GET"])
-def graph_document_status():
-    process = string_conformity(request.args.get("process", "default"))
-    _id = f"document_addition_{process}"
-    if _id not in pipeline_threads_store:
-        return jsonify(error=f"No document addition thread (running or completed) for '{process}' found."), HTTPResponses.NOT_FOUND
-    else:
-        if return_value := pipeline_threads_store.get(_id).return_value:
-            return jsonify(return_value[0]), return_value[1]
-        return jsonify(f"Document addition thread for '{process}' seems to be still running."), HTTPResponses.ACCEPTED
-
-
 @app.route("/graph/<path_arg>", methods=["POST", "GET"])
 def graph_creation_with_arg(path_arg):
     process = request.args.get("process", "default").lower()
@@ -387,6 +333,57 @@ def graph_creation_with_arg(path_arg):
             f"Possible path arguments are: {', '.join([p for p in _path_args] + ['#ANY_INTEGER'])}\n",
             status=int(HTTPResponses.BAD_REQUEST),
         )
+
+
+@app.route("/graph/document/<path_arg>", methods=["POST"])
+def graph_document(path_arg):
+    # ToDo: add getting documents from document_server
+    # ToDo: resolve not implemented exceptions
+    process = string_conformity(request.args.get("process", "default"))
+    if request.headers.get("Content-Type") == "application/json":
+        content_json = parse_document_adding_json(request.get_json())
+        if content_json is None:
+            return jsonify(error=f"Could not parse json provided in request."), HTTPResponses.BAD_REQUEST
+    else:
+        return jsonify(error="Only json request body is supported."), HTTPResponses.NOT_IMPLEMENTED
+
+    if path_arg.lower() == "add":
+        _data_proc = current_active_pipeline_objects.get(process, {}).get(StepsName.DATA, None)
+        _emb_proc = current_active_pipeline_objects.get(process, {}).get(StepsName.EMBEDDING, None)
+        _graph_proc = current_active_pipeline_objects.get(process, {}).get(StepsName.GRAPH, None)
+        _path_base = pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process)
+        document_adding_thread = StoppableThread(
+            target_args=(content_json,),
+            target_kwargs={
+                "data_processing": _data_proc,
+                "embedding_processing": _emb_proc,
+                "graph_processing": _graph_proc,
+                "storage_path": _path_base,
+                "process_name": process,
+            },
+            group=None,
+            target=add_documents_to_concept_graphs,
+            name=None
+        )
+        pipeline_threads_store[f"document_addition_{process}"] = document_adding_thread
+        start_thread(app, f"document_addition_{process}", document_adding_thread, None)
+        return jsonify(f"Started thread for adding documents for process {process}."), HTTPResponses.OK
+    elif path_arg.lower() == "delete":
+        return jsonify(error="'Delete' not implemented."), HTTPResponses.NOT_IMPLEMENTED
+    else:
+        return graph_base_endpoint()
+
+
+@app.route("/graph/document/add/status", methods=["GET"])
+def graph_document_status():
+    process = string_conformity(request.args.get("process", "default"))
+    _id = f"document_addition_{process}"
+    if _id not in pipeline_threads_store:
+        return jsonify(error=f"No document addition thread (running or completed) for '{process}' found."), HTTPResponses.NOT_FOUND
+    else:
+        if return_value := pipeline_threads_store.get(_id).return_value:
+            return jsonify(return_value[0]), return_value[1]
+        return jsonify(f"Document addition thread for '{process}' seems to be still running."), HTTPResponses.ACCEPTED
 
 
 @app.route("/pipeline", methods=["POST"])

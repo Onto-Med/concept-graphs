@@ -52,7 +52,7 @@ from src.util_functions import (
     ClusterNumberDetection,
 )
 
-# import sknetwork as skn
+import sknetwork as skn
 
 logging.basicConfig()
 logging.root.setLevel(logging.INFO)
@@ -87,6 +87,10 @@ class WordEmbeddingClustering:
         self._sentence_embed_obj = sentence_embedding_obj
         self._we_cluster = None
         self._concept_graph_cluster = None
+
+    @classmethod
+    def with_objects(cls, sentence_embedding_obj: SentenceEmbeddingsFactory.SentenceEmbeddings):
+        return cls(sentence_embedding_obj=sentence_embedding_obj)
 
     @property
     def concept_graph_cluster(self):
@@ -298,10 +302,22 @@ class WordEmbeddingClustering:
             self._data_proc = outer_instance._sentence_embed_obj.data_processing_obj
             self._concept_graphs = None
             self._document_concept_matrix = None
+            self._doc_id_index_dict = None
+            self._doc_index_id_dict = None
 
         @property
         def document_concept_matrix(self) -> np.ndarray:
             return self._document_concept_matrix
+
+        def get_document_id_by_idx(self, idx: int) -> Optional[str]:
+            if self._doc_index_id_dict is not None:
+                return self._doc_index_id_dict.get(idx, None)
+            return None
+
+        def get_document_idx_by_id(self, id: str) -> Optional[int]:
+            if self._doc_id_index_dict is not None:
+                return self._doc_id_index_dict.get(id, None)
+            return None
 
         def get_norm_document_concept_matrix(self, norm="l2", **kwargs) -> np.ndarray:
             if "X" in kwargs:
@@ -540,7 +556,7 @@ class WordEmbeddingClustering:
                     modularity="Newman", sort_clusters=False
                 )
                 documents = np.array(
-                    [n[1]["documents"] for n in concept_graph.nodes(data=True)]
+                    [[self.get_document_idx_by_id(d["id"]) for d in n[1]["documents"]] for n in concept_graph.nodes(data=True)], dtype='object'
                 )
                 concept_graph_matrix = nx.to_numpy_array(concept_graph)
                 graph_cluster = louvain.fit_transform(concept_graph_matrix)
@@ -702,6 +718,20 @@ class WordEmbeddingClustering:
                             )
                         _connected_nodes[node].add(target)
 
+        def _build_doc_id_index_dict(self, concept_graphs: List[nx.Graph]):
+            _dict_1 = dict()
+            _dict_2 = dict()
+            _idx = 0
+            for _graph in concept_graphs:
+                for _, _ndata in _graph.nodes(data=True):
+                    for _doc in _ndata["documents"]:
+                        if _doc["id"] not in _dict_1:
+                            _dict_1[_doc["id"]] = _idx
+                            _dict_2[_idx] = _doc["id"]
+                            _idx += 1
+            self._doc_id_index_dict = _dict_1
+            self._doc_index_id_dict = _dict_2
+
         def build_concept_graphs(
             self,
             cluster_distance: float = 0.6,
@@ -782,8 +812,12 @@ class WordEmbeddingClustering:
             kwargs["graph_unroll"] = graph_unroll
             kwargs["graph_sub_clustering"] = graph_sub_clustering
             kwargs["graph_distance_cutoff"] = graph_distance_cutoff
-            _concept_graphs = self.build_concept_graphs(**kwargs)
+            if _concept_graphs := kwargs.get("external_graphs", False):
+                pass
+            else:
+                _concept_graphs = self.build_concept_graphs(**kwargs)
 
+            self._build_doc_id_index_dict(_concept_graphs)
             self._document_concept_matrix = np.zeros(
                 (self._data_proc.documents_n, len(_concept_graphs))
             )
