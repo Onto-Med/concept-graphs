@@ -505,9 +505,9 @@ class WordEmbeddingClustering:
                 stop_words=None,
                 analyzer=lambda x: re.split(self._data_proc._chunk_boundary, x),
             )
-            _tfidf_filter_vec = _tfidf_filter.fit_transform(
+            _tfidf_filter_vec = np.asarray(_tfidf_filter.fit_transform(
                 self._data_proc.document_chunk_matrix
-            ).todense()
+            ).todense())
             _tfidf_vocab = _tfidf_filter.vocabulary_
             _scaler = MinMaxScaler()
             _tfidf_filter_vec_norm = _scaler.fit_transform(_tfidf_filter_vec)
@@ -523,15 +523,15 @@ class WordEmbeddingClustering:
                         (
                             (
                                 nid,
-                                f"d{d}",
-                                _tfidf_filter_vec_norm[d, _tfidf_vocab[ndict["label"]]],
+                                f"d{self.get_document_idx_by_id(d.get('id'))}",
+                                _tfidf_filter_vec_norm[self.get_document_idx_by_id(d.get("id")), _tfidf_vocab[ndict["label"]]],
                             )
-                            for d in ndict["documents"]
+                            for d in ndict["documents"] if d.get("id", False)
                         )
                     )
                 _doc_array = []
                 _doc_eigen_array = []
-                for d, v in nx.pagerank_numpy(_graph, weight=weight).items():
+                for d, v in nx.pagerank(_graph, weight=weight).items():
                     if not (isinstance(d, str) and d.startswith("d")):
                         continue
                     _doc_array.append(int(d[1:]))
@@ -589,6 +589,7 @@ class WordEmbeddingClustering:
                     concept_graph_matrix, predecessors, directed=False
                 )
                 for i in range(concept_graph_matrix.shape[0]):
+                    # I don't get this whole loop no more...
                     _gc_id = graph_cluster[i]
                     _idx = np.where(bool_cut[i, :])
                     _scores = (
@@ -831,18 +832,18 @@ class WordEmbeddingClustering:
             logging.info("Calculating connections...")
             if not graph_unroll:
                 # self._calculate_connection_alg1(_concept_graphs)
-                # self._calculate_connection_alg4(_concept_graphs)
-                self._calculate_connection_alg3(
-                    _concept_graphs, cutoff=graph_distance_cutoff
-                )
+                self._calculate_connection_alg4(_concept_graphs)
+                # self._calculate_connection_alg3(
+                #     _concept_graphs, cutoff=graph_distance_cutoff
+                # )
             else:
                 # ToDo: this one only when graphs are unrolled!
                 # self._calculate_connection_alg2(concept_graphs=_concept_graphs, distance=connection_distance, gamma=.5,
                 #                                 sub_cluster_reward=sub_cluster_reward)
-                # self._calculate_connection_alg4(_concept_graphs)
-                self._calculate_connection_alg3(
-                    _concept_graphs, cutoff=graph_distance_cutoff
-                )
+                self._calculate_connection_alg4(_concept_graphs)
+                # self._calculate_connection_alg3(
+                #     _concept_graphs, cutoff=graph_distance_cutoff
+                # )
 
     # ToDo: cache this? -- doesnt really matter for low dimensional matrices but might be an issue when bigger
     @staticmethod
@@ -877,7 +878,7 @@ class WordEmbeddingClustering:
     def ari_score(
         self,
         embeddings_cluster_obj: Union[_WEClustering, _ConceptGraphClustering],
-        clustering_obj: [KMeans, AgglomerativeClustering],
+        clustering_obj: Union[KMeans, AgglomerativeClustering],
         min_concepts: int = 10,
         **kwargs,
     ):
@@ -897,7 +898,7 @@ class WordEmbeddingClustering:
     def purity_score(
         self,
         embeddings_cluster_obj: Union[_WEClustering, _ConceptGraphClustering],
-        clustering_obj: [KMeans, AgglomerativeClustering],
+        clustering_obj: Union[KMeans, AgglomerativeClustering],
         min_concepts: int = 10,
         **kwargs,
     ):
