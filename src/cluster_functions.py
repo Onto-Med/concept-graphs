@@ -27,9 +27,9 @@ from sklearn.cluster import (
     MiniBatchKMeans,
     AffinityPropagation,
 )
+from sklearn import metrics
 from sklearn.feature_extraction.text import TfidfVectorizer as tfidfVec
 from sklearn.linear_model import LinearRegression
-from sklearn.metrics import adjusted_rand_score
 from sklearn.preprocessing import normalize, MinMaxScaler, PolynomialFeatures
 from sklearn.utils._random import sample_without_replacement
 from tqdm.autonotebook import tqdm
@@ -492,58 +492,101 @@ class WordEmbeddingClustering:
                 if len(g.edges) > 0
             ]
 
-        def _calculate_connection_alg4(
-            self,
-            concept_graphs: List[nx.Graph],
-            weight: str = "weight",
-            normalize: bool = False,
-        ):
-            logging.info("Algorithm 4")
-            _tfidf_filter = tfidfVec(
-                min_df=1,
-                max_df=1.0,
-                stop_words=None,
-                analyzer=lambda x: re.split(self._data_proc._chunk_boundary, x),
-            )
-            _tfidf_filter_vec = np.asarray(_tfidf_filter.fit_transform(
-                self._data_proc.document_chunk_matrix
-            ).todense())
-            _tfidf_vocab = _tfidf_filter.vocabulary_
-            _scaler = MinMaxScaler()
-            _tfidf_filter_vec_norm = _scaler.fit_transform(_tfidf_filter_vec)
-
-            _dump_list = []
+        def _calculate_connection_alg1(self, concept_graphs: List[nx.Graph]):
+            logging.info("Iterating over edges ...")
             for j, concept_graph in tqdm(
                 enumerate(concept_graphs), total=len(concept_graphs)
             ):
-                concept_graph: nx.Graph
-                _graph = concept_graph.copy(as_view=False)
-                for nid, ndict in concept_graph.nodes(data=True):
-                    _graph.add_weighted_edges_from(
-                        (
-                            (
-                                nid,
-                                f"d{self.get_document_idx_by_id(d.get('id'))}",
-                                _tfidf_filter_vec_norm[self.get_document_idx_by_id(d.get("id")), _tfidf_vocab[ndict["label"]]],
-                            )
-                            for d in ndict["documents"] if d.get("id", False)
-                        )
-                    )
-                _doc_array = []
-                _doc_eigen_array = []
-                for d, v in nx.pagerank(_graph, weight=weight).items():
-                    if not (isinstance(d, str) and d.startswith("d")):
-                        continue
-                    _doc_array.append(int(d[1:]))
-                    _doc_eigen_array.append(v)
-                _doc_array = np.asarray(_doc_array)
-                _doc_eigen_array = np.asarray(_doc_eigen_array)
-                if normalize:
-                    _doc_eigen_array *= 1.0 / _doc_eigen_array.max()
-                self._document_concept_matrix[_doc_array, j] += _doc_eigen_array
+                if not len(concept_graph.edges) > 0:
+                    continue
+                for n1, n2, edge in concept_graph.edges(data=True):
+                    all_docs = [
+                        _id
+                        for _id in set(self.get_document_idx_by_id(d["id"]) for d in
+                            concept_graph.nodes(data=True)[n1]["documents"]
+                        ).union(set(self.get_document_idx_by_id(d["id"]) for d in
+                            concept_graph.nodes(data=True)[n2]["documents"]))
+                    ]
+                    self._document_concept_matrix[all_docs, j] += edge["weight"]
 
-                _dump_list.append(_graph)
-            pickle.dump(_dump_list, pathlib.Path("graph_dump.pickle").open("wb"))
+        def _calculate_connection_alg2(
+            self,
+            concept_graphs: List[nx.Graph],
+            distance: int = 2,
+            gamma: float = 0.5,
+            sub_cluster_reward: float = 1.75,
+            weight: str = "weight",
+        ):
+            logging.info("Iterating over nodes...")
+            for j, concept_graph in tqdm(
+                enumerate(concept_graphs), total=len(concept_graphs)
+            ):
+                _connected_nodes = defaultdict(set)
+                _mean_w_graph = statistics.mean(
+                    d.get(weight, 0.0) for _, _, d in concept_graph.edges(data=True)
+                )
+                for pos, (node, n_data) in enumerate(concept_graph.nodes(data=True)):
+                    neighbors = (
+                        (n, d)
+                        for d in range(1, distance + 1)
+                        for n in nx.descendants_at_distance(concept_graph, node, d)
+                    )
+                    for target, dist in neighbors:
+                        if (
+                            target in _connected_nodes
+                            and node in _connected_nodes[target]
+                        ):
+                            continue
+                        for path in nx.all_simple_edge_paths(
+                            concept_graph, node, target, dist
+                        ):
+                            _w_sum = 0
+                            for i, path_elem in enumerate(path):
+                                # _w = concept_graph.get_edge_data(path_elem[0], path_elem[1])[path_elem[2]]["weight"]
+                                _edge_data = concept_graph.get_edge_data(
+                                    path_elem[0], path_elem[1]
+                                )
+                                _w = _edge_data.get(
+                                    weight,
+                                    (
+                                        0.0
+                                        if not _edge_data.get("sub_cluster", False)
+                                        else _mean_w_graph
+                                    ),
+                                )
+                                # _w_sum += _w / np.log2(i + 2)
+                                # ToDo: how to enhance the weight when two nodes are connected by sub_cluster
+                                _w_sum += (
+                                    _w
+                                    if not _edge_data.get("sub_cluster", False)
+                                    else _w * sub_cluster_reward
+                                ) / (i * gamma + 1)
+                                # _w_sum += ((2 * _w / (1 + np.exp(-2*i))) - 1)
+                            try:
+                                all_docs = [
+                                    _id
+                                    for _id in set(self.get_document_idx_by_id(d["id"]) for d in
+                                        concept_graph.nodes(data=True)[node][
+                                            "documents"
+                                        ]
+                                    ).union(
+                                        set(self.get_document_idx_by_id(d["id"]) for d in
+                                            concept_graph.nodes(data=True)[target][
+                                                "documents"
+                                            ]
+                                        )
+                                    )
+                                ]
+                            except KeyError as err:
+                                logging.warning(
+                                    f"(node)   \t{concept_graph.nodes(data=True)[node]}\n"
+                                    f"(target) \t{concept_graph.nodes(data=True)[target]}"
+                                )
+                                raise
+                            self._document_concept_matrix[all_docs, j] += _w_sum / len(
+                                path
+                            )
+                        _connected_nodes[node].add(target)
 
         def _calculate_connection_alg3(
             self, concept_graphs: List[nx.Graph], cutoff: float = 0.5
@@ -624,100 +667,58 @@ class WordEmbeddingClustering:
                 #              enumerate(pairwise(path)) if concept_graph.has_edge(*p)]
                 #         )
 
-        def _calculate_connection_alg1(self, concept_graphs: List[nx.Graph]):
-            logging.info("Iterating over edges ...")
-            for j, concept_graph in tqdm(
-                enumerate(concept_graphs), total=len(concept_graphs)
-            ):
-                if not len(concept_graph.edges) > 0:
-                    continue
-                for n1, n2, edge in concept_graph.edges(data=True):
-                    all_docs = [
-                        d
-                        for d in set(
-                            concept_graph.nodes(data=True)[n1]["documents"]
-                        ).union(set(concept_graph.nodes(data=True)[n2]["documents"]))
-                    ]
-                    self._document_concept_matrix[all_docs, j] += edge["weight"]
-
-        def _calculate_connection_alg2(
+        def _calculate_connection_alg4(
             self,
             concept_graphs: List[nx.Graph],
-            distance: int = 2,
-            gamma: float = 0.5,
-            sub_cluster_reward: float = 1.75,
             weight: str = "weight",
+            normalize: bool = False,
         ):
-            logging.info("Iterating over nodes...")
+            logging.info("Algorithm 4")
+            _tfidf_filter = tfidfVec(
+                min_df=1,
+                max_df=1.0,
+                stop_words=None,
+                analyzer=lambda x: re.split(self._data_proc._chunk_boundary, x),
+            )
+            _tfidf_filter_vec = np.asarray(_tfidf_filter.fit_transform(
+                self._data_proc.document_chunk_matrix
+            ).todense())
+            _tfidf_vocab = _tfidf_filter.vocabulary_
+            _scaler = MinMaxScaler()
+            _tfidf_filter_vec_norm = _scaler.fit_transform(_tfidf_filter_vec)
+
+            _dump_list = []
             for j, concept_graph in tqdm(
                 enumerate(concept_graphs), total=len(concept_graphs)
             ):
-                _connected_nodes = defaultdict(set)
-                _mean_w_graph = statistics.mean(
-                    d.get(weight, 0.0) for _, _, d in concept_graph.edges(data=True)
-                )
-                for pos, (node, n_data) in enumerate(concept_graph.nodes(data=True)):
-                    neighbors = (
-                        (n, d)
-                        for d in range(1, distance + 1)
-                        for n in nx.descendants_at_distance(concept_graph, node, d)
-                    )
-                    for target, dist in neighbors:
-                        if (
-                            target in _connected_nodes
-                            and node in _connected_nodes[target]
-                        ):
-                            continue
-                        for path in nx.all_simple_edge_paths(
-                            concept_graph, node, target, dist
-                        ):
-                            _w_sum = 0
-                            for i, path_elem in enumerate(path):
-                                # _w = concept_graph.get_edge_data(path_elem[0], path_elem[1])[path_elem[2]]["weight"]
-                                _edge_data = concept_graph.get_edge_data(
-                                    path_elem[0], path_elem[1]
-                                )
-                                _w = _edge_data.get(
-                                    weight,
-                                    (
-                                        0.0
-                                        if not _edge_data.get("sub_cluster", False)
-                                        else _mean_w_graph
-                                    ),
-                                )
-                                # _w_sum += _w / np.log2(i + 2)
-                                # ToDo: how to enhance the weight when two nodes are connected by sub_cluster
-                                _w_sum += (
-                                    _w
-                                    if not _edge_data.get("sub_cluster", False)
-                                    else _w * sub_cluster_reward
-                                ) / (i * gamma + 1)
-                                # _w_sum += ((2 * _w / (1 + np.exp(-2*i))) - 1)
-                            try:
-                                all_docs = [
-                                    d
-                                    for d in set(
-                                        concept_graph.nodes(data=True)[node][
-                                            "documents"
-                                        ]
-                                    ).union(
-                                        set(
-                                            concept_graph.nodes(data=True)[target][
-                                                "documents"
-                                            ]
-                                        )
-                                    )
-                                ]
-                            except KeyError as err:
-                                logging.warning(
-                                    f"(node)   \t{concept_graph.nodes(data=True)[node]}\n"
-                                    f"(target) \t{concept_graph.nodes(data=True)[target]}"
-                                )
-                                raise
-                            self._document_concept_matrix[all_docs, j] += _w_sum / len(
-                                path
+                concept_graph: nx.Graph
+                _graph = concept_graph.copy(as_view=False)
+                for nid, ndict in concept_graph.nodes(data=True):
+                    _graph.add_weighted_edges_from(
+                        (
+                            (
+                                nid,
+                                f"d{self.get_document_idx_by_id(d.get('id'))}",
+                                _tfidf_filter_vec_norm[self.get_document_idx_by_id(d.get("id")), _tfidf_vocab[ndict["label"]]],
                             )
-                        _connected_nodes[node].add(target)
+                            for d in ndict["documents"] if d.get("id", False)
+                        )
+                    )
+                _doc_array = []
+                _doc_eigen_array = []
+                for d, v in nx.pagerank(_graph, weight=weight).items():
+                    if not (isinstance(d, str) and d.startswith("d")):
+                        continue
+                    _doc_array.append(int(d[1:]))
+                    _doc_eigen_array.append(v)
+                _doc_array = np.asarray(_doc_array)
+                _doc_eigen_array = np.asarray(_doc_eigen_array)
+                if normalize:
+                    _doc_eigen_array *= 1.0 / _doc_eigen_array.max()
+                self._document_concept_matrix[_doc_array, j] += _doc_eigen_array
+
+                _dump_list.append(_graph)
+            pickle.dump(_dump_list, pathlib.Path("graph_dump.pickle").open("wb"))
 
         def _build_doc_id_index_dict(self, concept_graphs: List[nx.Graph]):
             _dict_1 = dict()
@@ -890,7 +891,7 @@ class WordEmbeddingClustering:
         )
         if _cluster is None or _non_zero is None:
             return 0.0
-        return adjusted_rand_score(
+        return metrics.adjusted_rand_score(
             np.asarray(embeddings_cluster_obj._data_proc.true_labels_vec)[_non_zero],
             _cluster.labels_,
         )
