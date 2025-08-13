@@ -3,13 +3,13 @@ import pathlib
 import re
 import threading
 from abc import ABC, abstractmethod
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 from copy import deepcopy
 from dataclasses import dataclass
 from enum import Enum, IntEnum
 from inspect import getfullargspec
 from pathlib import Path
-from typing import Union, Optional, Any, Callable, Tuple
+from typing import Union, Optional, Any, Callable, Tuple, Iterator
 
 import flask
 import spacy
@@ -66,10 +66,11 @@ class StoppableThread(threading.Thread):
     From: https://stackoverflow.com/questions/323972/is-there-any-way-to-kill-a-thread
     """
 
-    def __init__(self, group, target, name, target_args):
-        super().__init__(args=target_args, group=group, target=target, name=name)
+    def __init__(self, group, target, name, target_args=(), target_kwargs=None):
+        super().__init__(args=target_args, group=group, target=target, name=name, kwargs=target_kwargs)
         self._stop_event = threading.Event()
         self._hard_stop_event = threading.Event()
+        self._return = None
 
     @property
     def set_to_stop(self):
@@ -78,6 +79,16 @@ class StoppableThread(threading.Thread):
     @property
     def set_to_hard_stop(self):
         return self._stop_event.is_set() and self._hard_stop_event.is_set()
+
+    @property
+    def return_value(self):
+        if self.is_alive():
+            return False
+        return self._return
+
+    def run(self):
+        if self._target is not None:
+            self._return = self._target(*self._args, **self._kwargs)
 
     def stop(self, hard_stop=False):
         self._stop_event.set()
@@ -483,7 +494,9 @@ def get_bool_expression(str_bool: str, default: Union[bool, str] = False) -> boo
 
 
 def string_conformity(s: str):
-    return re.sub(r"\s+", "_", s.lower())
+    if s is None:
+        return None
+    return re.sub(r"\s+|-+", "_", s.lower())
 
 
 def load_spacy_model(spacy_model: str, logger: logging.Logger, default_model: str):
@@ -536,3 +549,28 @@ def load_spacy_model(spacy_model: str, logger: logging.Logger, default_model: st
 
 def get_default_spacy_model():
     return "en_core_web_trf"
+
+
+def transform_document_addition_results(iterator: Iterator):
+    phrases_dict = dict()
+    type_list = ["added", "incorporated"]
+    _additional_info_key = "additional_info"
+    _phrases_key = "phrases"
+    _graph_field_key = "graph_cluster"
+    _phrase_id_key = "_id"
+    _text_key = "text"
+    _offsets_key = "offsets"
+
+    for doc_id, graph_dict in iterator:
+        for _type in type_list:
+            for _phrase, _additional_info in zip(graph_dict.get(_type, {}).get(_phrases_key, []), graph_dict.get(_type, {}).get(_additional_info_key, [])):
+                if _phrase_id := _phrase.get(_phrase_id_key, None):
+                    if _phrase_id not in phrases_dict:
+                        phrases_dict[_phrase_id] = {
+                            "graph": _phrase.get(_graph_field_key, [None])[0],
+                            "id": _phrase_id,
+                            "documents": list(),
+                            "label": _additional_info.get(_text_key, ""),
+                        }
+                    phrases_dict[_phrase_id]["documents"].append({"id": doc_id, "offsets": _additional_info.get(_offsets_key, [])})
+    return phrases_dict

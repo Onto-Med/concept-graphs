@@ -33,7 +33,7 @@ root_logger.propagate = False
 if root_logger.hasHandlers():
     root_logger.handlers.clear()
 root_logger.addHandler(default_handler)
-app = Flask(__name__)
+app = Flask(__name__, static_folder="api", static_url_path="")
 
 
 FILE_STORAGE_TMP = "./tmp"
@@ -62,19 +62,14 @@ populate_running_processes(app, FILE_STORAGE_TMP, running_processes)
 # ToDo: adapt README
 
 
-@app.route("/")
+@app.route("/", methods=["GET"])
 def index():
-    return jsonify(
-        available_endpoints=[
-            "/preprocessing",
-            "/embedding",
-            "/clustering",
-            "/graph",
-            "/pipeline",
-            "/processes",
-            "/status",
-        ]
-    )
+    return openapi()
+
+
+@app.route("/openapi", methods=["GET"])
+def openapi():
+    return app.send_static_file("index.html")
 
 
 @app.route("/preprocessing", methods=["GET", "POST"])
@@ -307,75 +302,6 @@ def graph_base_endpoint():
     )
 
 
-@app.route("/graph/document/<path_arg>", methods=["POST"])
-def graph_document(path_arg):
-    # ToDo: resolve not implemented exceptions
-    """
-    request.json = {
-        vectorstore_server: Optional[dict]
-        document_server: Optional[dict]
-        language: str
-        documents: [
-            Union[
-                {
-                    id: str
-                    content: str
-                    corpus: str
-                    label: str
-                    name: str
-                },
-                str
-            ]
-        ]
-    }
-    """
-    process = request.args.get("process", "default").lower()
-    if request.headers.get("Content-Type") == "application/json":
-        content_json = parse_document_adding_json(request.get_json())
-        if content_json is None:
-            return jsonify(f"Could not parse json provided in request.")
-    else:
-        raise NotImplementedError("Only json request body is supported.")
-    if path_arg.lower() == "add":
-        # if content_json.id is None:
-        #     return jsonify(f"No '_id' or 'id' key in content json: '{request.get_json().keys()}'")
-        _path_base = pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process)
-        _data_proc = FactoryLoader.load_data(str(_path_base.resolve()), process)
-        _emb_proc = FactoryLoader.load_embedding(
-            str(_path_base.resolve()),
-            process,
-            _data_proc,
-            (
-                None
-                if content_json.vectorstore_server is None
-                else content_json.vectorstore_server
-            ),
-        )
-        if content_json.vectorstore_server is None and _emb_proc.source is None:
-            raise NotImplementedError(
-                "Only adding documents with a setup vectorstore server is supported; no vectorstore configured."
-            )
-        if _emb_proc.source is None:
-            _emb_proc.source = content_json.vectorstore_server
-        if len(content_json.documents) > 0 and isinstance(
-            content_json.documents[0], dict
-        ):
-            _response = add_documents_to_concept_graphs(
-                content_json.documents,
-                data_processing=_data_proc,
-                embedding_processing=_emb_proc,
-            )
-        else:
-            raise NotImplementedError(
-                "Right now only processing of documents as json is supported."
-            )
-    elif path_arg.lower() == "delete":
-        raise NotImplementedError("'Delete' not implemented.")
-    else:
-        return jsonify(error=f"No such path argument '{path_arg}' supported.")
-    return graph_base_endpoint()
-
-
 @app.route("/graph/<path_arg>", methods=["POST", "GET"])
 def graph_creation_with_arg(path_arg):
     process = request.args.get("process", "default").lower()
@@ -407,6 +333,57 @@ def graph_creation_with_arg(path_arg):
             f"Possible path arguments are: {', '.join([p for p in _path_args] + ['#ANY_INTEGER'])}\n",
             status=int(HTTPResponses.BAD_REQUEST),
         )
+
+
+@app.route("/graph/document/<path_arg>", methods=["POST"])
+def graph_document(path_arg):
+    # ToDo: add getting documents from document_server
+    # ToDo: resolve not implemented exceptions
+    process = string_conformity(request.args.get("process", "default"))
+    if request.headers.get("Content-Type") == "application/json":
+        content_json = parse_document_adding_json(request.get_json())
+        if content_json is None:
+            return jsonify(error=f"Could not parse json provided in request."), HTTPResponses.BAD_REQUEST
+    else:
+        return jsonify(error="Only json request body is supported."), HTTPResponses.NOT_IMPLEMENTED
+
+    if path_arg.lower() == "add":
+        _data_proc = current_active_pipeline_objects.get(process, {}).get(StepsName.DATA, None)
+        _emb_proc = current_active_pipeline_objects.get(process, {}).get(StepsName.EMBEDDING, None)
+        _graph_proc = current_active_pipeline_objects.get(process, {}).get(StepsName.GRAPH, None)
+        _path_base = pathlib.Path(FILE_STORAGE_TMP) / pathlib.Path(process)
+        document_adding_thread = StoppableThread(
+            target_args=(content_json,),
+            target_kwargs={
+                "data_processing": _data_proc,
+                "embedding_processing": _emb_proc,
+                "graph_processing": _graph_proc,
+                "storage_path": _path_base,
+                "process_name": process,
+            },
+            group=None,
+            target=add_documents_to_concept_graphs,
+            name=None
+        )
+        pipeline_threads_store[f"document_addition_{process}"] = document_adding_thread
+        start_thread(app, f"document_addition_{process}", document_adding_thread, None)
+        return jsonify(f"Started thread for adding documents for process {process}."), HTTPResponses.OK
+    elif path_arg.lower() == "delete":
+        return jsonify(error="'Delete' not implemented."), HTTPResponses.NOT_IMPLEMENTED
+    else:
+        return graph_base_endpoint()
+
+
+@app.route("/graph/document/add/status", methods=["GET"])
+def graph_document_status():
+    process = string_conformity(request.args.get("process", "default"))
+    _id = f"document_addition_{process}"
+    if _id not in pipeline_threads_store:
+        return jsonify(error=f"No document addition thread (running or completed) for '{process}' found."), HTTPResponses.NOT_FOUND
+    else:
+        if return_value := pipeline_threads_store.get(_id).return_value:
+            return jsonify(return_value[0]), return_value[1]
+        return jsonify(f"Document addition thread for '{process}' seems to be still running."), HTTPResponses.ACCEPTED
 
 
 @app.route("/pipeline", methods=["POST"])
@@ -578,7 +555,7 @@ def complete_pipeline():
             k: None for k in StepsName.ALL
         }
         _prev_step_present = True
-        _last_step = StepsName.INTEGRATION
+        _last_step = StepsName.INTEGRATION if vector_store_config is not None else StepsName.GRAPH
         for _name, _proc, _conf, _fact in processes:
             process_obj: BaseUtil = _proc(app=app, file_storage=FILE_STORAGE_TMP)
             add_status_to_running_process(
@@ -661,6 +638,8 @@ def complete_pipeline():
                         )
                     )
                 )
+            if _name == StepsName.INTEGRATION:
+                process_obj.config["check_for_reasonable_result"] = True
 
             processes_threading.append(
                 (
@@ -784,8 +763,8 @@ def get_pipeline_default_configuration():
 @app.route("/processes/<process_id>/delete", methods=["DELETE"])
 def delete_process(process_id):
     hard_stop = request.args.get("hard_stop", False)
-    process_id = process_id.lower()
-    if process_id not in running_processes:
+    process_id = string_conformity(process_id)
+    if process_id not in set(running_processes.keys()).union(current_active_pipeline_objects.keys()):
         return Response(
             f"There is no such process '{process_id}'.\n",
             status=int(HTTPResponses.NOT_FOUND),
@@ -807,7 +786,7 @@ def delete_process(process_id):
                 hard_stop=hard_stop,
             )
     _delete_thread = StoppableThread(
-        target_args=(app, f_storage, process_id, running_processes, to_stop),
+        target_args=(app, f_storage, process_id, running_processes, current_active_pipeline_objects, to_stop),
         group=None,
         target=delete_pipeline,
         name=None,
@@ -866,8 +845,8 @@ def get_data_server():
             ),
             int(HTTPResponses.OK),
         )
-    elif request.method == "POST":
-        return jsonify("Method 'POST' not implemented.")
+    elif request.method == "GET":
+        return jsonify("Method 'GET' not yet implemented.")
     else:
         return jsonify(f"Method not supported: '{request.method}'.")
 

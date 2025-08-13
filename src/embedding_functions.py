@@ -156,10 +156,10 @@ class SentenceEmbeddingsFactory:
                 vector_dim=_sent_emb.embedding_dim,
                 additional_index_settings=_vector_store_kwargs,
             )
-            vector_store.store_embeddings(
+            _added_embeddings = vector_store.store_embeddings(
                 embeddings=_sent_emb.sentence_embeddings,
                 embeddings_repr=[dcs["text"] for dcs in data_obj.data_chunk_sets],
-            )
+            ).get("added", set())
             save_pickle(
                 {
                     "client_url": _client_url,
