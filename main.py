@@ -1,28 +1,18 @@
 import json
-import logging
 
-from flask import Flask
-from flask.logging import default_handler
+# from flask import Flask
+# from flask.logging import default_handler
 
-from load_utils import FactoryLoader
 from main_methods import *
-from main_utils import (
-    ProcessStatus,
-    HTTPResponses,
-    StepsName,
-    add_status_to_running_process,
-    get_bool_expression,
-    StoppableThread,
-)
-from preprocessing_util import PreprocessingUtil
+from main_utils import StoppableThread
 
 sys.path.insert(0, "src")
-import data_functions
-import embedding_functions
-import cluster_functions
-import integration_functions
-import util_functions
-import marqo_external_utils
+# import data_functions
+# import embedding_functions
+# import cluster_functions
+from src import integration_functions
+from src import util_functions
+from src import marqo_external_utils
 
 werkzeug_logger = logging.getLogger("werkzeug")
 werkzeug_logger.setLevel(logging.WARN)
@@ -32,8 +22,8 @@ root_logger = logging.getLogger()
 root_logger.propagate = False
 if root_logger.hasHandlers():
     root_logger.handlers.clear()
-root_logger.addHandler(default_handler)
-app = Flask(__name__, static_folder="api", static_url_path="")
+root_logger.addHandler(flask.logging.default_handler)
+app = flask.Flask(__name__, static_folder="api", static_url_path="")
 
 
 FILE_STORAGE_TMP = "./tmp"
@@ -72,49 +62,6 @@ def openapi():
     return app.send_static_file("index.html")
 
 
-@app.route("/preprocessing", methods=["GET", "POST"])
-def data_preprocessing():
-    app.logger.info("=== Preprocessing started ===")
-    if request.method == "POST" and len(request.files) > 0 and "data" in request.files:
-        pre_proc = PreprocessingUtil(app, FILE_STORAGE_TMP)
-
-        process_name = read_config(app, pre_proc, StepsName.DATA)
-
-        app.logger.info("Reading labels ...")
-        pre_proc.read_labels(request.files.get("labels", None))
-        _labels_str = (
-            list(pre_proc.labels.values()) if pre_proc.labels is not None else []
-        )
-        app.logger.info(f"Gathered the following labels:\n\t{_labels_str}")
-
-        app.logger.info("Reading data ...")
-        pre_proc.read_data(request.files.get("data", None))
-        app.logger.info(f"Counted {len(pre_proc.data)} item ins zip file.")
-
-        app.logger.info(f"Start preprocessing '{process_name}' ...")
-        return data_get_statistics(
-            pre_proc.start_process(
-                pre_proc.process_name,
-                data_functions.DataProcessingFactory,
-                running_processes,
-            ),
-        )
-
-    elif request.method == "GET":
-        jsonify(
-            "'/preprocessing' endpoint needs some form of data. Please consult the README/manuals on how to provide it."
-        )
-
-    elif len(request.files) <= 0 or "data" not in request.files:
-        app.logger.error(
-            "There were no files at all or no data files POSTed."
-            " At least a zip folder with the text data is necessary!\n"
-            " It is also necessary to conform to the naming convention!\n"
-            '\t\ti.e.: curl -X POST -F data=@"#SOME/PATH/TO/FILE.zip"'
-        )
-    return jsonify("Nothing to do.")
-
-
 @app.route("/preprocessing/<path_arg>", methods=["GET"])
 def data_preprocessing_with_arg(path_arg):
     process = request.args.get("process", "default").lower()
@@ -135,30 +82,6 @@ def data_preprocessing_with_arg(path_arg):
         return data_get_statistics(data_obj)
     elif path_arg == "noun_chunks":
         return jsonify(noun_chunks=data_obj.data_chunk_sets)
-
-
-@app.route("/embedding", methods=["POST", "GET"])
-def phrase_embedding():
-    app.logger.info("=== Phrase embedding started ===")
-    if request.method in ["POST", "GET"]:
-        phra_emb = PhraseEmbeddingUtil(app, FILE_STORAGE_TMP)
-
-        process_name = read_config(app, phra_emb, StepsName.EMBEDDING)
-
-        app.logger.info(f"Start phrase embedding '{process_name}' ...")
-        try:
-            return embedding_get_statistics(
-                phra_emb.start_process(
-                    process_name,
-                    embedding_functions.SentenceEmbeddingsFactory,
-                    running_processes,
-                )
-            )
-        except FileNotFoundError:
-            return jsonify(
-                f"There is no processed data for the '{process_name}' process to be embedded."
-            )
-    return jsonify("Nothing to do.")
 
 
 @app.route("/embedding/<path_arg>", methods=["GET"])
@@ -188,39 +111,6 @@ def phrase_embedding_with_arg(path_arg):
 
     if path_arg == "statistics":
         return embedding_get_statistics(emb_obj)
-
-
-@app.route("/clustering", methods=["POST", "GET"])
-def phrase_clustering():
-    app.logger.info("=== Phrase clustering started ===")
-    if request.method in ["POST", "GET"]:
-        saved_config = request.args.get("config", False)
-        if not saved_config:
-            phra_clus = ClusteringUtil(app, FILE_STORAGE_TMP)
-
-            process_name = read_config(app, phra_clus, StepsName.CLUSTERING)
-
-            app.logger.info(f"Start phrase clustering '{process_name}' ...")
-            try:
-                _cluster_obj = phra_clus.start_process(
-                    process_name,
-                    cluster_functions.PhraseClusterFactory,
-                    running_processes,
-                )
-                return clustering_get_concepts(
-                    embedding_functions.show_top_k_for_concepts(
-                        cluster_obj=_cluster_obj.concept_cluster,
-                        embedding_object=_cluster_obj.sentence_embeddings,
-                        yield_concepts=True,
-                    )
-                )
-            except FileNotFoundError:
-                return jsonify(
-                    f"There is no embedded data for the '{process_name}' process to be clustered."
-                )
-        else:
-            return jsonify(saved_config)
-    return jsonify("Nothing to do.")
 
 
 @app.route("/clustering/<path_arg>", methods=["GET"])
@@ -265,17 +155,18 @@ def graph_base_endpoint():
         jsonify(
             path_parameter=[
                 {
-                    "statistics": {
-                        "query_parameters": [
-                            get_query_param_help_text("process"),
-                        ]
+                    "document": {
+                        {
+                            "add": {
+                                get_query_param_help_text("process"),
+                            }
+                        }
                     }
                 },
                 {
-                    "creation": {
+                    "statistics": {
                         "query_parameters": [
                             get_query_param_help_text("process"),
-                            get_query_param_help_text("exclusion_ids"),
                         ]
                     }
                 },
@@ -285,15 +176,6 @@ def graph_base_endpoint():
                             get_query_param_help_text("process"),
                             get_query_param_help_text("draw"),
                         ]
-                    }
-                },
-                {
-                    "document": {
-                        {
-                            "add": {
-                                get_query_param_help_text("process"),
-                            }
-                        }
                     }
                 },
             ],
@@ -702,21 +584,6 @@ def complete_pipeline():
         )
 
 
-@app.route("/processes/<process_id>/stop", methods=["GET"])
-def stop_pipeline(process_id):
-    if request.method == "GET":
-        hard_stop = request.args.get("hard_stop", False)
-        process_id = process_id.lower()
-        return stop_thread(
-            app=app,
-            process_name=process_id,
-            threading_store=pipeline_threads_store,
-            process_tracker=running_processes,
-            hard_stop=hard_stop,
-        )
-    return jsonify(f"Method not supported: {request.method}")
-
-
 @app.route("/pipeline/configuration", methods=["GET"])
 def get_pipeline_default_configuration():
     if request.method == "GET":
@@ -760,6 +627,14 @@ def get_pipeline_default_configuration():
         return HTTPResponses.BAD_REQUEST
 
 
+@app.route("/processes", methods=["GET"])
+def get_all_processes_api():
+    if len(running_processes) > 0:
+        return jsonify(processes=[p for p in running_processes.values()])
+    else:
+        return jsonify("No saved processes."), int(HTTPResponses.NOT_FOUND)
+
+
 @app.route("/processes/<process_id>/delete", methods=["DELETE"])
 def delete_process(process_id):
     hard_stop = request.args.get("hard_stop", False)
@@ -797,12 +672,19 @@ def delete_process(process_id):
     )
 
 
-@app.route("/processes", methods=["GET"])
-def get_all_processes_api():
-    if len(running_processes) > 0:
-        return jsonify(processes=[p for p in running_processes.values()])
-    else:
-        return jsonify("No saved processes."), int(HTTPResponses.NOT_FOUND)
+@app.route("/processes/<process_id>/stop", methods=["GET"])
+def stop_pipeline(process_id):
+    if request.method == "GET":
+        hard_stop = request.args.get("hard_stop", False)
+        process_id = process_id.lower()
+        return stop_thread(
+            app=app,
+            process_name=process_id,
+            threading_store=pipeline_threads_store,
+            process_tracker=running_processes,
+            hard_stop=hard_stop,
+        )
+    return jsonify(f"Method not supported: {request.method}")
 
 
 @app.route("/status", methods=["GET"])

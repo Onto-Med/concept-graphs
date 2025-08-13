@@ -21,8 +21,9 @@ from munch import Munch
 from werkzeug.datastructures import FileStorage
 from yaml.representer import RepresenterError
 
-from clustering_util import ClusteringUtil
+from preprocessing_util import PreprocessingUtil
 from embedding_util import PhraseEmbeddingUtil
+from clustering_util import ClusteringUtil
 from graph_creation_util import GraphCreationUtil, visualize_graph
 from integration_util import ConceptGraphIntegrationUtil
 from load_utils import FactoryLoader
@@ -39,11 +40,10 @@ from main_utils import (
     string_conformity,
     BaseUtil, transform_document_addition_results,
 )
-from preprocessing_util import PreprocessingUtil
-from src.graph_functions import GraphIncorp
 
 sys.path.insert(0, "src")
 from src import data_functions, cluster_functions, embedding_functions
+from src.graph_functions import GraphIncorp
 from src.util_functions import DocumentStore, EmbeddingStore, save_pickle
 
 pipeline_json_config = namedtuple(

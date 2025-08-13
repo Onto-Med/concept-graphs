@@ -8,31 +8,6 @@ servers:
   - url: http://localhost:9007
   - url: http://localhost:9010
 paths:
-  /preprocessing:
-    post:
-      summary: Upload text data to be preprocessed
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                data:
-                  type: string
-                  format: binary
-                  description: Zip file containing text data
-                config:
-                  type: string
-                  format: binary
-                  description: YAML config file (optional)
-                labels:
-                  type: string
-                  format: binary
-                  description: YAML labels file (optional)
-      responses:
-        "200":
-          description: Preprocessing started
   /preprocessing/statistics:
     get:
       summary: Get basic statistics for the corpus
@@ -59,35 +34,6 @@ paths:
       responses:
         "200":
           description: Noun chunks
-  /embedding:
-    get:
-      summary: Get embedding information
-      parameters:
-        - name: process
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Name of the process
-      responses:
-        "200":
-          description: Embedding info
-    post:
-      summary: Upload config for embedding step
-      requestBody:
-        required: false
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                config:
-                  type: string
-                  format: binary
-                  description: YAML config file (optional)
-      responses:
-        "200":
-          description: Embedding started
   /embedding/statistics:
     get:
       summary: Get basic statistics for the embedding object
@@ -101,35 +47,6 @@ paths:
       responses:
         "200":
           description: Embedding statistics
-  /clustering:
-    get:
-      summary: Get clustering information
-      parameters:
-        - name: process
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Name of the process
-      responses:
-        "200":
-          description: Clustering info
-    post:
-      summary: Upload config for clustering step
-      requestBody:
-        required: false
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                config:
-                  type: string
-                  format: binary
-                  description: YAML config file (optional)
-      responses:
-        "200":
-          description: Clustering started
   /clustering/concepts:
     get:
       summary: Show concepts that were found
@@ -155,41 +72,6 @@ paths:
       responses:
         "200":
           description: Concepts found
-  /graph/creation:
-    get:
-      summary: Create graphs according to config
-      parameters:
-        - name: process
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Name of the process
-        - name: exclusion_ids
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Comma-separated list of concept ids to exclude
-      responses:
-        "200":
-          description: Graphs created
-    post:
-      summary: Upload config for graph creation
-      requestBody:
-        required: false
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                config:
-                  type: string
-                  format: binary
-                  description: YAML config file (optional)
-      responses:
-        "200":
-          description: Graph creation started
   /graph/document/add:
     parameters:
       - name: process
@@ -414,6 +296,50 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProcessesResponse"
+  /processes/{process_id}/delete:
+    delete:
+      summary: Sets a process to be deleted from the cache and any finished & serialized steps
+      parameters:
+        - name: process_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The process id (or corpus name)
+        - name: hard_stop
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Running processes need to be stopped before being able to be deleted. If set to 'false' (default) the stopping is handled gracefully.
+          example: false
+      responses:
+        "200":
+          description: Process was set to be deleted
+        "404":
+          description: No such process found
+  /processes/{process_id}/stop:
+    get:
+      summary: Sets a process to be stopped
+      parameters:
+        - name: process_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The process id (or corpus name)
+        - name: hard_stop
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: If set to 'false' (default) the stopping is handled gracefully.
+          example: false
+      responses:
+        "200":
+          description: Process was set to be stopped
+        "404":
+          description: No such process found
   /status:
     get:
       summary: Get the status of a specified process
