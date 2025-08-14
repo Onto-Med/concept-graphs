@@ -2,84 +2,62 @@ openapi: "3.0.3"
 info:
   title: Concept Graphs API
   description: API for managing concept graphs
-  version: "0.8.3"
+  version: "0.9.0"
 servers:
   - url: http://top-prod:9007
   - url: http://localhost:9007
   - url: http://localhost:9010
 paths:
   /preprocessing/statistics:
+    parameters:
+      - $ref: "#/components/parameters/process_name"
     get:
       summary: Get basic statistics for the corpus
-      parameters:
-        - name: process
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Name of the process
       responses:
         "200":
           description: Corpus statistics
   /preprocessing/noun_chunks:
+    parameters:
+      - $ref: "#/components/parameters/process_name"
     get:
       summary: Get all noun chunks found
-      parameters:
-        - name: process
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Name of the process
       responses:
         "200":
           description: Noun chunks
   /embedding/statistics:
+    parameters:
+      - $ref: "#/components/parameters/process_name"
     get:
       summary: Get basic statistics for the embedding object
-      parameters:
-        - name: process
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Name of the process
       responses:
         "200":
           description: Embedding statistics
   /clustering/concepts:
+    parameters:
+      - $ref: "#/components/parameters/process_name"
     get:
       summary: Show concepts that were found
       parameters:
-        - name: process
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Name of the process
         - name: top_k
           in: query
           required: false
           schema:
             type: integer
           description: Number of top k representatives
+          example: 15
         - name: distance
           in: query
           required: false
           schema:
             type: number
           description: Cosine distance threshold
+          example: 0.6
       responses:
         "200":
           description: Concepts found
   /graph/document/add:
     parameters:
-      - name: process
-        in: query
-        required: false
-        schema:
-          type: string
-        description: Name of the process/corpus to add this/these document/s to
+      - $ref: "#/components/parameters/process_name"
     post:
       summary: Adds document/s to an existing vector store index and integrates its/their phrases into the graphs that were built for the corpus
       requestBody:
@@ -87,33 +65,7 @@ paths:
         content:
           application/json:
             schema:
-              type: object
-              properties:
-                vectorstore_server:
-                  type: object
-                  required: false
-                document_server:
-                  type: object
-                  required: false
-                language:
-                  type: string
-                  required: true
-                documents:
-                  type: array
-                  items:
-                    type: object
-                    required: true
-                    properties:
-                      id:
-                        type: string
-                        required: false
-                      name:
-                        type: string
-                      content:
-                        type: string
-                      label:
-                        type: string
-                        required: false
+              $ref: "#/components/schemas/GraphDocumentAddition"
       responses:
         "200":
           description: "Added document/s."
@@ -122,15 +74,10 @@ paths:
         "501":
           description: "Path with specific argument not yet implemented."
   /graph/document/add/status:
+    parameters:
+      - $ref: "#/components/parameters/process_name"
     get:
       summary: Get the status/result for a document addition task.
-      parameters:
-        - name: process
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Name of the process
       responses:
         "200":
           description: Result of the document addition task
@@ -145,19 +92,16 @@ paths:
         "501":
           description: Some methods are still not implemented
   /graph/statistics:
+    parameters:
+      - $ref: "#/components/parameters/process_name"
     get:
       summary: Get basic statistics for the graphs
-      parameters:
-        - name: process
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Name of the process
       responses:
         "200":
           description: Graph statistics
   /graph/{graph_id}:
+    parameters:
+      - $ref: "#/components/parameters/process_name"
     get:
       summary: Get nodes and adjacency information for a specific graph
       parameters:
@@ -178,20 +122,8 @@ paths:
           description: Graph data
   /pipeline:
     parameters:
-      - name: process
-        in: query
-        required: false
-        schema:
-          type: string
-        description: Name of the corpus/process
-        example: default
-      - name: language
-        in: query
-        required: false
-        schema:
-          type: string
-        description: Language the documents are written in
-        example: en
+      - $ref: "#/components/parameters/process_name"
+      - $ref: "#/components/parameters/language"
       - name: skip_present
         in: query
         required: false
@@ -256,22 +188,12 @@ paths:
         "200":
           description: Pipeline started
   /pipeline/configuration:
+    parameters:
+      - $ref: "#/components/parameters/process_name"
+      - $ref: "#/components/parameters/language"
     get:
       summary: Get pipeline configuration
       parameters:
-        - name: process
-          in: query
-          required: false
-          schema:
-            type: string
-          description: Name of the process
-        - name: language
-          in: query
-          required: false
-          schema:
-            type: string
-          description: language for a potential default configuration (de/en)
-          example: en
         - name: default
           in: query
           required: false
@@ -296,16 +218,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ProcessesResponse"
-  /processes/{process_id}/delete:
+  /processes/{process}/delete:
+    parameters:
+      - $ref: "#/components/parameters/process_name"
     delete:
       summary: Sets a process to be deleted from the cache and any finished & serialized steps
       parameters:
-        - name: process_id
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The process id (or corpus name)
         - name: hard_stop
           in: query
           required: false
@@ -318,16 +236,12 @@ paths:
           description: Process was set to be deleted
         "404":
           description: No such process found
-  /processes/{process_id}/stop:
+  /processes/{process}/stop:
+    parameters:
+      - $ref: "#/components/parameters/process_name"
     get:
       summary: Sets a process to be stopped
       parameters:
-        - name: process_id
-          in: path
-          required: true
-          schema:
-            type: string
-          description: The process id (or corpus name)
         - name: hard_stop
           in: query
           required: false
@@ -341,15 +255,10 @@ paths:
         "404":
           description: No such process found
   /status:
+    parameters:
+      - $ref: "#/components/parameters/process_name"
     get:
       summary: Get the status of a specified process
-      parameters:
-        - name: process
-          in: query
-          required: true
-          schema:
-            type: string
-          description: The name of the process to get the status for
       responses:
         "200":
           description: Status of the specified process
@@ -365,6 +274,19 @@ paths:
       requestBody:
         required: true
         content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                port:
+                  type: integer
+                  example: 9008
+                url:
+                  type: string
+                  example: "http://localhost"
+                index:
+                  type: string
+                  example: "documents"
           multipart/form-data:
             schema:
               $ref: "#/components/schemas/DocumentServerConfigUpload"
@@ -442,6 +364,34 @@ components:
       required:
         - reachable
         - message
+    GraphDocumentAddition:
+      type: object
+      properties:
+        vectorstore_server:
+          type: object
+          required: false
+        document_server:
+          type: object
+          required: false
+        language:
+          type: string
+          required: true
+        documents:
+          type: array
+          items:
+            type: object
+            required: true
+            properties:
+              id:
+                type: string
+                required: false
+              name:
+                type: string
+              content:
+                type: string
+              label:
+                type: string
+                required: false
     PipelineConfiguration:
       type: object
       properties:
@@ -678,3 +628,19 @@ components:
             url:
               type: string
               example: "http://localhost"
+  parameters:
+    process_name:
+      name: process
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Name of the process
+    language:
+        name: language
+        in: query
+        required: false
+        schema:
+          type: string
+        description: Language the documents are written in
+        example: en

@@ -73,7 +73,7 @@ def parse_config_json(response_json) -> pipeline_json_config:
             string_conformity(config.get("name", None)),
             config.get("language", None),
             config.get("document_server", None),
-            config.get("vectorstore_server", None),
+            config.get("vectorstore_server", config.get("vector_store_server", config.get("vector-store_server", None))),
             config.config.get("data", Munch()),
             config.config.get("embedding", Munch()),
             config.config.get("clustering", Munch()),
@@ -672,12 +672,15 @@ def build_adjacency_obj(graph_obj: nx.Graph):
     return _adj
 
 
-def graph_get_specific(process, graph_nr, path: Union[str, pathlib.Path], draw=False):
-    store_path = pathlib.Path(pathlib.Path(path) / f"{process}")
+def graph_get_specific(process: Union[str, list], graph_nr, path: Union[str, pathlib.Path], draw=False):
     try:
-        graph_list = pickle.load(
-            pathlib.Path(store_path / f"{process}_graph.pickle").open("rb")
-        )
+        if isinstance(process, str):
+            store_path = pathlib.Path(pathlib.Path(path) / f"{process}")
+            graph_list = pickle.load(
+                pathlib.Path(store_path / f"{process}_graph.pickle").open("rb")
+            )
+        else:
+            graph_list = process
         if (len(graph_list)) > graph_nr >= 0:
             if not draw:
                 return jsonify(
@@ -690,7 +693,7 @@ def graph_get_specific(process, graph_nr, path: Union[str, pathlib.Path], draw=F
                     }
                 )
             else:
-                templates_path = pathlib.Path(store_path)
+                templates_path = pathlib.Path(path)
                 templates_path.mkdir(exist_ok=True)
                 graph_path = visualize_graph(
                     graph=graph_list[graph_nr],

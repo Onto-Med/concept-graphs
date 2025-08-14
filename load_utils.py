@@ -13,6 +13,37 @@ from src.util_functions import load_pickle
 
 class FactoryLoader:
     @classmethod
+    def with_active_objects(
+        cls,
+        path: str,
+        process: str,
+        active_objects: dict,
+        specific_step: str = None
+    ) -> Union[dict, DataProcessingFactory.DataProcessing, SentenceEmbeddingsFactory.SentenceEmbeddings, PhraseClusterFactory.PhraseCluster, list[nx.Graph]]:
+        def _load(_step):
+            try:
+                active_objects[_step] = cls.load(
+                    step=_step,
+                    path=path,
+                    process=process,
+                    data_obj=active_objects.get(StepsName.DATA, None),
+                    emb_obj=active_objects.get(StepsName.EMBEDDING, None),
+                    vector_store=getattr(active_objects.get(StepsName.EMBEDDING, {}), "source", None)
+                )
+            except Exception as e:
+                logging.error(f"Failed to load object of '{_step}': {e}")
+                return None
+        if specific_step is None:
+            for step in StepsName.ALL:
+                if (step == StepsName.INTEGRATION) or active_objects.get(step, False):
+                    continue
+                _load(step)
+        else:
+            if specific_step not in active_objects:
+                _load(specific_step)
+        return active_objects.get(specific_step, None) if specific_step is not None else active_objects
+
+    @classmethod
     def load_data(
             cls,
             path: str,

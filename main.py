@@ -19,6 +19,17 @@ class PersistentObjects:
     file_storage_dir: pathlib.Path
 
 
+def unspecified_server_error():
+    return jsonify(error="Something went wrong; please consult the logs."), HTTPResponses.INTERNAL_SERVER_ERROR
+
+
+def path_arg_error(parent_endpoint: str, path_arg: str, possible_path_args: list[str]):
+    return jsonify(
+        error=f"No such path argument '{path_arg}' for '{parent_endpoint}' endpoint.",
+        possible_path_args=[f"/{p}" for p in possible_path_args],
+    ), HTTPResponses.BAD_REQUEST
+
+
 def setup(
         static_folder: str = "api",
         static_url_path: str = "",
@@ -76,19 +87,20 @@ def data_preprocessing_with_arg(path_arg):
 
     _path_args = ["statistics", "noun_chunks"]
     if path_arg in _path_args:
-        data_obj = FactoryLoader.load_data(
-            str(pathlib.Path(main_objects.file_storage_dir, process).resolve()), process
+        data_obj = FactoryLoader.with_active_objects(
+            str(pathlib.Path(main_objects.file_storage_dir, process).resolve()),
+            process,
+            main_objects.current_active_pipeline_objects,
+            StepsName.DATA,
         )
+        if data_obj is None:
+            return unspecified_server_error()
+        if path_arg == "statistics":
+            return data_get_statistics(data_obj), HTTPResponses.OK
+        elif path_arg == "noun_chunks":
+            return jsonify(noun_chunks=data_obj.data_chunk_sets), HTTPResponses.OK
     else:
-        return jsonify(
-            error=f"No such path argument '{path_arg}' for 'preprocessing' endpoint.",
-            possible_path_args=[f"/{p}" for p in _path_args],
-        )
-
-    if path_arg == "statistics":
-        return data_get_statistics(data_obj)
-    elif path_arg == "noun_chunks":
-        return jsonify(noun_chunks=data_obj.data_chunk_sets)
+        return path_arg_error("preprocessing", path_arg, _path_args)
 
 
 @main_objects.app.route("/embedding/<path_arg>", methods=["GET"])
@@ -98,26 +110,18 @@ def phrase_embedding_with_arg(path_arg):
 
     _path_args = ["statistics"]
     if path_arg in _path_args:
-        emb_obj = embedding_functions.SentenceEmbeddingsFactory.load(
-            pathlib.Path(
-                main_objects.file_storage_dir
-                / process
-                / f"{process}_data.pickle"
-            ),
-            pathlib.Path(
-                main_objects.file_storage_dir
-                / process
-                / f"{process}_embedding.pickle"
-            ),
+        emb_obj = FactoryLoader.with_active_objects(
+            str(pathlib.Path(main_objects.file_storage_dir, process).resolve()),
+            process,
+            main_objects.current_active_pipeline_objects,
+            StepsName.EMBEDDING,
         )
+        if emb_obj is None:
+            return unspecified_server_error()
+        if path_arg == "statistics":
+            return embedding_get_statistics(emb_obj)
     else:
-        return jsonify(
-            error=f"No such path argument '{path_arg}' for 'embedding' endpoint.",
-            possible_path_args=[f"/{p}" for p in _path_args],
-        )
-
-    if path_arg == "statistics":
-        return embedding_get_statistics(emb_obj)
+        return path_arg_error("embedding", path_arg, _path_args)
 
 
 @main_objects.app.route("/clustering/<path_arg>", methods=["GET"])
@@ -129,85 +133,53 @@ def clustering_with_arg(path_arg):
 
     _path_args = ["concepts"]
     if path_arg in _path_args:
-        cluster_obj = cluster_functions.PhraseClusterFactory.load(
-            pathlib.Path(
-                main_objects.file_storage_dir
-                / process
-                / f"{process}_clustering.pickle"
-            ),
+        cluster_obj = FactoryLoader.with_active_objects(
+            str(pathlib.Path(main_objects.file_storage_dir, process).resolve()),
+            process,
+            main_objects.current_active_pipeline_objects,
+            StepsName.CLUSTERING,
         )
+        if cluster_obj is None:
+            return unspecified_server_error()
+        if path_arg == "concepts":
+            emb_obj = util_functions.load_pickle(
+                main_objects.file_storage_dir / f"{process}_embedding.pickle"
+            )
+            _cluster_gen = embedding_functions.show_top_k_for_concepts(
+                cluster_obj=cluster_obj.concept_cluster,
+                embedding_object=emb_obj,
+                yield_concepts=True,
+                top_k=top_k,
+                distance=distance,
+            )
+            return clustering_get_concepts(_cluster_gen)
     else:
-        return jsonify(
-            error=f"No such path argument '{path_arg}' for 'clustering' endpoint.",
-            possible_path_args=[f"/{p}" for p in _path_args],
-        )
-
-    if path_arg == "concepts":
-        emb_obj = util_functions.load_pickle(
-            main_objects.file_storage_dir / f"{process}_embedding.pickle"
-        )
-        _cluster_gen = embedding_functions.show_top_k_for_concepts(
-            cluster_obj=cluster_obj.concept_cluster,
-            embedding_object=emb_obj,
-            yield_concepts=True,
-            top_k=top_k,
-            distance=distance,
-        )
-        return clustering_get_concepts(_cluster_gen)
-
-
-@main_objects.app.route("/graph", methods=["GET"])
-def graph_base_endpoint():
-    return (
-        jsonify(
-            path_parameter=[
-                {
-                    "document": {
-                        {
-                            "add": {
-                                get_query_param_help_text("process"),
-                            }
-                        }
-                    }
-                },
-                {
-                    "statistics": {
-                        "query_parameters": [
-                            get_query_param_help_text("process"),
-                        ]
-                    }
-                },
-                {
-                    "#GRAPH_ID": {
-                        "query_parameters": [
-                            get_query_param_help_text("process"),
-                            get_query_param_help_text("draw"),
-                        ]
-                    }
-                },
-            ],
-        ),
-        HTTPResponses.NOT_FOUND,
-    )
+        return path_arg_error("clustering", path_arg, _path_args)
 
 
 @main_objects.app.route("/graph/<path_arg>", methods=["POST", "GET"])
-def graph_creation_with_arg(path_arg):
+def graph_with_arg(path_arg):
     process = request.args.get("process", "default").lower()
     draw = get_bool_expression(request.args.get("draw", False))
     path_arg = path_arg.lower()
+    graph_list = FactoryLoader.with_active_objects(
+        str(pathlib.Path(main_objects.file_storage_dir, process).resolve()),
+        process,
+        main_objects.current_active_pipeline_objects,
+        StepsName.GRAPH,
+    )
 
-    _path_args = ["statistics", "creation"]
+    _path_args = ["statistics"]
     if path_arg in _path_args:
+        if graph_list is None:
+            return unspecified_server_error()
         try:
             if path_arg == "statistics":
-                _result = graph_get_statistics(main_objects.app, process, main_objects.file_storage_dir)
+                _result = graph_get_statistics(main_objects.app, graph_list, main_objects.file_storage_dir)
                 _http_response = HTTPResponses.OK
                 if "error" in _result:
                     _http_response = HTTPResponses.INTERNAL_SERVER_ERROR
                 return jsonify(name=process, **_result), _http_response
-            elif path_arg == "creation":
-                return graph_create(main_objects.app, main_objects.file_storage_dir)
         except FileNotFoundError:
             return Response(
                 f"There is no graph data present for '{process}'.\n",
@@ -215,13 +187,9 @@ def graph_creation_with_arg(path_arg):
             )
     elif path_arg.isdigit():
         graph_nr = int(path_arg)
-        return graph_get_specific(process, graph_nr, path=main_objects.file_storage_dir, draw=draw)
+        return graph_get_specific(graph_list, graph_nr, path=main_objects.file_storage_dir, draw=draw)
     else:
-        return Response(
-            f"No such path argument '{path_arg}' for 'graph' endpoint.\n"
-            f"Possible path arguments are: {', '.join([p for p in _path_args] + ['#ANY_INTEGER'])}\n",
-            status=int(HTTPResponses.BAD_REQUEST),
-        )
+        return path_arg_error("graph", path_arg, _path_args + ['#ANY_INTEGER'])
 
 
 @main_objects.app.route("/graph/document/<path_arg>", methods=["POST"])
@@ -260,7 +228,7 @@ def graph_document(path_arg):
     elif path_arg.lower() == "delete":
         return jsonify(error="'Delete' not implemented."), HTTPResponses.NOT_IMPLEMENTED
     else:
-        return graph_base_endpoint()
+        return path_arg_error("graph/document", path_arg, ["add", "delete"])
 
 
 @main_objects.app.route("/graph/document/add/status", methods=["GET"])
@@ -712,25 +680,26 @@ def get_data_server():
     #
     #     return jsonify()
     if request.method == "POST":
-        document_server_config = request.files.get("document_server_config", False)
+        if request.headers.get("Content-Type") == "application/json":
+            document_server_config = request.json
+        else:
+            document_server_config = request.files.get("document_server_config", False)
         if not document_server_config:
             return jsonify(
                 name="document server check",
                 status=f"No document server config file provided",
             ), int(HTTPResponses.BAD_REQUEST)
         base_config = get_data_server_config(document_server_config, main_objects.app)
-        if not check_data_server(
-            url=base_config["url"], port=base_config["port"], index=base_config["index"]
-        ):
+        if not check_data_server(base_config):
             return (
                 jsonify(
-                    f"There is no data server at the specified location ({base_config}) or it contains no data."
+                    f"There is no data server at the specified location ({base_config}) or its index '{base_config['index']}' contains no data."
                 ),
                 int(HTTPResponses.NOT_FOUND),
             )
         return (
             jsonify(
-                f"Data server reachable under: '{base_config['url']}:{base_config['port']}/{base_config['index']}'"
+                f"Data server reachable under: '{base_config['url']}:{base_config['port']}' with index '{base_config['index']}'"
             ),
             int(HTTPResponses.OK),
         )
