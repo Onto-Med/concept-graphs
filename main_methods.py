@@ -21,8 +21,9 @@ from munch import Munch
 from werkzeug.datastructures import FileStorage
 from yaml.representer import RepresenterError
 
-from clustering_util import ClusteringUtil
+from preprocessing_util import PreprocessingUtil
 from embedding_util import PhraseEmbeddingUtil
+from clustering_util import ClusteringUtil
 from graph_creation_util import GraphCreationUtil, visualize_graph
 from integration_util import ConceptGraphIntegrationUtil
 from load_utils import FactoryLoader
@@ -39,11 +40,10 @@ from main_utils import (
     string_conformity,
     BaseUtil, transform_document_addition_results,
 )
-from preprocessing_util import PreprocessingUtil
-from src.graph_functions import GraphIncorp
 
 sys.path.insert(0, "src")
 from src import data_functions, cluster_functions, embedding_functions
+from src.graph_functions import GraphIncorp
 from src.util_functions import DocumentStore, EmbeddingStore, save_pickle
 
 pipeline_json_config = namedtuple(
@@ -73,7 +73,7 @@ def parse_config_json(response_json) -> pipeline_json_config:
             string_conformity(config.get("name", None)),
             config.get("language", None),
             config.get("document_server", None),
-            config.get("vectorstore_server", None),
+            config.get("vectorstore_server", config.get("vector_store_server", config.get("vector-store_server", None))),
             config.config.get("data", Munch()),
             config.config.get("embedding", Munch()),
             config.config.get("clustering", Munch()),
@@ -317,7 +317,7 @@ def get_documents_from_es_server(
                 yield check_es_source_for_id(document, other_id)
 
 
-def populate_running_processes(app: flask.Flask, path: str, running_processes: dict):
+def populate_running_processes(app: flask.Flask, path: Union[str, pathlib.Path], running_processes: dict):
     for process in get_all_processes(path):
         _finished = [
             _finished_step.get("name") for _finished_step in process.get("status", [])
@@ -341,13 +341,15 @@ def populate_running_processes(app: flask.Flask, path: str, running_processes: d
     return running_processes
 
 
-def get_all_processes(path: str):
+def get_all_processes(path: Union[str, pathlib.Path]):
+    if isinstance(path, str):
+        path = pathlib.Path(path)
     _process_detailed = list()
-    for _proc in pathlib.Path(path).glob("*"):
+    for _proc in path.glob("*"):
         if _proc.is_dir() and not _proc.stem.startswith("."):
             _proc_name = _proc.stem.lower()
             _steps_list = list()
-            for _pickle in pathlib.Path(pathlib.Path(path) / _proc_name).glob(
+            for _pickle in pathlib.Path(path / _proc_name).glob(
                 "*.pickle"
             ):
                 _pickle_stem = _pickle.stem.lower()
@@ -618,7 +620,7 @@ def clustering_get_concepts(cluster_gen):
     return jsonify(**_cluster_dict)
 
 
-def graph_get_statistics(app: flask.Flask, data: Union[str, list], path: str) -> dict:
+def graph_get_statistics(app: flask.Flask, data: Union[str, list], path: Union[str, pathlib.Path]) -> dict:
     if isinstance(data, str):
         _path = pathlib.Path(
             os.getcwd()
@@ -670,12 +672,15 @@ def build_adjacency_obj(graph_obj: nx.Graph):
     return _adj
 
 
-def graph_get_specific(process, graph_nr, path: str, draw=False):
-    store_path = pathlib.Path(pathlib.Path(path) / f"{process}")
+def graph_get_specific(process: Union[str, list], graph_nr, path: Union[str, pathlib.Path], draw=False):
     try:
-        graph_list = pickle.load(
-            pathlib.Path(store_path / f"{process}_graph.pickle").open("rb")
-        )
+        if isinstance(process, str):
+            store_path = pathlib.Path(pathlib.Path(path) / f"{process}")
+            graph_list = pickle.load(
+                pathlib.Path(store_path / f"{process}_graph.pickle").open("rb")
+            )
+        else:
+            graph_list = process
         if (len(graph_list)) > graph_nr >= 0:
             if not draw:
                 return jsonify(
@@ -688,7 +693,7 @@ def graph_get_specific(process, graph_nr, path: str, draw=False):
                     }
                 )
             else:
-                templates_path = pathlib.Path(store_path)
+                templates_path = pathlib.Path(path)
                 templates_path.mkdir(exist_ok=True)
                 graph_path = visualize_graph(
                     graph=graph_list[graph_nr],
@@ -706,7 +711,7 @@ def graph_get_specific(process, graph_nr, path: str, draw=False):
         return jsonify(f"There is no graph data present for '{process}'.")
 
 
-def graph_create(app: flask.Flask, path: str):
+def graph_create(app: flask.Flask, path: Union[str, pathlib.Path]):
     app.logger.info("=== Graph creation started ===")
     exclusion_ids_query = read_exclusion_ids(request.args.get("exclusion_ids", "[]"))
     # ToDo: files read doesn't work...
