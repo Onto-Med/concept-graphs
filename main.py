@@ -6,7 +6,6 @@ from main_utils import StoppableThread
 
 sys.path.insert(0, "src")
 from src import integration_functions
-from src import util_functions
 from src import marqo_external_utils
 
 
@@ -66,9 +65,11 @@ main_objects = setup(static_folder="api", static_url_path="", file_storage_dir="
 
 # ToDo: make sure that no arguments can be supplied via config that won't work
 
-# ToDo: endpoints with path arguments should throw a response/warning if there is no saved pickle
-
 # ToDo: adapt README
+
+# ToDo: main_objects.current_active_pipeline_objects stores all serialized step objects per process name; so this object
+# ToDo: could become rather large (if a lot of processes get started); maybe have a config value that stores the last N
+# ToDo: processes and have them have time stamps and delete accordingly
 
 @main_objects.app.route("/", methods=["GET"])
 def index():
@@ -82,7 +83,7 @@ def openapi():
 
 @main_objects.app.route("/preprocessing/<path_arg>", methods=["GET"])
 def data_preprocessing_with_arg(path_arg):
-    process = request.args.get("process", "default").lower()
+    process = string_conformity(request.args.get("process", "default"))
     path_arg = path_arg.lower()
 
     _path_args = ["statistics", "noun_chunks"]
@@ -105,7 +106,7 @@ def data_preprocessing_with_arg(path_arg):
 
 @main_objects.app.route("/embedding/<path_arg>", methods=["GET"])
 def phrase_embedding_with_arg(path_arg):
-    process = request.args.get("process", "default").lower()
+    process = string_conformity(request.args.get("process", "default"))
     path_arg = path_arg.lower()
 
     _path_args = ["statistics"]
@@ -126,7 +127,7 @@ def phrase_embedding_with_arg(path_arg):
 
 @main_objects.app.route("/clustering/<path_arg>", methods=["GET"])
 def clustering_with_arg(path_arg):
-    process = request.args.get("process", "default").lower()
+    process = string_conformity(request.args.get("process", "default"))
     top_k = int(request.args.get("top_k", 15))
     distance = float(request.args.get("distance", 0.6))
     path_arg = path_arg.lower()
@@ -142,8 +143,11 @@ def clustering_with_arg(path_arg):
         if cluster_obj is None:
             return unspecified_server_error()
         if path_arg == "concepts":
-            emb_obj = util_functions.load_pickle(
-                main_objects.file_storage_dir / f"{process}_embedding.pickle"
+            emb_obj = FactoryLoader.with_active_objects(
+                str(pathlib.Path(main_objects.file_storage_dir, process).resolve()),
+                process,
+                main_objects.current_active_pipeline_objects,
+                StepsName.EMBEDDING,
             )
             _cluster_gen = embedding_functions.show_top_k_for_concepts(
                 cluster_obj=cluster_obj.concept_cluster,
@@ -159,7 +163,7 @@ def clustering_with_arg(path_arg):
 
 @main_objects.app.route("/graph/<path_arg>", methods=["POST", "GET"])
 def graph_with_arg(path_arg):
-    process = request.args.get("process", "default").lower()
+    process = string_conformity(request.args.get("process", "default"))
     draw = get_bool_expression(request.args.get("draw", False))
     path_arg = path_arg.lower()
     graph_list = FactoryLoader.with_active_objects(
@@ -563,7 +567,7 @@ def complete_pipeline():
 def get_pipeline_default_configuration():
     if request.method == "GET":
         is_default_conf = get_bool_expression(request.args.get("default", True))
-        process = request.args.get("process", "default")
+        process = string_conformity(request.args.get("process", "default"))
         language = PipelineLanguage.language_from_string(
             request.args.get("language", "en")
         )
@@ -651,7 +655,7 @@ def delete_process(process_id):
 def stop_pipeline(process_id):
     if request.method == "GET":
         hard_stop = request.args.get("hard_stop", False)
-        process_id = process_id.lower()
+        process_id = string_conformity(process_id)
         return stop_thread(
             app=main_objects.app,
             process_name=process_id,
@@ -664,7 +668,7 @@ def stop_pipeline(process_id):
 
 @main_objects.app.route("/status", methods=["GET"])
 def get_status_of():
-    _process = request.args.get("process", "default").lower()
+    _process = string_conformity(request.args.get("process", "default"))
     if _process is not None:
         _response = main_objects.running_processes.get(_process, None)
         if _response is not None:

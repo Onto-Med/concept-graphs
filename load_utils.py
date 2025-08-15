@@ -17,31 +17,35 @@ class FactoryLoader:
         cls,
         path: str,
         process: str,
-        active_objects: dict,
+        active_objects: dict[str, dict],
         specific_step: str = None
     ) -> Union[dict, DataProcessingFactory.DataProcessing, SentenceEmbeddingsFactory.SentenceEmbeddings, PhraseClusterFactory.PhraseCluster, list[nx.Graph]]:
+        if process not in active_objects:
+            active_objects[process] = {}
+
         def _load(_step):
             try:
-                active_objects[_step] = cls.load(
+                active_objects[process][_step] = cls.load(
                     step=_step,
                     path=path,
                     process=process,
-                    data_obj=active_objects.get(StepsName.DATA, None),
-                    emb_obj=active_objects.get(StepsName.EMBEDDING, None),
+                    data_obj=active_objects.get(process, {}).get(StepsName.DATA, None),
+                    emb_obj=active_objects.get(process, {}).get(StepsName.EMBEDDING, None),
                     vector_store=getattr(active_objects.get(StepsName.EMBEDDING, {}), "source", None)
                 )
             except Exception as e:
                 logging.error(f"Failed to load object of '{_step}': {e}")
                 return None
+
         if specific_step is None:
             for step in StepsName.ALL:
-                if (step == StepsName.INTEGRATION) or active_objects.get(step, False):
+                if (step == StepsName.INTEGRATION) or active_objects.get(process, {}).get(step, False):
                     continue
                 _load(step)
         else:
-            if specific_step not in active_objects:
+            if specific_step not in active_objects.get(process, {}):
                 _load(specific_step)
-        return active_objects.get(specific_step, None) if specific_step is not None else active_objects
+        return active_objects.get(process, {}).get(specific_step, None) if specific_step is not None else active_objects.get(process, {})
 
     @classmethod
     def load_data(
