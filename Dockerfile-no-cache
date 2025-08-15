@@ -51,4 +51,4 @@ RUN ${PYTHON} -m spacy download de_core_news_sm && \
 
 COPY . .
 
-CMD [ "waitress-serve", "--port=9007", "main:app" ]
+CMD [ "waitress-serve", "--port=9007", "main:main_objects.app" ]

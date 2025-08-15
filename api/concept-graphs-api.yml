@@ -2,7 +2,7 @@ openapi: "3.0.3"
 info:
   title: Concept Graphs API
   description: API for managing concept graphs
-  version: "0.9.0"
+  version: "0.9.1"
 servers:
   - url: http://top-prod:9007
   - url: http://localhost:9007
