@@ -220,7 +220,7 @@ paths:
                 $ref: "#/components/schemas/ProcessesResponse"
   /processes/{process}/delete:
     parameters:
-      - $ref: "#/components/parameters/process_name"
+      - $ref: "#/components/parameters/process"
     delete:
       summary: Sets a process to be deleted from the cache and any finished & serialized steps
       parameters:
@@ -238,7 +238,7 @@ paths:
           description: No such process found
   /processes/{process}/stop:
     parameters:
-      - $ref: "#/components/parameters/process_name"
+      - $ref: "#/components/parameters/process"
     get:
       summary: Sets a process to be stopped
       parameters:
@@ -629,6 +629,13 @@ components:
               type: string
               example: "http://localhost"
   parameters:
+    process:
+      name: process
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Name of the process
     process_name:
       name: process
       in: query
