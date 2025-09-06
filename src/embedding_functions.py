@@ -348,7 +348,7 @@ def top_k_cosine(
             .tolist()
         )
 
-    _vals = torch.where(torch.ge(_reshaped_cs, distance))
+    _vals = torch.nonzero(torch.ge(_reshaped_cs, distance))
     _reshaped_vals = torch.reshape(
         _vals,
         [

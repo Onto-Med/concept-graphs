@@ -1,12 +1,22 @@
-[build-system]
-requires = ["poetry-core"]
-
-[tool.poetry]
-package-mode = false
-
 [project]
 name = "concept-graphs"
 version = "0.9.0"
+description = ""
+authors = [
+    {name = "Franz Matthies", email = "franz.matthies@imise.uni-leipzig.de"},
+    {email = "franz.matthies@gmail.com"},
+]
+maintainers = [
+    {name = "Franz Matthies", email = "franz.matthies@imise.uni-leipzig.de"},
+]
+readme = "README.md"
+license = "MIT"
+license-files = []
+keywords = []
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python"
+]
 requires-python = "^3.11, <3.12"
 dependencies = [
     "altair==5.2.0",
@@ -30,40 +40,33 @@ dependencies = [
     "spacy==3.7.4",
     "spacy-curated-transformers==0.2.2",
     "spacy-lookups-data==1.0.5",
-    "spacy-transformers==1.3.4",
-#    "tensorflow==2.15.1",
-#    "tensorflow-intel ; sys_platform == 'windows'",
-#    "tensorflow-io-gcs-filesystem==0.31.0 ; sys_platform == 'windows'",
-    "torch==2.2.0",
-    "transformers==4.36.2",
+    "spacy-transformers==1.3.9",
+    "torch==2.8.0",
     "umap-learn==0.5.2",
     "urllib3",
     "waiting==1.5.0",
-    "waitress==3.0.0",
+    "waitress==3.0.1",
     "yellowbrick==1.5"
 ]
-authors = [
-  {name = "Franz Matthies", email = "franz.matthies@imise.uni-leipzig.de"},
-  {email = "franz.matthies@gmail.com"},
-]
-maintainers = [
-  {name = "Franz Matthies", email = "franz.matthies@imise.uni-leipzig.de"},
-]
-description = ""
-readme = "README.md"
-license = "MIT"
-license-files = []
-keywords = []
-classifiers = [
-  "Development Status :: 4 - Beta",
-  "Programming Language :: Python"
-]
 
-[tool.poetry.group.rag]
-optional = true
+[build-system]
+requires = ["poetry-core"]
+
+[tool.poetry]
+package-mode = false
+packages = [
+    { include = "negspacy" },
+    { include = "pruning" },
+    { include = "rag" },
+    { include = "./*.py" },
+    { include = "./src/*.py" },
+]
 
 [tool.poetry.group.vectorstore.dependencies]
 marqo = "3.13.0"
+
+[tool.poetry.group.rag]
+optional = true
 
 [tool.poetry.group.rag.dependencies]
 langchain = "*"
@@ -71,6 +74,12 @@ langchain-core = "*"
 langchain-community = "*"
 langchain-text-splitters = "*"
 langchain-openai = "*"
+
+[tool.poetry.group.test]
+optional = true
+
+[tool.poetry.group.test.dependencies]
+black = "*"
 
 [project.urls]
 #Homepage = ""
