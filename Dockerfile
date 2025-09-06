@@ -7,11 +7,10 @@ ARG REST_API_WORKDIR=/rest_api
 
 WORKDIR $REST_API_WORKDIR
 
-
 # Fix DL4006
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-ARG PYTHON=python3.10
+ARG PYTHON=python3.11
 ENV PYTHON=${PYTHON}
 
 ENV DEBIAN_FRONTEND noninteractive
@@ -38,12 +37,10 @@ RUN apt-get update --yes && \
     echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     locale-gen
 
-# Install current pip version for python version
-RUN curl -sS https://bootstrap.pypa.io/get-pip.py | ${PYTHON}
-
-COPY requirements.txt ${REST_API_WORKDIR}
-RUN ${PYTHON} -m pip install --index-url https://download.pytorch.org/whl/cpu --no-deps torch==2.2.0
-RUN --mount=type=cache,target=/root/.cache/pip ${PYTHON} -m pip install --no-deps -r requirements.txt
+COPY pyproject.toml ${REST_API_WORKDIR}
+RUN curl -sSL https://install.python-poetry.org | ${PYTHON} - && \
+    poetry lock && \
+    poetry install
 
 RUN ${PYTHON} -m spacy download de_core_news_sm && \
     ${PYTHON} -m spacy download de_dep_news_trf
