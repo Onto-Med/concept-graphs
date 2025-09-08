@@ -2,9 +2,8 @@ from pydoc import locate
 from typing import Union
 
 from langchain_core.language_models import BaseLLM
-from langchain_text_splitters import
-
 from chatters.AbstractChatter import Chatter
+
 
 class RAG:
     def __init__(self, chatter: Union[Chatter, str] = "src.rag.chatters.BlabladorChatter.BlabladorChatter"):
