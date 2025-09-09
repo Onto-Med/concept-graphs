@@ -7,6 +7,7 @@ from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import Runnable
 
 from chatters.AbstractChatter import Chatter
+from src.rag.embedding_stores.MarqoChunkEmbeddingStore import MarqoChunkEmbeddingStore
 
 
 class RAG:
@@ -64,7 +65,7 @@ class RAG:
         templates = {
             "en":
                 """
-                Given the following extracted parts of a long document ("SOURCES") and a question ("QUESTION"), create a final answer one paragraph long. 
+                Given the following extracted parts of several different documents ("SOURCES") and a question ("QUESTION"), create a final answer one paragraph long. 
                 Don't try to make up an answer and use the text in the SOURCES only for the answer. If you don't know the answer, just say that you don't know. 
                 QUESTION: {question}
                 =========
@@ -75,7 +76,7 @@ class RAG:
                 """,
             "de":
                 """
-                Gegeben sind die die folgenden Teile eines langen Dokumenst ("QUELLEN") und eine Frage ("FRAGE"), erstelle eine abschließende Antwort mit etwa einer Länge eines Absatz. 
+                Gegeben sind die die folgenden Teile verschiedener Dokumente ("QUELLEN") und eine Frage ("FRAGE"), erstelle eine abschließende Antwort mit etwa einer Länge eines Absatz. 
                 Versuche niemals eine Antwort zu erfinden! Benutze außschließlich die Texte aus den QUELLEN für die Antwort. Wenn du keine Antwort hast, sage einfach, dass du es nicht weißt! 
                 FRAGE: {question}
                 =========
@@ -128,19 +129,47 @@ class RAG:
         )
 
 if __name__ == "__main__":
+    import sys
     import pathlib
     from load_utils import FactoryLoader
     from TextSplitters import PreprocessedSpacyTextSplitter
+
+    _args = {a.split("=")[0]: a.split("=")[1] for a in sys.argv[1:]}
+    _api_key = _args.pop("api_key")
 
     _data = FactoryLoader.load_data(str(pathlib.Path("../../tmp/grascco_stem").resolve()), "grascco_stem")
     _splitter = PreprocessedSpacyTextSplitter(chunk_size=400, chunk_overlap=100)
     _documents = _splitter.split_preprocessed_sentences(_data.processed_docs, "doc_id", keep_metadata=["doc_id", "doc_name"])
 
+    chunk_embedding_store = MarqoChunkEmbeddingStore.from_config(
+        index_name="grascco_stem_rag",
+        config={
+            "model": "multilingual-e5-base",
+            "normalizeEmbeddings": True,
+            "textPreprocessing": {
+                "splitLength": 3,
+                "splitOverlap": 1,
+                "splitMethod": "sentence"
+            },
+        }
+    )
+
+    if not chunk_embedding_store.is_filled():
+        docs = [
+            {
+                "text": d,
+                "doc_id": t[1]["doc_id"],
+                "doc_name": t[1]["doc_name"],
+            } for t in _documents for d in t[0]
+        ]
+        chunk_embedding_store.add_chunks(docs)
+
+    question = "Gibt es einen Patienten mit einer Lungenentzündung?"
     result = (
         RAG
-        .with_chatter(api_key="", language="de")
+        .with_chatter(api_key=_api_key, language="de")
         .with_prompt()
-        .with_documents()
-        .build_and_invoke("Gibt es einen Patienten mit einer Lungenentzündung?")
+        .with_documents([(d.pop("text"), d) for d in chunk_embedding_store.get_chunks(question)])
+        .build_and_invoke(question)
     )
     print(result)

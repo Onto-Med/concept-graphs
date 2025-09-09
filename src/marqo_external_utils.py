@@ -119,7 +119,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
             return False
 
     @classmethod
-    def existing_from_config(cls, config: Union[dict, pathlib.Path, str]):
+    def existing_from_config(cls, config: Union[dict, pathlib.Path, str]) -> "MarqoEmbeddingStore":
         config = MarqoEmbeddingStore._read_config(config)
         return cls(
             client_url=config.get("client_url", "http://localhost:8882"),
