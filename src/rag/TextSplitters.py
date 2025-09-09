@@ -65,6 +65,8 @@ class PreprocessedSpacyTextSplitter(TextSplitter):
                     s.text if self._strip_whitespace else s.text_with_ws
                     for s in docs
                 )
+                if current_doc_id is None:
+                    current_doc_id = doc_id
                 if doc_id != current_doc_id:
                     if keep_metadata is None:
                         yield self._merge_splits(splits, self._separator)
@@ -75,6 +77,7 @@ class PreprocessedSpacyTextSplitter(TextSplitter):
                         yield self._merge_splits(splits, self._separator), meta_data
                     docs = []
                     meta_data = {}
+                    current_doc_id = doc_id
                 docs.append(sentence)
             else:
                 if not warned_once:
@@ -88,3 +91,12 @@ class PreprocessedSpacyTextSplitter(TextSplitter):
                 for s in docs
             )
             yield self._merge_splits(splits, self._separator)
+
+if __name__ == "__main__":
+    import pathlib
+    from load_utils import FactoryLoader
+
+    _data = FactoryLoader.load_data(str(pathlib.Path("../../tmp/grascco_stem").resolve()), "grascco_stem")
+    _splitter = PreprocessedSpacyTextSplitter(chunk_size=400, chunk_overlap=100)
+    _splits = list(_splitter.split_preprocessed_sentences(_data.processed_docs, "doc_id", keep_metadata=["doc_id", "doc_name"]))
+    print(_splits)
