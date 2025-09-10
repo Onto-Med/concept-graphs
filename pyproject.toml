@@ -42,6 +42,7 @@ dependencies = [
     "spacy-lookups-data==1.0.5",
     "spacy-transformers==1.3.9",
     "torch==2.8.0",
+    "transformers==4.36.2",
     "umap-learn==0.5.2",
     "urllib3",
     "waiting==1.5.0",

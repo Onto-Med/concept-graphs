@@ -3,6 +3,7 @@ from typing import Any, Optional
 from marqo import Client
 
 from src.rag.embedding_stores.AbstractEmbeddingStore import ChunkEmbeddingStore
+from src.rag.marqo_rag_utils import ResultsFields
 
 
 class MarqoChunkEmbeddingStore(ChunkEmbeddingStore):
@@ -45,4 +46,4 @@ class MarqoChunkEmbeddingStore(ChunkEmbeddingStore):
 
     def get_chunks(self, question: str):
         results = self._client.index(self._index_name).search(question)
-        return results["hits"]
+        return results[ResultsFields.hits]

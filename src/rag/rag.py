@@ -1,4 +1,6 @@
 import logging
+from collections import defaultdict
+from operator import itemgetter
 from pydoc import locate
 from typing import Union, Optional
 
@@ -8,6 +10,7 @@ from langchain_core.runnables import Runnable
 
 from chatters.AbstractChatter import Chatter
 from src.rag.embedding_stores.MarqoChunkEmbeddingStore import MarqoChunkEmbeddingStore
+from src.rag.marqo_rag_utils import extract_text_from_highlights
 
 
 class RAG:
@@ -48,6 +51,18 @@ class RAG:
         _lang = lang if self._language is None else self._language
         return _lang if _lang in _lang_options else "en"
 
+    def _concatenate_by_metadata(self, doc_tuples: list[tuple], concat_by: str, concat_str: str = "\n\n") -> list[tuple]:
+        _text_dict = defaultdict(list)
+        _meta_dict = {}
+        for text, meta in doc_tuples:
+            if not meta.get(concat_by, False):
+                logging.warning(f"Encountered 'concat_by' value ({concat_by}) that is not in metadata.")
+                continue
+            _text_dict[meta[concat_by]].append(text)
+            if not _meta_dict.get(meta[concat_by], False):
+                _meta_dict[meta[concat_by]] = meta
+        return [(concat_str.join(_text_dict[_id]), _meta_dict[_id], ) for _id in _text_dict.keys()]
+
     def with_chatter_options(
         self,
         api_key: str,
@@ -76,7 +91,8 @@ class RAG:
                 """,
             "de":
                 """
-                Gegeben sind die die folgenden Teile verschiedener Dokumente ("QUELLEN") und eine Frage ("FRAGE"), erstelle eine abschließende Antwort mit etwa einer Länge eines Absatz. 
+                Gegeben sind die die folgenden Teile verschiedener Dokumente ("QUELLEN") und eine Frage ("FRAGE"), erstelle eine kurze abschließende Antwort mit etwa einer Länge eines Absatz.
+                Dabei sollen die "QUELLEN" individuell betrachtet werden! Referenziere in der Antwort die QUELLEN!
                 Versuche niemals eine Antwort zu erfinden! Benutze außschließlich die Texte aus den QUELLEN für die Antwort. Wenn du keine Antwort hast, sage einfach, dass du es nicht weißt! 
                 FRAGE: {question}
                 =========
@@ -95,7 +111,9 @@ class RAG:
     def with_documents(
         self,
         documents: Union[list[str], list[tuple[str, dict]]],
-        lang: str = "en"
+        lang: str = "en",
+        concat_by: str = None,
+        concat_str: str = "\n\n"
     ) -> "RAG":
         _source_str_map = {"en": "Source", "de": "Quelle"}
         _language = self._get_language(lang)
@@ -103,6 +121,8 @@ class RAG:
             logging.warning("No documents given!")
             return self
         with_metadata = isinstance(documents[0], tuple)
+        if with_metadata and concat_by is not None:
+            documents = self._concatenate_by_metadata(documents, concat_by, concat_str)
         self._documents = [
             Document(
                 page_content=f"{_source_str_map.get(self._get_language(lang))} [{ind}]: " + (d[0] if with_metadata else d),
@@ -169,7 +189,11 @@ if __name__ == "__main__":
         RAG
         .with_chatter(api_key=_api_key, language="de")
         .with_prompt()
-        .with_documents([(d.pop("text"), d) for d in chunk_embedding_store.get_chunks(question)])
+        .with_documents(
+            list(zip(
+                *itemgetter(1, -1)(extract_text_from_highlights(chunk_embedding_store.get_chunks(question), token_limit=150, lang="de"))
+            )), concat_by="doc_id"
+        )
         .build_and_invoke(question)
     )
     print(result)

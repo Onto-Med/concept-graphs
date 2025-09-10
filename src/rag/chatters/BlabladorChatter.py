@@ -13,6 +13,7 @@ class BlabladorChatter(Chatter):
         return OpenAI(
             base_url=kwargs.get("base_url", cls.base_url),
             model=kwargs.get("model", "alias-large"),
-            temperature=kwargs.get("temperature", 0.8),
+            temperature=kwargs.get("temperature", 0.7),
             api_key=SecretStr(kwargs.get("api_key", "")),
+            # max_tokens=-1
         )
