@@ -40,6 +40,7 @@ from main_utils import (
     string_conformity,
     BaseUtil, transform_document_addition_results,
 )
+from src.rag.rag import RAG
 
 sys.path.insert(0, "src")
 from src import data_functions, cluster_functions, embedding_functions
@@ -66,7 +67,17 @@ document_adding_json = namedtuple(
 )
 
 
-def parse_config_json(response_json) -> pipeline_json_config:
+rag_config_json = namedtuple(
+    "rag_config_json",
+    [
+        "chatter",
+        "api_key",
+        "language",
+        "prompt_template"
+    ]
+)
+
+def parse_pipeline_config_json(response_json) -> pipeline_json_config:
     config = Munch.fromDict(response_json)
     try:
         return pipeline_json_config(
@@ -96,22 +107,6 @@ def parse_config_json(response_json) -> pipeline_json_config:
 
 
 def parse_document_adding_json(response_json) -> Optional[document_adding_json]:
-    """
-    request.json = {
-        vectorstore_server: Optional[dict]
-        document_server: Optional[dict]
-        language: str
-        documents: [
-            {
-                id: str
-                content: str
-                corpus: str
-                label: str
-                name: str
-            }
-        ]
-    }
-    """
     try:
         config = Munch.fromDict(response_json)
         # _id_key = list(set(config.keys()).intersection(["id", "_id"]))
@@ -125,6 +120,25 @@ def parse_document_adding_json(response_json) -> Optional[document_adding_json]:
     except Exception as e:
         logging.error(f"Content json parsing error: '{e}'")
         return None
+
+
+def parse_rag_config_json(response_json) -> Optional[rag_config_json]:
+    try:
+        config = Munch.fromDict(response_json)
+        _chatter = config.get("chatter", "src.rag.chatters.BlabladorChatter.BlabladorChatter")
+        _api_key = config.get("api_key", "")
+        _lang = config.get("language", "en")
+        _prompt = config.get("prompt_template", None)
+        return rag_config_json(
+            None if len(_chatter) == 0 else _chatter,
+            _api_key,
+            _lang,
+            _prompt
+        )
+    except Exception as e:
+        logging.error(f"Content json parsing error: '{e}'")
+        return None
+
 
 def get_pipeline_query_params(
     app: flask.Flask,

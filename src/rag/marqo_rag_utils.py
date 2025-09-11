@@ -1,7 +1,10 @@
+# All functions in here were taken from the Marqo sources
+# https://github.com/marqo-ai/marqo
+# Some were slightly modified to work better with concept-graphs implementation
 import dataclasses
 from typing import Literal
 
-from transformers import PreTrainedTokenizerFast, GPT2TokenizerFast
+from transformers import GPT2TokenizerFast
 
 _method_literal = Literal['start', 'end', 'center', 'offset']
 _cached_tokenizers = dict()
@@ -16,7 +19,7 @@ def _lies_between(offset_tuple, offset):
     """
     given a tuple of ints, determine if offset lies between them
     """
-    return offset >= offset_tuple[0] and offset < offset_tuple[1]
+    return offset_tuple[0] <= offset < offset_tuple[1]
 
 
 def _find_end_character_mapping(offset_mapping, offset):
@@ -34,13 +37,13 @@ def find_highlight_index_in_text(text, highlight):
     return start and end character indices for the sub-string (highlight)
     """
     if highlight not in text:
-        return (None, None)
+        return None, None
 
     # returns left right
     left_ind = text.index(highlight)
     right_ind = left_ind + len(highlight)
 
-    return (left_ind, right_ind)
+    return left_ind, right_ind
 
 
 def truncate_text(text, token_limit, highlight=None, lang: str = "en"):

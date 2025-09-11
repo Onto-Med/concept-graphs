@@ -2,13 +2,13 @@ import logging
 from collections import defaultdict
 from operator import itemgetter
 from pydoc import locate
-from typing import Union, Optional
+from typing import Union, Optional, Any
 
 from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import Runnable
 
-from chatters.AbstractChatter import Chatter
+from src.rag.chatters.AbstractChatter import Chatter
 from src.rag.embedding_stores.MarqoChunkEmbeddingStore import MarqoChunkEmbeddingStore
 from src.rag.marqo_rag_utils import extract_text_from_highlights
 
@@ -34,9 +34,10 @@ class RAG:
     @classmethod
     def with_chatter(
         cls,
-        chatter: Union[Chatter, str] = "src.rag.chatters.BlabladorChatter.BlabladorChatter",
+        chatter: Optional[Union[Chatter, str]] = "src.rag.chatters.BlabladorChatter.BlabladorChatter",
         **kwargs
     ) -> "RAG":
+        chatter = chatter if chatter is not None else "src.rag.chatters.BlabladorChatter.BlabladorChatter"
         _rag = cls(chatter, language=kwargs.pop("language", None))
         if len(kwargs) > 0:
             return _rag.with_chatter_options(**kwargs)
@@ -75,8 +76,15 @@ class RAG:
 
     def with_prompt(
         self,
-        lang: str = "en"
+        lang: str = "en",
+        prompt_template_config: Optional[dict[str, Any]] = None
     ) -> "RAG":
+        """
+
+        :param lang:
+        :param prompt_template_config: {templates: {language: template_str}, input_variables: variables_list}
+        :return:
+        """
         templates = {
             "en":
                 """
@@ -92,7 +100,7 @@ class RAG:
             "de":
                 """
                 Gegeben sind die die folgenden Teile verschiedener Dokumente ("QUELLEN") und eine Frage ("FRAGE"), erstelle eine kurze abschließende Antwort mit etwa einer Länge eines Absatz.
-                Dabei sollen die "QUELLEN" individuell betrachtet werden! Referenziere in der Antwort die QUELLEN!
+                Dabei sollen die "QUELLEN" individuell betrachtet werden! Referenziere in der Antwort die QUELLEN! Erwähne nur positive Antworten! 
                 Versuche niemals eine Antwort zu erfinden! Benutze außschließlich die Texte aus den QUELLEN für die Antwort. Wenn du keine Antwort hast, sage einfach, dass du es nicht weißt! 
                 FRAGE: {question}
                 =========
@@ -101,10 +109,10 @@ class RAG:
                 =========
                 ANSWER:
                 """
-        }
+        } if (prompt_template_config is None or not prompt_template_config.get("templates", None)) else prompt_template_config.get("templates")
         self._prompt = PromptTemplate(
             template=templates.get(self._get_language(lang)),
-            input_variables=["summaries", "question"]
+            input_variables=["summaries", "question"] if prompt_template_config is None else prompt_template_config.get("input_variables"),
         )
         return self
 
@@ -184,7 +192,7 @@ if __name__ == "__main__":
         ]
         chunk_embedding_store.add_chunks(docs)
 
-    question = "Gibt es einen Patienten mit einer Lungenentzündung?"
+    question = "Welche Dokumente beinhalten psychotische Diagnosen?"
     result = (
         RAG
         .with_chatter(api_key=_api_key, language="de")

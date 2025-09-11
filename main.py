@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from main_methods import *
 from main_utils import StoppableThread
+from src.rag.rag import RAG
 
 sys.path.insert(0, "src")
 from src import integration_functions
@@ -16,6 +17,7 @@ class PersistentObjects:
     pipeline_threads_store: dict
     current_active_pipeline_objects: dict
     file_storage_dir: pathlib.Path
+    active_rag: Optional[RAG]
 
 
 def unspecified_server_error():
@@ -48,7 +50,14 @@ def setup(
         root_logger.handlers.clear()
     root_logger.addHandler(flask.logging.default_handler)
 
-    _po = PersistentObjects(_app, {}, {}, {}, pathlib.Path(file_storage_dir))
+    _po = PersistentObjects(
+        app=_app,
+        running_processes={},
+        pipeline_threads_store={},
+        current_active_pipeline_objects={},
+        file_storage_dir=pathlib.Path(file_storage_dir),
+        active_rag=None
+    )
     if not _po.file_storage_dir.exists():
         _po.file_storage_dir.mkdir()
     populate_running_processes(_po.app, _po.file_storage_dir, _po.running_processes)
@@ -271,7 +280,7 @@ def complete_pipeline():
         config_object_json = None
         if content_type == "application/json":
             content_type_json = True
-            config_object_json: Optional[pipeline_json_config] = parse_config_json(
+            config_object_json: Optional[pipeline_json_config] = parse_pipeline_config_json(
                 request.json
             )
 
@@ -664,6 +673,42 @@ def stop_pipeline(process_id):
             hard_stop=hard_stop,
         )
     return jsonify(f"Method not supported: {request.method}")
+
+
+@main_objects.app.route("/rag/init", methods=["POST"])
+def init_rag():
+    if request.method == "POST":
+        if request.headers.get("Content-Type") == "application/json":
+            _config = parse_rag_config_json(request.json)
+            if _config is None:
+                logging.error(f"RAG config couldn't be parsed; using default values. "
+                              f"However, probably won't work because no 'api_key' was given.")
+                main_objects.active_rag = RAG.with_chatter().with_prompt()
+            else:
+                main_objects.active_rag = (
+                    RAG
+                       .with_chatter(api_key=_config.api_key, chatter=_config.chatter, language=_config.language)
+                       .with_prompt(prompt_template_config=_config.prompt_template)
+               )
+            return jsonify("Initialized RAG component."), int(HTTPResponses.OK)
+        else:
+            return jsonify(f"Wrong content type '{request.headers.get('Content-Type')}'; need 'application/json'"), int(HTTPResponses.BAD_REQUEST)
+    else:
+        return jsonify(f"Method not supported: '{request.method}'."), int(HTTPResponses.BAD_REQUEST)
+
+
+@main_objects.app.route("/rag/question", methods=["GET"])
+def rag_question():
+    if request.method == "GET":
+        question = request.args.get("q", request.args.get("question", False))
+        if not question:
+            return jsonify("No question supplied."), int(HTTPResponses.BAD_REQUEST)
+        else:
+            _documents = []
+            _answer = main_objects.active_rag.with_documents(_documents).build_and_invoke(question)
+            return jsonify(answer=_answer), int(HTTPResponses.OK)
+    else:
+        return jsonify(f"Method not supported: '{request.method}'."), int(HTTPResponses.BAD_REQUEST)
 
 
 @main_objects.app.route("/status", methods=["GET"])

@@ -254,6 +254,35 @@ paths:
           description: Process was set to be stopped
         "404":
           description: No such process found
+  /rag/init:
+    post:
+      summary: Initializes a RAG with the config provided
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RAGConfiguration"
+      responses:
+        "200":
+          description: Initialization successful
+        "400":
+          description: Something went wrong
+  /rag/question:
+    get:
+      summary: Poses a question to the RAG component
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+          description: The question to pose
+      responses:
+        "200":
+          description: The answer
+        "400":
+          description: Something went wrong
   /status:
     parameters:
       - $ref: "#/components/parameters/process_name"
@@ -628,6 +657,20 @@ components:
             url:
               type: string
               example: "http://localhost"
+    RAGConfiguration:
+      properties:
+        api_key:
+          type: string
+          required: true
+          example: ""
+        chatter:
+          type: string
+          example: ""
+        language:
+          type: string
+          example: "en"
+        prompt_template:
+          type: object
   parameters:
     process:
       name: process
