@@ -1,13 +1,25 @@
 import json
 from dataclasses import dataclass
+from operator import itemgetter
 
 from main_methods import *
 from main_utils import StoppableThread
+from src.rag.embedding_stores.AbstractEmbeddingStore import ChunkEmbeddingStore
+from src.rag.marqo_rag_utils import extract_text_from_highlights
 from src.rag.rag import RAG
 
 sys.path.insert(0, "src")
 from src import integration_functions
 from src import marqo_external_utils
+
+@dataclass
+class ActiveRAG:
+    rag: RAG
+    vectorstore: ChunkEmbeddingStore
+    ready: bool = False
+
+    def switch_readiness(self):
+        self.ready = not self.ready
 
 
 @dataclass
@@ -17,7 +29,7 @@ class PersistentObjects:
     pipeline_threads_store: dict
     current_active_pipeline_objects: dict
     file_storage_dir: pathlib.Path
-    active_rag: Optional[RAG]
+    active_rag: Optional[ActiveRAG]
 
 
 def unspecified_server_error():
@@ -679,17 +691,23 @@ def stop_pipeline(process_id):
 def init_rag():
     if request.method == "POST":
         if request.headers.get("Content-Type") == "application/json":
+            process = string_conformity(request.args.get("process", "default"))
             _config = parse_rag_config_json(request.json)
             if _config is None:
-                logging.error(f"RAG config couldn't be parsed; using default values. "
-                              f"However, probably won't work because no 'api_key' was given.")
-                main_objects.active_rag = RAG.with_chatter().with_prompt()
+                return jsonify(f"RAG config couldn't be parsed."), int(HTTPResponses.BAD_REQUEST)
             else:
-                main_objects.active_rag = (
-                    RAG
-                       .with_chatter(api_key=_config.api_key, chatter=_config.chatter, language=_config.language)
-                       .with_prompt(prompt_template_config=_config.prompt_template)
-               )
+                vector_store = initialize_chunk_vectorstore(process, _config.vectorstore_server)
+                main_objects.active_rag = ActiveRAG(
+                    rag=RAG
+                        .with_chatter(api_key=_config.api_key, chatter=_config.chatter, language=_config.language)
+                        .with_prompt(prompt_template_config=_config.prompt_template),
+                    vectorstore=vector_store
+                )
+                if not vector_store.is_filled():
+                    #ToDo: Thread for embedding document chunks in vectorstore!
+                    fill_chunk_vectorstore()
+                else:
+                    main_objects.active_rag.switch_readiness()
             return jsonify("Initialized RAG component."), int(HTTPResponses.OK)
         else:
             return jsonify(f"Wrong content type '{request.headers.get('Content-Type')}'; need 'application/json'"), int(HTTPResponses.BAD_REQUEST)
@@ -700,12 +718,19 @@ def init_rag():
 @main_objects.app.route("/rag/question", methods=["GET"])
 def rag_question():
     if request.method == "GET":
+        if main_objects.active_rag is None or not main_objects.active_rag.ready:
+            return jsonify(f"No active and ready rag component found."
+                           f" You need to initialize it first and wait for it to be ready."), int(HTTPResponses.NOT_FOUND)
         question = request.args.get("q", request.args.get("question", False))
+        process = string_conformity(request.args.get("process", "default"))
+        language = main_objects.active_rag.rag.language
         if not question:
             return jsonify("No question supplied."), int(HTTPResponses.BAD_REQUEST)
         else:
-            _documents = []
-            _answer = main_objects.active_rag.with_documents(_documents).build_and_invoke(question)
+            _documents = list(zip(
+                *itemgetter(1, -1)(extract_text_from_highlights(main_objects.active_rag.vectorstore.get_chunks(question), token_limit=150, lang=language))
+            ))
+            _answer = main_objects.active_rag.rag.with_documents(_documents, concat_by="doc_id").build_and_invoke(question)
             return jsonify(answer=_answer), int(HTTPResponses.OK)
     else:
         return jsonify(f"Method not supported: '{request.method}'."), int(HTTPResponses.BAD_REQUEST)

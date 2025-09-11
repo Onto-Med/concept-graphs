@@ -44,12 +44,16 @@ class RAG:
         else:
             return _rag
 
-    def _get_language(
+    @property
+    def language(self):
+        return self._language
+
+    def get_rag_language(
         self,
         lang: str
     ) -> str:
         _lang_options = ["de", "en"]
-        _lang = lang if self._language is None else self._language
+        _lang = lang if self.language is None else self.language
         return _lang if _lang in _lang_options else "en"
 
     def _concatenate_by_metadata(self, doc_tuples: list[tuple], concat_by: str, concat_str: str = "\n\n") -> list[tuple]:
@@ -111,7 +115,7 @@ class RAG:
                 """
         } if (prompt_template_config is None or not prompt_template_config.get("templates", None)) else prompt_template_config.get("templates")
         self._prompt = PromptTemplate(
-            template=templates.get(self._get_language(lang)),
+            template=templates.get(self.get_rag_language(lang)),
             input_variables=["summaries", "question"] if prompt_template_config is None else prompt_template_config.get("input_variables"),
         )
         return self
@@ -124,7 +128,7 @@ class RAG:
         concat_str: str = "\n\n"
     ) -> "RAG":
         _source_str_map = {"en": "Source", "de": "Quelle"}
-        _language = self._get_language(lang)
+        _language = self.get_rag_language(lang)
         if len(documents) == 0:
             logging.warning("No documents given!")
             return self
@@ -133,7 +137,7 @@ class RAG:
             documents = self._concatenate_by_metadata(documents, concat_by, concat_str)
         self._documents = [
             Document(
-                page_content=f"{_source_str_map.get(self._get_language(lang))} [{ind}]: " + (d[0] if with_metadata else d),
+                page_content=f"{_source_str_map.get(self.get_rag_language(lang))} [{ind}]: " + (d[0] if with_metadata else d),
                 metadata=d[1] if with_metadata else {}
             )
             for ind, d in enumerate(documents)]
@@ -171,6 +175,8 @@ if __name__ == "__main__":
 
     chunk_embedding_store = MarqoChunkEmbeddingStore.from_config(
         index_name="grascco_stem_rag",
+        url="http://localhost",
+        port=8888,
         config={
             "model": "multilingual-e5-base",
             "normalizeEmbeddings": True,

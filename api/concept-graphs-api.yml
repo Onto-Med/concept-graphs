@@ -255,6 +255,8 @@ paths:
         "404":
           description: No such process found
   /rag/init:
+    parameters:
+      - $ref: "#/components/parameters/process_name"
     post:
       summary: Initializes a RAG with the config provided
       requestBody:
@@ -270,14 +272,16 @@ paths:
           description: Something went wrong
   /rag/question:
     get:
-      summary: Poses a question to the RAG component
+      summary: Poses a question to the RAG component for the specified corpus/process
       parameters:
+        - $ref: "#/components/parameters/process_name"
         - name: q
           in: query
           required: true
           schema:
             type: string
           description: The question to pose
+          example: "?"
       responses:
         "200":
           description: The answer
@@ -671,6 +675,17 @@ components:
           example: "en"
         prompt_template:
           type: object
+        vectorstore_server:
+          type: object
+          properties:
+            url:
+              type: string
+              example: "http://localhost"
+            port:
+              type: integer
+              example: 8882
+            index_settings:
+              type: object
   parameters:
     process:
       name: process

@@ -2,6 +2,7 @@
 # https://github.com/marqo-ai/marqo
 # Some were slightly modified to work better with concept-graphs implementation
 import dataclasses
+import logging
 from typing import Literal
 
 from transformers import GPT2TokenizerFast
@@ -37,7 +38,7 @@ def find_highlight_index_in_text(text, highlight):
     return start and end character indices for the sub-string (highlight)
     """
     if highlight not in text:
-        return None, None
+        return None
 
     # returns left right
     left_ind = text.index(highlight)
@@ -61,6 +62,9 @@ def truncate_text(text, token_limit, highlight=None, lang: str = "en"):
         method: _method_literal = 'offset'
         # get indices of highlight
         inds = find_highlight_index_in_text(text, highlight)
+        if inds is None:
+            logging.warning(f"Could not find highlight index in text; using text value. Might exceed token limit.")
+            return text
         # get the center of the highlight in chars
         center_ind = (max(inds) - min(inds))//2 + min(inds)
         # now map this to tokens and get the left/right char indices to achieve token limit

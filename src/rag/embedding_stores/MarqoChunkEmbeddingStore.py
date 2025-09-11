@@ -10,11 +10,13 @@ class MarqoChunkEmbeddingStore(ChunkEmbeddingStore):
     def __init__(
             self,
             index_name: str,
-            config: dict[str, Any]
+            url: str = "http://localhost",
+            port: int = 8888,
+            config: Optional[dict[str, Any]] = None
     ):
-        self._client: Optional[Client] = Client()
+        self._client: Optional[Client] = Client(url=f"{url}:{port}")
         self._index_name: str = index_name
-        self._config: dict = config
+        self._config: dict = config if config is not None else {}
 
     def _init_index(
             self
@@ -28,8 +30,16 @@ class MarqoChunkEmbeddingStore(ChunkEmbeddingStore):
         return any([(self._index_name == d["indexName"]) for d in self._client.get_indexes()["results"]])
 
     @classmethod
-    def from_config(cls, index_name: str, config: dict[str, Any]) -> "MarqoChunkEmbeddingStore":
-        _store = cls(index_name, config)
+    def from_config(
+            cls,
+            index_name: str,
+            url: str = "http://localhost",
+            port: int = 8888,
+            config: dict[str, Any] = None
+    ) -> "MarqoChunkEmbeddingStore":
+        if config is None:
+            config = {}
+        _store = cls(index_name, url, port, config)
         if not _store._has_index():
             _store._init_index()
         return _store

@@ -9,7 +9,7 @@ import uuid
 from collections import OrderedDict, defaultdict, namedtuple
 from pydoc import locate
 from time import sleep
-from typing import Union, Iterable, Optional
+from typing import Union, Iterable, Optional, cast
 
 import flask
 import networkx as nx
@@ -40,6 +40,7 @@ from main_utils import (
     string_conformity,
     BaseUtil, transform_document_addition_results,
 )
+from src.rag.embedding_stores.AbstractEmbeddingStore import ChunkEmbeddingStore
 from src.rag.rag import RAG
 
 sys.path.insert(0, "src")
@@ -73,7 +74,8 @@ rag_config_json = namedtuple(
         "chatter",
         "api_key",
         "language",
-        "prompt_template"
+        "prompt_template",
+        "vectorstore_server"
     ]
 )
 
@@ -129,11 +131,13 @@ def parse_rag_config_json(response_json) -> Optional[rag_config_json]:
         _api_key = config.get("api_key", "")
         _lang = config.get("language", "en")
         _prompt = config.get("prompt_template", None)
+        _vs = config.get("vectorstore_server", config.get("vector_store_server", config.get("vector-store_server", None)))
         return rag_config_json(
             None if len(_chatter) == 0 else _chatter,
             _api_key,
             _lang,
-            _prompt
+            _prompt,
+            _vs
         )
     except Exception as e:
         logging.error(f"Content json parsing error: '{e}'")
@@ -965,6 +969,26 @@ def delete_pipeline(
         _process_util.process_name = process_name
         _process_util.delete_process()
     shutil.rmtree(pathlib.Path(base_path / process_name))
+
+
+def initialize_chunk_vectorstore(
+        process_name: str,
+        config: Optional[dict],
+        chunk_store: str = "src.rag.embedding_stores.MarqoChunkEmbeddingStore.MarqoChunkEmbeddingStore"
+):
+    if config is None:
+        config = {}
+    chunk_store: ChunkEmbeddingStore = cast(ChunkEmbeddingStore, locate(chunk_store)).from_config(
+        index_name=f"{process_name}_rag",
+        url=config.pop("url", "http://localhost"),
+        port=config.pop("port", 8882),
+        **config
+    )
+    return chunk_store
+
+
+def fill_chunk_vectorstore():
+    pass
 
 
 if __name__ == "__main__":
