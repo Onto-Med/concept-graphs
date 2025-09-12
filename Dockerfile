@@ -40,12 +40,13 @@ RUN apt-get update --yes && \
 
 COPY pyproject.toml ${REST_API_WORKDIR}
 RUN curl -sSL https://install.python-poetry.org | ${PYTHON} - && \
+    ${POETRY} env use ${PYTHON} && \
     ${POETRY} lock && \
     ${POETRY} install
 
 COPY . .
 
-RUN ${PYTHON} -m download_models
+RUN python -m download_models
 #    ${PYTHON} -m spacy download de_core_news_sm && \
 #    ${PYTHON} -m spacy download de_dep_news_trf && \
 
