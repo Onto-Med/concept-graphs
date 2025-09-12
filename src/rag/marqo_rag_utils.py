@@ -9,6 +9,7 @@ from transformers import GPT2TokenizerFast
 
 _method_literal = Literal['start', 'end', 'center', 'offset']
 _cached_tokenizers = dict()
+_default_tokenizers_by_lang = {'en': 'gpt2', 'de': 'dbmdz/german-gpt2'}
 
 @dataclasses.dataclass
 class ResultsFields:
@@ -81,7 +82,7 @@ def get_token_indices(text: str, token_limit: int,
                       offset: int = None,
                       lang: str = "en"):
     # leave it here instead of a paramter
-    default_tokenizer = {'en': 'gpt2', 'de': 'dbmdz/german-gpt2'}.get(lang, 'gpt2')
+    default_tokenizer = _default_tokenizers_by_lang.get(lang, 'gpt2')
 
     if tokenizer is None:
         if default_tokenizer not in _cached_tokenizers.get(lang, {}):

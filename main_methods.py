@@ -7,6 +7,7 @@ import shutil
 import sys
 import uuid
 from collections import OrderedDict, defaultdict, namedtuple
+from inspect import getfullargspec
 from pydoc import locate
 from time import sleep
 from typing import Union, Iterable, Optional, cast
@@ -38,15 +39,16 @@ from main_utils import (
     get_bool_expression,
     StoppableThread,
     string_conformity,
-    BaseUtil, transform_document_addition_results,
+    BaseUtil, transform_document_addition_results, PersistentObjects,
 )
+from src.rag.TextSplitters import PreprocessedSpacyTextSplitter
 from src.rag.embedding_stores.AbstractEmbeddingStore import ChunkEmbeddingStore
-from src.rag.rag import RAG
 
 sys.path.insert(0, "src")
 from src import data_functions, cluster_functions, embedding_functions
 from src.graph_functions import GraphIncorp
 from src.util_functions import DocumentStore, EmbeddingStore, save_pickle
+
 
 pipeline_json_config = namedtuple(
     "pipeline_json_config",
@@ -974,21 +976,87 @@ def delete_pipeline(
 def initialize_chunk_vectorstore(
         process_name: str,
         config: Optional[dict],
-        chunk_store: str = "src.rag.embedding_stores.MarqoChunkEmbeddingStore.MarqoChunkEmbeddingStore"
+        chunk_store: str = "src.rag.embedding_stores.MarqoChunkEmbeddingStore.MarqoChunkEmbeddingStore",
+        force_init: bool = False
 ):
     if config is None:
-        config = {}
+        config = {
+            "index_settings": None
+        }
+    if config.get("index_settings", None) is None or len(config["index_settings"]) == 0:
+        config["index_settings"] = {
+                "model": "multilingual-e5-base",
+                "normalizeEmbeddings": True,
+                "textPreprocessing": {
+                    "splitLength": 3,
+                    "splitOverlap": 1,
+                    "splitMethod": "sentence"
+                },
+            }
     chunk_store: ChunkEmbeddingStore = cast(ChunkEmbeddingStore, locate(chunk_store)).from_config(
         index_name=f"{process_name}_rag",
         url=config.pop("url", "http://localhost"),
         port=config.pop("port", 8882),
+        force_init=force_init,
         **config
     )
     return chunk_store
 
 
-def fill_chunk_vectorstore():
-    pass
+def fill_chunk_vectorstore(
+        process: str,
+        persistent_objects: PersistentObjects,
+        **kwargs
+) -> bool:
+    """
+
+    :param process:
+    :param persistent_objects:
+    :param kwargs: e.g. splitter=splitter-config-dict
+    :return:
+    """
+    _splitter_class = PreprocessedSpacyTextSplitter
+    _split_options = {
+        "doc_metadata_key": kwargs.get("splitter", {}).pop("doc_metadata_key", "doc_id"),
+        "keep_metadata": kwargs.get("splitter", {}).pop("keep_metadata", ["doc_id", "doc_name"]),
+    }
+    _splitter_options = {
+        k: v for k, v in kwargs.pop("splitter", {"chunk_size": 400, "chunk_overlap": 100}).items()
+        if k in getfullargspec(_splitter_class).args
+    }
+    _rag = persistent_objects.active_rag
+    if not _rag.initializing:
+        _rag.initializing = True
+        data_obj = FactoryLoader.with_active_objects(
+            str(pathlib.Path(persistent_objects.file_storage_dir, process).resolve()),
+            process,
+            persistent_objects.current_active_pipeline_objects,
+            StepsName.DATA,
+        )
+        splitter = _splitter_class(**_splitter_options)
+
+        try:
+            _rag.vectorstore.reset_index()
+        except Exception as e:
+            logging.warning(f"[fill_chunk_vectorstore] {e}")
+
+        _documents = splitter.split_preprocessed_sentences(data_obj.processed_docs, **_split_options)
+        _field = "text"
+        _rag.vectorstore.add_chunks([
+            dict({_field: d}, **{k: t[1][k] for k in _split_options.get("keep_metadata", [])})
+            for t in _documents for d in t[0]
+        ], _field)
+
+        _rag.initializing = False
+        _rag.switch_readiness()
+        return True
+    else:
+        logging.warning(f"[fill_chunk_vectorstore] Already initializing")
+        return False
+
+
+
+
 
 
 if __name__ == "__main__":

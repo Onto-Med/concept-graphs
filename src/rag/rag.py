@@ -176,7 +176,7 @@ if __name__ == "__main__":
     chunk_embedding_store = MarqoChunkEmbeddingStore.from_config(
         index_name="grascco_stem_rag",
         url="http://localhost",
-        port=8888,
+        port=8882,
         config={
             "model": "multilingual-e5-base",
             "normalizeEmbeddings": True,

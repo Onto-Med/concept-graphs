@@ -40,11 +40,12 @@ RUN apt-get update --yes && \
 COPY pyproject.toml ${REST_API_WORKDIR}
 RUN curl -sSL https://install.python-poetry.org | ${PYTHON} - && \
     poetry lock && \
-    poetry install
-
-RUN ${PYTHON} -m spacy download de_core_news_sm && \
-    ${PYTHON} -m spacy download de_dep_news_trf
+    poetry install \
 
 COPY . .
+
+RUN ${PYTHON} -m download_models
+#    ${PYTHON} -m spacy download de_core_news_sm && \
+#    ${PYTHON} -m spacy download de_dep_news_trf && \
 
 CMD [ "waitress-serve", "--port=9007", "main:main_objects.app" ]

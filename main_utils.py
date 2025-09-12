@@ -20,6 +20,9 @@ from munch import Munch, unmunchify
 from waiting import wait, TimeoutExpired
 from werkzeug.datastructures import FileStorage
 
+from src.rag.embedding_stores.AbstractEmbeddingStore import ChunkEmbeddingStore
+from src.rag.rag import RAG
+
 
 class ProcessStatus(str, Enum):
     STARTED = "started"
@@ -49,6 +52,28 @@ class StepsName:
     GRAPH = "graph"
     INTEGRATION = "integration"
     ALL = [DATA, EMBEDDING, CLUSTERING, GRAPH, INTEGRATION]
+
+
+@dataclass
+class ActiveRAG:
+    rag: RAG
+    vectorstore: ChunkEmbeddingStore
+    process: str
+    ready: bool = False
+    initializing: bool = False
+
+    def switch_readiness(self):
+        self.ready = not self.ready
+
+
+@dataclass
+class PersistentObjects:
+    app: flask.Flask
+    running_processes: dict
+    pipeline_threads_store: dict
+    current_active_pipeline_objects: dict
+    file_storage_dir: pathlib.Path
+    active_rag: Optional[ActiveRAG]
 
 
 @dataclass

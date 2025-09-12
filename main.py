@@ -1,9 +1,8 @@
 import json
-from dataclasses import dataclass
 from operator import itemgetter
 
 from main_methods import *
-from main_utils import StoppableThread
+from main_utils import StoppableThread, ActiveRAG
 from src.rag.embedding_stores.AbstractEmbeddingStore import ChunkEmbeddingStore
 from src.rag.marqo_rag_utils import extract_text_from_highlights
 from src.rag.rag import RAG
@@ -11,25 +10,6 @@ from src.rag.rag import RAG
 sys.path.insert(0, "src")
 from src import integration_functions
 from src import marqo_external_utils
-
-@dataclass
-class ActiveRAG:
-    rag: RAG
-    vectorstore: ChunkEmbeddingStore
-    ready: bool = False
-
-    def switch_readiness(self):
-        self.ready = not self.ready
-
-
-@dataclass
-class PersistentObjects:
-    app: flask.Flask
-    running_processes: dict
-    pipeline_threads_store: dict
-    current_active_pipeline_objects: dict
-    file_storage_dir: pathlib.Path
-    active_rag: Optional[ActiveRAG]
 
 
 def unspecified_server_error():
@@ -692,20 +672,31 @@ def init_rag():
     if request.method == "POST":
         if request.headers.get("Content-Type") == "application/json":
             process = string_conformity(request.args.get("process", "default"))
+            force_init = get_bool_expression(request.args.get("force", "false"))
             _config = parse_rag_config_json(request.json)
             if _config is None:
                 return jsonify(f"RAG config couldn't be parsed."), int(HTTPResponses.BAD_REQUEST)
             else:
-                vector_store = initialize_chunk_vectorstore(process, _config.vectorstore_server)
+                vector_store = initialize_chunk_vectorstore(process, _config.vectorstore_server, force_init=force_init)
                 main_objects.active_rag = ActiveRAG(
                     rag=RAG
                         .with_chatter(api_key=_config.api_key, chatter=_config.chatter, language=_config.language)
                         .with_prompt(prompt_template_config=_config.prompt_template),
-                    vectorstore=vector_store
+                    vectorstore=vector_store,
+                    process=process
                 )
-                if not vector_store.is_filled():
-                    #ToDo: Thread for embedding document chunks in vectorstore!
-                    fill_chunk_vectorstore()
+                if (not vector_store.is_filled()) or force_init:
+                    _rag_init_thread = StoppableThread(
+                        target_args=(process, main_objects),
+                        group=None,
+                        target=fill_chunk_vectorstore,
+                        name=None,
+                    )
+                    _rag_init_thread.start()
+                    sleep(1.0)
+                    if not _rag_init_thread.return_value and main_objects.active_rag.initializing:
+                        return jsonify("RAG components seems to be being initialized."), int(HTTPResponses.ACCEPTED)
+                    return jsonify("Starting initializing RAG component."), int(HTTPResponses.OK)
                 else:
                     main_objects.active_rag.switch_readiness()
             return jsonify("Initialized RAG component."), int(HTTPResponses.OK)
@@ -726,6 +717,10 @@ def rag_question():
         language = main_objects.active_rag.rag.language
         if not question:
             return jsonify("No question supplied."), int(HTTPResponses.BAD_REQUEST)
+        elif main_objects.active_rag.process != process:
+            return (jsonify(f"There is no ready and active RAG component for '{process}'."
+                           f" Currently active is : '{main_objects.active_rag.process}'; use the 'init' endpoint."),
+                    int(HTTPResponses.BAD_REQUEST))
         else:
             _documents = list(zip(
                 *itemgetter(1, -1)(extract_text_from_highlights(main_objects.active_rag.vectorstore.get_chunks(question), token_limit=150, lang=language))

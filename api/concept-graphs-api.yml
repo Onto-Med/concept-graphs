@@ -257,6 +257,12 @@ paths:
   /rag/init:
     parameters:
       - $ref: "#/components/parameters/process_name"
+      - name: force
+        in: query
+        schema:
+          type: boolean
+        description: Resets an index for this process if present
+        example: false
     post:
       summary: Initializes a RAG with the config provided
       requestBody:
