@@ -15,6 +15,10 @@ RUN poetry install --without test --with rag --no-root && rm -rf $POETRY_CACHE_D
 
 FROM nvidia/cuda:11.0.3-base-ubuntu20.04 as runtime
 
+WORKDIR /rest_api
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 ENV VIRTUAL_ENV=/rest_api/.venv \
     PATH="/rest_api/.venv/bin:$PATH"
 
