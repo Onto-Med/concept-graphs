@@ -3,7 +3,7 @@ from transformers import GPT2Tokenizer
 
 models = {
     "spacy": (spacy.cli.download, ["de_core_news_sm", "de_dep_news_trf"],),
-    "transformers": (GPT2Tokenizer.from_pretrained, ["gpt2", "dbmdz/german-gpt2"], {"force_download": True},)
+#    "transformers": (GPT2Tokenizer.from_pretrained, ["gpt2", "dbmdz/german-gpt2"], {"force_download": True},)
 }
 
 if __name__ == '__main__':
