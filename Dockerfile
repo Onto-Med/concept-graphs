@@ -46,8 +46,7 @@ RUN curl -sSL https://install.python-poetry.org | ${PYTHON} - && \
 
 COPY . .
 
-RUN ${POETRY} env use ${PYTHON} && \
-    ${PYTHON} -m download_models
+RUN ${POETRY} run python -m download_models
 #    ${PYTHON} -m spacy download de_core_news_sm && \
 #    ${PYTHON} -m spacy download de_dep_news_trf && \
 
