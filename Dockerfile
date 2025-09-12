@@ -11,7 +11,7 @@ WORKDIR $REST_API_WORKDIR
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 ARG PYTHON=python3.11
-ARG POETRY="~/.local/share/pypoetry/venv/bin/poetry"
+ARG POETRY=/root/.local/bin/poetry
 ENV PYTHON=${PYTHON}
 
 ENV DEBIAN_FRONTEND noninteractive
