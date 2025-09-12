@@ -7,7 +7,7 @@ models = {
 }
 
 if __name__ == '__main__':
-    for k, v in models:
+    for k, v in models.items():
         _loader = v[0]
         for model in v[1]:
             _loader(model)
