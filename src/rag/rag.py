@@ -185,7 +185,7 @@ if __name__ == "__main__":
 
     _data = FactoryLoader.load_data(str(pathlib.Path("../../tmp/grascco_stem").resolve()), "grascco_stem")
     _splitter = PreprocessedSpacyTextSplitter(chunk_size=400, chunk_overlap=100)
-    _documents = _splitter.split_preprocessed_sentences(_data.processed_docs, "doc_id", keep_metadata=["doc_id", "doc_name"])
+    _documents = list(_splitter.split_preprocessed_sentences(_data.processed_docs, "doc_id", keep_metadata=["doc_id", "doc_name"]))
 
     chunk_embedding_store = MarqoChunkEmbeddingStore.from_config(
         index_name="grascco_stem_rag",

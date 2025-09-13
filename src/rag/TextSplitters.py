@@ -61,6 +61,10 @@ class PreprocessedSpacyTextSplitter(TextSplitter):
         warned_once = False
         for sentence in sentences:
             if doc_id := getattr(getattr(sentence, "_", {}), doc_metadata_key, None):
+                if len(meta_data) == 0 and keep_metadata is not None:
+                    for k in getattr(sentence, "_", {}).__dict__.get("_extensions", {}):
+                        if k in keep_metadata:
+                            meta_data[k] = getattr(getattr(sentence, "_"), k)
                 splits = (
                     s.text if self._strip_whitespace else s.text_with_ws
                     for s in docs
@@ -71,9 +75,6 @@ class PreprocessedSpacyTextSplitter(TextSplitter):
                     if keep_metadata is None:
                         yield self._merge_splits(splits, self._separator)
                     else:
-                        for k in getattr(sentence, "_", {}).__dict__.get("_extensions", {}):
-                            if k in keep_metadata:
-                                meta_data[k] = getattr(getattr(sentence, "_"), k)
                         yield self._merge_splits(splits, self._separator), meta_data
                     docs = []
                     meta_data = {}
