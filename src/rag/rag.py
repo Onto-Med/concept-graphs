@@ -45,7 +45,15 @@ class RAG:
             return _rag
 
     @property
-    def language(self):
+    def documents(
+            self
+    ) -> dict[str, Document]:
+        return self._documents
+
+    @property
+    def language(
+            self
+    ) -> str:
         return self._language
 
     def get_rag_language(
@@ -56,7 +64,12 @@ class RAG:
         _lang = lang if self.language is None else self.language
         return _lang if _lang in _lang_options else "en"
 
-    def _concatenate_by_metadata(self, doc_tuples: list[tuple], concat_by: str, concat_str: str = "\n\n") -> list[tuple]:
+    def _concatenate_by_metadata(
+            self,
+            doc_tuples: list[tuple],
+            concat_by: str,
+            concat_str: str = "\n\n"
+    ) -> list[tuple]:
         _text_dict = defaultdict(list)
         _meta_dict = {}
         for text, meta in doc_tuples:
@@ -83,6 +96,7 @@ class RAG:
         lang: str = "en",
         prompt_template_config: Optional[dict[str, Any]] = None
     ) -> "RAG":
+        #ToDo: prompt for english needs to be aligned to german
         """
 
         :param lang:
@@ -135,12 +149,12 @@ class RAG:
         with_metadata = isinstance(documents[0], tuple)
         if with_metadata and concat_by is not None:
             documents = self._concatenate_by_metadata(documents, concat_by, concat_str)
-        self._documents = [
-            Document(
+        self._documents = {
+            f"[{ind}]": Document(
                 page_content=f"{_source_str_map.get(self.get_rag_language(lang))} [{ind}]: " + (d[0] if with_metadata else d),
                 metadata=d[1] if with_metadata else {}
             )
-            for ind, d in enumerate(documents)]
+            for ind, d in enumerate(documents)}
         return self
 
     def build(
@@ -154,7 +168,7 @@ class RAG:
     ):
         return (self._prompt | self._initialized_chatter).invoke(
             {
-                "summaries": self._documents,
+                "summaries": self.documents.values(),
                 "question": question
             },
             return_only_outputs=True
@@ -198,16 +212,16 @@ if __name__ == "__main__":
         ]
         chunk_embedding_store.add_chunks(docs)
 
-    question = "Welche Dokumente beinhalten psychotische Diagnosen?"
+    question_rag = "Welche Dokumente beinhalten psychotische Diagnosen?"
     result = (
         RAG
         .with_chatter(api_key=_api_key, language="de")
         .with_prompt()
         .with_documents(
             list(zip(
-                *itemgetter(1, -1)(extract_text_from_highlights(chunk_embedding_store.get_chunks(question), token_limit=150, lang="de"))
+                *itemgetter(1, -1)(extract_text_from_highlights(chunk_embedding_store.get_chunks(question_rag), token_limit=150, lang="de"))
             )), concat_by="doc_id"
         )
-        .build_and_invoke(question)
+        .build_and_invoke(question_rag)
     )
     print(result)

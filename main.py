@@ -694,8 +694,8 @@ def init_rag():
                     )
                     _rag_init_thread.start()
                     sleep(1.0)
-                    if not _rag_init_thread.return_value and main_objects.active_rag.initializing:
-                        return jsonify("RAG components seems to be being initialized."), int(HTTPResponses.ACCEPTED)
+                    # if not _rag_init_thread.return_value:
+                    #     return jsonify("RAG components seems to be being initialized."), int(HTTPResponses.ACCEPTED)
                     return jsonify("Starting initializing RAG component."), int(HTTPResponses.OK)
                 else:
                     main_objects.active_rag.switch_readiness()
@@ -726,7 +726,8 @@ def rag_question():
                 *itemgetter(1, -1)(extract_text_from_highlights(main_objects.active_rag.vectorstore.get_chunks(question), token_limit=150, lang=language))
             ))
             _answer = main_objects.active_rag.rag.with_documents(_documents, concat_by="doc_id").build_and_invoke(question)
-            return jsonify(answer=_answer), int(HTTPResponses.OK)
+            _reference = {k: v.metadata for k, v in main_objects.active_rag.rag.documents.items()}
+            return jsonify(answer=_answer, info=_reference), int(HTTPResponses.OK)
     else:
         return jsonify(f"Method not supported: '{request.method}'."), int(HTTPResponses.BAD_REQUEST)
 
