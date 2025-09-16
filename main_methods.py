@@ -129,16 +129,16 @@ def parse_document_adding_json(response_json) -> Optional[document_adding_json]:
 def parse_rag_config_json(response_json) -> Optional[rag_config_json]:
     try:
         config = Munch.fromDict(response_json)
-        _chatter = config.get("chatter", "src.rag.chatters.BlabladorChatter.BlabladorChatter")
+        _chatter = config.get("chatter", None)
         _api_key = config.get("api_key", "")
         _lang = config.get("language", "en")
         _prompt = config.get("prompt_template", None)
         _vs = config.get("vectorstore_server", config.get("vector_store_server", config.get("vector-store_server", None)))
         return rag_config_json(
-            None if len(_chatter) == 0 else _chatter,
+            {} if (_chatter is None or not isinstance(_chatter, dict)) else _chatter,
             _api_key,
             _lang,
-            _prompt,
+            None if len(_prompt) == 0 else _prompt,
             _vs
         )
     except Exception as e:
@@ -1033,6 +1033,9 @@ def fill_chunk_vectorstore(
             persistent_objects.current_active_pipeline_objects,
             StepsName.DATA,
         )
+        if data_obj is None:
+            logging.error(f"[fill_chunk_vectorstore] Data object not initialized for process '{process}'. See logs for more information.")
+            return False
         splitter = _splitter_class(**_splitter_options)
 
         try:

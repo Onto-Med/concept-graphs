@@ -677,10 +677,12 @@ def init_rag():
             if _config is None:
                 return jsonify(f"RAG config couldn't be parsed."), int(HTTPResponses.BAD_REQUEST)
             else:
+                _rag_thread_id = f"rag_fill_vectorstore_{process}"
                 vector_store = initialize_chunk_vectorstore(process, _config.vectorstore_server, force_init=force_init)
+                _chatter = _config.chatter.pop("chatter", "src.rag.chatters.BlabladorChatter.BlabladorChatter")
                 main_objects.active_rag = ActiveRAG(
                     rag=RAG
-                        .with_chatter(api_key=_config.api_key, chatter=_config.chatter, language=_config.language)
+                        .with_chatter(api_key=_config.api_key, chatter=_chatter, language=_config.language, **_config.chatter)
                         .with_prompt(prompt_template_config=_config.prompt_template),
                     vectorstore=vector_store,
                     process=process
@@ -694,11 +696,13 @@ def init_rag():
                     )
                     _rag_init_thread.start()
                     sleep(1.0)
-                    # if not _rag_init_thread.return_value:
-                    #     return jsonify("RAG components seems to be being initialized."), int(HTTPResponses.ACCEPTED)
+                    main_objects.pipeline_threads_store[_rag_thread_id] = _rag_init_thread
                     return jsonify("Starting initializing RAG component."), int(HTTPResponses.OK)
-                else:
-                    main_objects.active_rag.switch_readiness()
+                elif _init_thread := main_objects.pipeline_threads_store.get(_rag_thread_id, None):
+                    _init_thread: StoppableThread
+                    if not _init_thread.return_value:
+                        return jsonify(f"There already seems to be an initialization thread running for process {process}. Please wait for it to finish."), int(HTTPResponses.ACCEPTED)
+                main_objects.active_rag.switch_readiness()
             return jsonify("Initialized RAG component."), int(HTTPResponses.OK)
         else:
             return jsonify(f"Wrong content type '{request.headers.get('Content-Type')}'; need 'application/json'"), int(HTTPResponses.BAD_REQUEST)
@@ -725,9 +729,12 @@ def rag_question():
             _documents = list(zip(
                 *itemgetter(1, -1)(extract_text_from_highlights(main_objects.active_rag.vectorstore.get_chunks(question), token_limit=150, lang=language))
             ))
-            _answer = main_objects.active_rag.rag.with_documents(_documents, concat_by="doc_id").build_and_invoke(question)
+            _success, _answer = main_objects.active_rag.rag.with_documents(_documents, concat_by="doc_id").build_and_invoke(question)
             _reference = {k: v.metadata for k, v in main_objects.active_rag.rag.documents.items()}
-            return jsonify(answer=_answer, info=_reference), int(HTTPResponses.OK)
+            if _success:
+                return jsonify(answer=_answer, info=_reference), int(HTTPResponses.OK)
+            else:
+                return jsonify(error=_answer), int(HTTPResponses.INTERNAL_SERVER_ERROR)
     else:
         return jsonify(f"Method not supported: '{request.method}'."), int(HTTPResponses.BAD_REQUEST)
 

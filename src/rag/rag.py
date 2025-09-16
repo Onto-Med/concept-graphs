@@ -166,13 +166,16 @@ class RAG:
         self,
         question: str
     ):
-        return (self._prompt | self._initialized_chatter).invoke(
-            {
-                "summaries": self.documents.values(),
-                "question": question
-            },
-            return_only_outputs=True
-        )
+        try:
+            return True, (self._prompt | self._initialized_chatter).invoke(
+                {
+                    "summaries": self.documents.values(),
+                    "question": question
+                },
+                return_only_outputs=True
+            )
+        except Exception as e:
+            return False, e
 
 if __name__ == "__main__":
     import sys

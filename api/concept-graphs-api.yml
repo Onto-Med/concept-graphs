@@ -292,6 +292,10 @@ paths:
         "200":
           description: The answer
         "400":
+          description: Either no question posed or wrong method
+        "404":
+          description: No active RAG component found
+        "500":
           description: Something went wrong
   /status:
     parameters:
@@ -674,8 +678,7 @@ components:
           required: true
           example: ""
         chatter:
-          type: string
-          example: ""
+          type: object
         language:
           type: string
           example: "en"
