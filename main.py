@@ -1,4 +1,5 @@
 import json
+import logging
 from operator import itemgetter
 
 from main_methods import *
@@ -732,8 +733,9 @@ def rag_question():
             _success, _answer = main_objects.active_rag.rag.with_documents(_documents, concat_by="doc_id").build_and_invoke(question)
             _reference = {k: v.metadata for k, v in main_objects.active_rag.rag.documents.items()}
             if _success:
-                return jsonify(answer=_answer, info=_reference), int(HTTPResponses.OK)
+                return jsonify(answer=_answer, info=json.dumps(_reference, ensure_ascii=False)), int(HTTPResponses.OK)
             else:
+                logging.error(f"[RAG Question]: {_answer}")
                 return jsonify(error=_answer), int(HTTPResponses.INTERNAL_SERVER_ERROR)
     else:
         return jsonify(f"Method not supported: '{request.method}'."), int(HTTPResponses.BAD_REQUEST)
