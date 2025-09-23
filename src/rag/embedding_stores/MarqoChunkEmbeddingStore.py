@@ -59,13 +59,42 @@ class MarqoChunkEmbeddingStore(ChunkEmbeddingStore):
             settings_dict=_settings
         )
 
-    def add_chunks(self, chunks: list[dict[str, Any]], field: str = "text"):
+    def add_chunks(
+            self,
+            chunks: list[dict[str, Any]],
+            # field: str = "text"
+    ):
         self._client.index(self._index_name).add_documents(
             documents=chunks,
-            tensor_fields=[field],
+            # tensor_fields=[field],
             client_batch_size=64
         )
 
-    def get_chunks(self, question: str):
-        results = self._client.index(self._index_name).search(question)
-        return results[ResultsFields.hits]
+    def get_chunks(self, question: str, filter_by: Optional[dict[str, list[str]]] = None) -> list[Any]:
+        limit = 10 #ToDo: limit not hard-coded?
+        # ToDo: right now only filter on one field is allowed!
+        filter_str = None if filter_by is None else (
+            f"{list(filter_by.keys())[0]} IN ({', '.join(filter_by.get(list(filter_by.keys())[0]))})"
+        )
+        if filter_by is None:
+            return self._client.index(self._index_name).search(question, limit=limit).get(ResultsFields.hits, [])
+        else:
+            result = []
+            _offset = 0
+            loop_control = 0
+            while True:
+                result.extend(
+                    self._client.index(self._index_name)
+                        .search(
+                            question,
+                            limit=limit,
+                            offset=_offset,
+                            filter_string=filter_str
+                        )
+                        .get(ResultsFields.hits, [])
+                )
+                _offset += 1
+                loop_control += 1
+                if len(result) >= limit or loop_control >= limit:
+                    break
+            return result

@@ -1,5 +1,5 @@
 import abc
-from typing import Any
+from typing import Any, Optional
 
 
 class ChunkEmbeddingStore(metaclass=abc.ABCMeta):
@@ -17,9 +17,13 @@ class ChunkEmbeddingStore(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def add_chunks(self, chunks: list[dict[str, Any]], field: str):
+    def add_chunks(
+            self,
+            chunks: list[dict[str, Any]],
+            # field: str
+    ):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_chunks(self, question: str):
+    def get_chunks(self, question: str, filter_by: Optional[str] = None):
         raise NotImplementedError

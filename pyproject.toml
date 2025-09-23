@@ -47,7 +47,7 @@ dependencies = [
     "urllib3",
     "waiting==1.5.0",
     "waitress==3.0.1",
-    "yellowbrick==1.5"
+    "yellowbrick==1.5",
 ]
 
 [build-system]

@@ -985,14 +985,33 @@ def initialize_chunk_vectorstore(
         }
     if config.get("index_settings", None) is None or len(config["index_settings"]) == 0:
         config["index_settings"] = {
-                "model": "multilingual-e5-base",
-                "normalizeEmbeddings": True,
-                "textPreprocessing": {
-                    "splitLength": 3,
-                    "splitOverlap": 1,
-                    "splitMethod": "sentence"
+            "type": "structured",
+            "model": "multilingual-e5-base",
+            "normalizeEmbeddings": True,
+            "textPreprocessing": {
+                "splitLength": 3,
+                "splitOverlap": 1,
+                "splitMethod": "sentence"
+            },
+            "allFields": [
+                {
+                    "name": "doc_id",
+                    "type": "text",
+                    "features": ["lexical_search", "filter"]
                 },
-            }
+                {
+                    "name": "doc_name",
+                    "type": "text",
+                    "features": ["lexical_search", "filter"]
+                },
+                {
+                    "name": "text",
+                    "type": "text",
+                    "features": ["lexical_search"]
+                }
+            ],
+            "tensorFields": ["text"]
+        }
     chunk_store: ChunkEmbeddingStore = cast(ChunkEmbeddingStore, locate(chunk_store)).from_config(
         index_name=f"{process_name}_rag",
         url=config.pop("url", "http://localhost"),

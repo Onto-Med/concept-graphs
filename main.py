@@ -713,6 +713,8 @@ def init_rag():
 
 @main_objects.app.route("/rag/question", methods=["GET"])
 def rag_question():
+    #ToDo: add filter_by={"doc_id": [list of ids]} to "get_chunks", when doc filtering is used.
+    # Probably needs POST method
     if request.method == "GET":
         if main_objects.active_rag is None or not main_objects.active_rag.ready:
             return jsonify(f"No active and ready rag component found."

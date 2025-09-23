@@ -194,7 +194,8 @@ if __name__ == "__main__":
         index_name="grascco_stem_rag",
         url="http://localhost",
         port=8882,
-        config={
+        index_settings={
+            "type": "structured",
             "model": "multilingual-e5-base",
             "normalizeEmbeddings": True,
             "textPreprocessing": {
@@ -202,7 +203,25 @@ if __name__ == "__main__":
                 "splitOverlap": 1,
                 "splitMethod": "sentence"
             },
-        }
+            "allFields": [
+                {
+                    "name": "doc_id",
+                    "type": "text",
+                    "features": ["lexical_search", "filter"]
+                },
+                {
+                    "name": "doc_name",
+                    "type": "text",
+                    "features": ["lexical_search", "filter"]
+                },
+                {
+                    "name": "text",
+                    "type": "text",
+                    "features": ["lexical_search"]
+                }
+            ],
+            "tensorFields": ["text"]
+        },
     )
 
     if not chunk_embedding_store.is_filled():
@@ -219,10 +238,16 @@ if __name__ == "__main__":
     result = (
         RAG
         .with_chatter(api_key=_api_key, language="de")
-        .with_prompt()
+        .with_prompt(lang="de")
         .with_documents(
             list(zip(
-                *itemgetter(1, -1)(extract_text_from_highlights(chunk_embedding_store.get_chunks(question_rag), token_limit=150, lang="de"))
+                *itemgetter(1, -1)(extract_text_from_highlights(chunk_embedding_store.get_chunks(
+                    question_rag,
+                    # filter_by={"doc_id": ["986d8ddb-c1fb-4c68-b553-61a2cec3755c"]}
+                    filter_by=None
+                ),
+                    token_limit=150,
+                    lang="de"))
             )), concat_by="doc_id"
         )
         .build_and_invoke(question_rag)
