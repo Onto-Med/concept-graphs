@@ -311,7 +311,9 @@ def cosine_against_collection(v1, v2, vector_dim, as_tensor=True):
             _shape = [1, vector_dim]
         else:
             _shape = [len(v2), vector_dim]
-        _vector2 = torch.nn.functional.normalize(torch.reshape(torch.from_numpy(v2), _shape))
+        _vector2 = torch.nn.functional.normalize(
+            torch.reshape(torch.from_numpy(v2), _shape)
+        )
     else:
         _vector2 = torch.nn.functional.normalize(v2)
 

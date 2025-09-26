@@ -4,36 +4,56 @@ import spacy
 def build_docs():
     docs = list()
     docs.append(
-        (("Das Kopf-CT zeigte keinen Nachweis frischer intrakranieller Traumafolgen bei Zustand " +
-          "nach osteoplastischer Trepanation der hinteren Schädelgrube links sowie rechts frontotemporal und " +
-          "nachweisbare Gefa-Clips links infratentoriell im Bereich der linken A. vertebralis " +
-          "sowie im Bereich der A . cerebri media rechts."),
-         {"frischer intrakranieller Traumafolgen": True},)
+        (
+            (
+                "Das Kopf-CT zeigte keinen Nachweis frischer intrakranieller Traumafolgen bei Zustand "
+                + "nach osteoplastischer Trepanation der hinteren Schädelgrube links sowie rechts frontotemporal und "
+                + "nachweisbare Gefa-Clips links infratentoriell im Bereich der linken A. vertebralis "
+                + "sowie im Bereich der A . cerebri media rechts."
+            ),
+            {"frischer intrakranieller Traumafolgen": True},
+        )
     )
     docs.append(
-        (("Kein Fieber, gute Ausscheidung, Pat. mit Torem-Perf. negativ bilanziert " +
-          "N: Pupillen isocor bds lichtreagibel C: HT rhythmisch 3/6 syst II ICR re."),
-         {"Kein Fieber": True},)
+        (
+            (
+                "Kein Fieber, gute Ausscheidung, Pat. mit Torem-Perf. negativ bilanziert "
+                + "N: Pupillen isocor bds lichtreagibel C: HT rhythmisch 3/6 syst II ICR re."
+            ),
+            {"Kein Fieber": True},
+        )
     )
     docs.append(
-        (("Keine Thrombosen, keine Ischämien, viel freie FF im Abdomen, " +
-          "im Bereich des Pylorus und proximalen Duodenum ödematöse Wandverdickung"),
-         {"Keine Thrombosen": True, "keine Ischämien": True},)
+        (
+            (
+                "Keine Thrombosen, keine Ischämien, viel freie FF im Abdomen, "
+                + "im Bereich des Pylorus und proximalen Duodenum ödematöse Wandverdickung"
+            ),
+            {"Keine Thrombosen": True, "keine Ischämien": True},
+        )
     )
     docs.append(
-        (("Wichtig ist die Sicherung  der Hüfte durch KG-Maßnahmen und Training der Abduktoren und Extensoren"
-          " beider Hüften, als innere Schienung, eine Abspreizlagerung erscheint zurzeit noch nicht indiziert,"
-          " vielmehr ist die Zentrierung der Hüfte per Abduktionskräftigung wichtiger."),
-         {"eine Abspreizlagerung": True},)
+        (
+            (
+                "Wichtig ist die Sicherung  der Hüfte durch KG-Maßnahmen und Training der Abduktoren und Extensoren"
+                " beider Hüften, als innere Schienung, eine Abspreizlagerung erscheint zurzeit noch nicht indiziert,"
+                " vielmehr ist die Zentrierung der Hüfte per Abduktionskräftigung wichtiger."
+            ),
+            {"eine Abspreizlagerung": True},
         )
+    )
     docs.append(
-        ("Eine Abspreizlagerung kann ausgeschlossen werden.",
-         {"Eine Abspreizlagerung": True},)
+        (
+            "Eine Abspreizlagerung kann ausgeschlossen werden.",
+            {"Eine Abspreizlagerung": True},
         )
+    )
     docs.append(
-        ("Eine Abspreizlagerung kann zurzeit ausgeschlossen werden.",
-         {"Eine Abspreizlagerung": True},)
+        (
+            "Eine Abspreizlagerung kann zurzeit ausgeschlossen werden.",
+            {"Eine Abspreizlagerung": True},
         )
+    )
 
     return docs
 
@@ -57,8 +77,7 @@ if __name__ == "__main__":
     #                      "language": "de"})
     # displacy.serve(nlp(docs[-1][0]), style='dep')
     nlp = spacy.load("en_core_web_sm")
-    nlp.add_pipe("negex", last=True,
-                 config={"scope": 1})
+    nlp.add_pipe("negex", last=True, config={"scope": 1})
     docs = nlp("She does not like Steve Jobs but likes Apple products.")
     for ent in docs.ents:
         print(ent.text, ent._.negex)

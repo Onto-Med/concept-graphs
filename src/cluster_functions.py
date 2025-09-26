@@ -44,6 +44,7 @@ from src.graph_functions import (
     sub_clustering,
 )
 from src.pruning import unimodal
+
 # from src.util_functions import CVAEMantle
 from src.util_functions import (
     load_pickle,
@@ -89,7 +90,9 @@ class WordEmbeddingClustering:
         self._concept_graph_cluster = None
 
     @classmethod
-    def with_objects(cls, sentence_embedding_obj: SentenceEmbeddingsFactory.SentenceEmbeddings):
+    def with_objects(
+        cls, sentence_embedding_obj: SentenceEmbeddingsFactory.SentenceEmbeddings
+    ):
         return cls(sentence_embedding_obj=sentence_embedding_obj)
 
     @property
@@ -502,10 +505,15 @@ class WordEmbeddingClustering:
                 for n1, n2, edge in concept_graph.edges(data=True):
                     all_docs = [
                         _id
-                        for _id in set(self.get_document_idx_by_id(d["id"]) for d in
-                            concept_graph.nodes(data=True)[n1]["documents"]
-                        ).union(set(self.get_document_idx_by_id(d["id"]) for d in
-                            concept_graph.nodes(data=True)[n2]["documents"]))
+                        for _id in set(
+                            self.get_document_idx_by_id(d["id"])
+                            for d in concept_graph.nodes(data=True)[n1]["documents"]
+                        ).union(
+                            set(
+                                self.get_document_idx_by_id(d["id"])
+                                for d in concept_graph.nodes(data=True)[n2]["documents"]
+                            )
+                        )
                     ]
                     self._document_concept_matrix[all_docs, j] += edge["weight"]
 
@@ -565,15 +573,17 @@ class WordEmbeddingClustering:
                             try:
                                 all_docs = [
                                     _id
-                                    for _id in set(self.get_document_idx_by_id(d["id"]) for d in
-                                        concept_graph.nodes(data=True)[node][
+                                    for _id in set(
+                                        self.get_document_idx_by_id(d["id"])
+                                        for d in concept_graph.nodes(data=True)[node][
                                             "documents"
                                         ]
                                     ).union(
-                                        set(self.get_document_idx_by_id(d["id"]) for d in
-                                            concept_graph.nodes(data=True)[target][
-                                                "documents"
-                                            ]
+                                        set(
+                                            self.get_document_idx_by_id(d["id"])
+                                            for d in concept_graph.nodes(data=True)[
+                                                target
+                                            ]["documents"]
                                         )
                                     )
                                 ]
@@ -599,7 +609,14 @@ class WordEmbeddingClustering:
                     modularity="Newman", sort_clusters=False
                 )
                 documents = np.array(
-                    [[self.get_document_idx_by_id(d["id"]) for d in n[1]["documents"]] for n in concept_graph.nodes(data=True)], dtype='object'
+                    [
+                        [
+                            self.get_document_idx_by_id(d["id"])
+                            for d in n[1]["documents"]
+                        ]
+                        for n in concept_graph.nodes(data=True)
+                    ],
+                    dtype="object",
                 )
                 concept_graph_matrix = nx.to_numpy_array(concept_graph)
                 graph_cluster = louvain.fit_transform(concept_graph_matrix)
@@ -680,9 +697,11 @@ class WordEmbeddingClustering:
                 stop_words=None,
                 analyzer=lambda x: re.split(self._data_proc._chunk_boundary, x),
             )
-            _tfidf_filter_vec = np.asarray(_tfidf_filter.fit_transform(
-                self._data_proc.document_chunk_matrix
-            ).todense())
+            _tfidf_filter_vec = np.asarray(
+                _tfidf_filter.fit_transform(
+                    self._data_proc.document_chunk_matrix
+                ).todense()
+            )
             _tfidf_vocab = _tfidf_filter.vocabulary_
             _scaler = MinMaxScaler()
             _tfidf_filter_vec_norm = _scaler.fit_transform(_tfidf_filter_vec)
@@ -699,9 +718,13 @@ class WordEmbeddingClustering:
                             (
                                 nid,
                                 f"d{self.get_document_idx_by_id(d.get('id'))}",
-                                _tfidf_filter_vec_norm[self.get_document_idx_by_id(d.get("id")), _tfidf_vocab[ndict["label"]]],
+                                _tfidf_filter_vec_norm[
+                                    self.get_document_idx_by_id(d.get("id")),
+                                    _tfidf_vocab[ndict["label"]],
+                                ],
                             )
-                            for d in ndict["documents"] if d.get("id", False)
+                            for d in ndict["documents"]
+                            if d.get("id", False)
                         )
                     )
                 _doc_array = []

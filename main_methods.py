@@ -39,7 +39,9 @@ from main_utils import (
     get_bool_expression,
     StoppableThread,
     string_conformity,
-    BaseUtil, transform_document_addition_results, PersistentObjects,
+    BaseUtil,
+    transform_document_addition_results,
+    PersistentObjects,
 )
 from src.rag.TextSplitters import PreprocessedSpacyTextSplitter
 from src.rag.embedding_stores.AbstractEmbeddingStore import ChunkEmbeddingStore
@@ -72,14 +74,9 @@ document_adding_json = namedtuple(
 
 rag_config_json = namedtuple(
     "rag_config_json",
-    [
-        "chatter",
-        "api_key",
-        "language",
-        "prompt_template",
-        "vectorstore_server"
-    ]
+    ["chatter", "api_key", "language", "prompt_template", "vectorstore_server"],
 )
+
 
 def parse_pipeline_config_json(response_json) -> pipeline_json_config:
     config = Munch.fromDict(response_json)
@@ -88,7 +85,12 @@ def parse_pipeline_config_json(response_json) -> pipeline_json_config:
             string_conformity(config.get("name", None)),
             config.get("language", None),
             config.get("document_server", None),
-            config.get("vectorstore_server", config.get("vector_store_server", config.get("vector-store_server", None))),
+            config.get(
+                "vectorstore_server",
+                config.get(
+                    "vector_store_server", config.get("vector-store_server", None)
+                ),
+            ),
             config.config.get("data", Munch()),
             config.config.get("embedding", Munch()),
             config.config.get("clustering", Munch()),
@@ -133,17 +135,31 @@ def parse_rag_config_json(response_json) -> Optional[rag_config_json]:
         _api_key = config.get("api_key", "")
         _lang = config.get("language", "en")
         _prompt = config.get("prompt_template", None)
-        _vs = config.get("vectorstore_server", config.get("vector_store_server", config.get("vector-store_server", None)))
+        _vs = config.get(
+            "vectorstore_server",
+            config.get("vector_store_server", config.get("vector-store_server", None)),
+        )
         return rag_config_json(
             {} if (_chatter is None or not isinstance(_chatter, dict)) else _chatter,
             _api_key,
             _lang,
             None if len(_prompt) == 0 else _prompt,
-            _vs
+            _vs,
         )
     except Exception as e:
         logging.error(f"Content json parsing error: '{e}'")
         return None
+
+
+def get_doc_ids(response_json: dict):
+    try:
+        if intersection := {"doc_ids", "doc_id", "ids", "id"}.intersection(
+            k for k in response_json.keys()
+        ):
+            return response_json.get(list(intersection)[0])
+    except Exception as e:
+        logging.warning(f"Couldn't get document ids from request json: '{e}'")
+    return []
 
 
 def get_pipeline_query_params(
@@ -337,7 +353,9 @@ def get_documents_from_es_server(
                 yield check_es_source_for_id(document, other_id)
 
 
-def populate_running_processes(app: flask.Flask, path: Union[str, pathlib.Path], running_processes: dict):
+def populate_running_processes(
+    app: flask.Flask, path: Union[str, pathlib.Path], running_processes: dict
+):
     for process in get_all_processes(path):
         _finished = [
             _finished_step.get("name") for _finished_step in process.get("status", [])
@@ -369,9 +387,7 @@ def get_all_processes(path: Union[str, pathlib.Path]):
         if _proc.is_dir() and not _proc.stem.startswith("."):
             _proc_name = _proc.stem.lower()
             _steps_list = list()
-            for _pickle in pathlib.Path(path / _proc_name).glob(
-                "*.pickle"
-            ):
+            for _pickle in pathlib.Path(path / _proc_name).glob("*.pickle"):
                 _pickle_stem = _pickle.stem.lower()
                 _step = _pickle_stem.removeprefix(f"{_proc_name}_")
                 if steps_relation_dict.get(_step, False):
@@ -496,7 +512,9 @@ def stop_thread(
     _thread.stop(hard_stop=hard_stop)
 
     try:
-        for _step in sorted(_process.get("status", {}), key=lambda p: p.get("rank", 99)):
+        for _step in sorted(
+            _process.get("status", {}), key=lambda p: p.get("rank", 99)
+        ):
             if _step.get("rank") <= _current_step.get("rank"):
                 if _step.get("name") == _current_step.get("name"):
                     process_tracker[process_name]["status"][_step.get("rank") - 1][
@@ -522,7 +540,7 @@ def read_config(
     process_name: Optional[str] = None,
     config: Optional[dict] = None,
     language: Optional[str] = None,
-    mode: str = "yaml"
+    mode: str = "yaml",
 ):
     _language = config.get("language", language) if config is not None else language
     app.logger.info(f"Reading config ({process_type}) ...")
@@ -640,7 +658,9 @@ def clustering_get_concepts(cluster_gen):
     return jsonify(**_cluster_dict)
 
 
-def graph_get_statistics(app: flask.Flask, data: Union[str, list], path: Union[str, pathlib.Path]) -> dict:
+def graph_get_statistics(
+    app: flask.Flask, data: Union[str, list], path: Union[str, pathlib.Path]
+) -> dict:
     if isinstance(data, str):
         _path = pathlib.Path(
             os.getcwd()
@@ -692,7 +712,9 @@ def build_adjacency_obj(graph_obj: nx.Graph):
     return _adj
 
 
-def graph_get_specific(process: Union[str, list], graph_nr, path: Union[str, pathlib.Path], draw=False):
+def graph_get_specific(
+    process: Union[str, list], graph_nr, path: Union[str, pathlib.Path], draw=False
+):
     try:
         if isinstance(process, str):
             store_path = pathlib.Path(pathlib.Path(path) / f"{process}")
@@ -804,9 +826,7 @@ def add_documents_to_concept_graphs(
     embedding_processing: Optional[
         embedding_functions.SentenceEmbeddingsFactory.SentenceEmbeddings
     ] = None,
-    graph_processing: Optional[
-        list[nx.Graph]
-    ] = None,
+    graph_processing: Optional[list[nx.Graph]] = None,
     storage_path: Optional[Union[str, pathlib.Path]] = None,
     process_name: str = "default",
     store_permanently: bool = True,
@@ -824,39 +844,60 @@ def add_documents_to_concept_graphs(
 
         ###
         try:
-            data_processing = FactoryLoader.load_data(str(storage_path.resolve()), process_name) if data_processing is None else data_processing
-            embedding_processing = FactoryLoader.load_embedding(
-                str(storage_path.resolve()),
-                process_name,
-                data_processing,
-                (
-                    None
-                    if content_json.vectorstore_server is None
-                    else content_json.vectorstore_server
-                ),
-            ) if embedding_processing is None else embedding_processing
+            data_processing = (
+                FactoryLoader.load_data(str(storage_path.resolve()), process_name)
+                if data_processing is None
+                else data_processing
+            )
+            embedding_processing = (
+                FactoryLoader.load_embedding(
+                    str(storage_path.resolve()),
+                    process_name,
+                    data_processing,
+                    (
+                        None
+                        if content_json.vectorstore_server is None
+                        else content_json.vectorstore_server
+                    ),
+                )
+                if embedding_processing is None
+                else embedding_processing
+            )
         except FileNotFoundError as e:
             _missing = "data" if data_processing is None else "embedding"
-            return {"error": f"The serialized object for '{_missing}' doesn't seem to be present. Please finish the complete pipeline for the process '{process_name}' first."}, HTTPResponses.NOT_FOUND
+            return {
+                "error": f"The serialized object for '{_missing}' doesn't seem to be present. Please finish the complete pipeline for the process '{process_name}' first."
+            }, HTTPResponses.NOT_FOUND
         has_graph = True
         try:
-            graph_processing = FactoryLoader.load_graph(str(storage_path.resolve()),
-                                                   process_name) if graph_processing is None else graph_processing
+            graph_processing = (
+                FactoryLoader.load_graph(str(storage_path.resolve()), process_name)
+                if graph_processing is None
+                else graph_processing
+            )
         except FileNotFoundError as e:
             has_graph = False
             logging.warning(
-                f"The serialized object for 'graph' doesn't seem to be present. Storing the document into the vector store will still be performed.")
-        if content_json.vectorstore_server is None and embedding_processing.source is None:
-            return {"error": "Only adding documents with a vectorstore server setup is supported; no vectorstore configured."}, HTTPResponses.NOT_IMPLEMENTED
+                f"The serialized object for 'graph' doesn't seem to be present. Storing the document into the vector store will still be performed."
+            )
+        if (
+            content_json.vectorstore_server is None
+            and embedding_processing.source is None
+        ):
+            return {
+                "error": "Only adding documents with a vectorstore server setup is supported; no vectorstore configured."
+            }, HTTPResponses.NOT_IMPLEMENTED
         if embedding_processing.source is None:
             embedding_processing.source = content_json.vectorstore_server
         if len(content_json.documents) > 0 and isinstance(
-                content_json.documents[0], dict
+            content_json.documents[0], dict
         ):
-            #ToDo
+            # ToDo
             pass
         else:
-            return {"error": "Right now only processing of documents as json is supported."}, HTTPResponses.NOT_IMPLEMENTED
+            return {
+                "error": "Right now only processing of documents as json is supported."
+            }, HTTPResponses.NOT_IMPLEMENTED
         ###
 
         _source = embedding_processing.source
@@ -893,14 +934,14 @@ def add_documents_to_concept_graphs(
         idx_dict = defaultdict(list)
         for idx, _chunk in enumerate(
             # sorted(
+            (
                 (
-                    (
-                        _result["text"],
-                        set(_doc["id"] for _doc in _result["doc"]),
-                    )
-                    for _result in _chunk_result
-                )#,
-                # key=lambda _result: _result[0],
+                    _result["text"],
+                    set(_doc["id"] for _doc in _result["doc"]),
+                )
+                for _result in _chunk_result
+            )  # ,
+            # key=lambda _result: _result[0],
             # )
         ):
             for _doc in _chunk[1]:
@@ -914,31 +955,58 @@ def add_documents_to_concept_graphs(
             create_index=False,
             vector_dim=embedding_processing.embedding_dim,
         )
-        doc_store_impl: DocumentStore = document_store(embedding_store=embedding_store_impl)
+        doc_store_impl: DocumentStore = document_store(
+            embedding_store=embedding_store_impl
+        )
         added_embeddings = doc_store_impl.add_documents(
             [
                 (
                     document(
                         phrases=np.take(text_list, idx, 0),
                         embeddings=np.take(_embedding_result.astype("float64"), idx, 0),
-                        doc_id=_id
+                        doc_id=_id,
                     ),
                     {
-                        "offsets": [x.get("offsets", []) for _dict in np.take(_chunk_result, idx, 0) for x in _dict.get("doc", []) if x.get("id", "") == _id],
-                        "text": [_dict.get("text", "") for _dict in np.take(_chunk_result, idx, 0)]
+                        "offsets": [
+                            x.get("offsets", [])
+                            for _dict in np.take(_chunk_result, idx, 0)
+                            for x in _dict.get("doc", [])
+                            if x.get("id", "") == _id
+                        ],
+                        "text": [
+                            _dict.get("text", "")
+                            for _dict in np.take(_chunk_result, idx, 0)
+                        ],
                     },
                 )
                 for _id, idx in idx_dict.items()
             ],
-            as_tuple=True
+            as_tuple=True,
         )
         if store_permanently:
-            graph_storage_path = pathlib.Path(storage_path / f"{process_name}_{StepsName.GRAPH}").resolve()
-            save_pickle(GraphIncorp.with_graphs(graph_processing).incorporate_phrases(
-                transform_document_addition_results(((k, v.get("with_graph"),) for k, v in added_embeddings.items())).items()
-            ).graphs, graph_storage_path)
+            graph_storage_path = pathlib.Path(
+                storage_path / f"{process_name}_{StepsName.GRAPH}"
+            ).resolve()
+            save_pickle(
+                GraphIncorp.with_graphs(graph_processing)
+                .incorporate_phrases(
+                    transform_document_addition_results(
+                        (
+                            (
+                                k,
+                                v.get("with_graph"),
+                            )
+                            for k, v in added_embeddings.items()
+                        )
+                    ).items()
+                )
+                .graphs,
+                graph_storage_path,
+            )
     except Exception as e:
-        return {"error": str(e) + "\n--- please consult the logs!"}, HTTPResponses.INTERNAL_SERVER_ERROR
+        return {
+            "error": str(e) + "\n--- please consult the logs!"
+        }, HTTPResponses.INTERNAL_SERVER_ERROR
     return added_embeddings, HTTPResponses.OK
 
 
@@ -974,15 +1042,13 @@ def delete_pipeline(
 
 
 def initialize_chunk_vectorstore(
-        process_name: str,
-        config: Optional[dict],
-        chunk_store: str = "src.rag.embedding_stores.MarqoChunkEmbeddingStore.MarqoChunkEmbeddingStore",
-        force_init: bool = False
+    process_name: str,
+    config: Optional[dict],
+    chunk_store: str = "src.rag.embedding_stores.MarqoChunkEmbeddingStore.MarqoChunkEmbeddingStore",
+    force_init: bool = False,
 ):
     if config is None:
-        config = {
-            "index_settings": None
-        }
+        config = {"index_settings": None}
     if config.get("index_settings", None) is None or len(config["index_settings"]) == 0:
         config["index_settings"] = {
             "type": "structured",
@@ -991,41 +1057,37 @@ def initialize_chunk_vectorstore(
             "textPreprocessing": {
                 "splitLength": 3,
                 "splitOverlap": 1,
-                "splitMethod": "sentence"
+                "splitMethod": "sentence",
             },
             "allFields": [
                 {
                     "name": "doc_id",
                     "type": "text",
-                    "features": ["lexical_search", "filter"]
+                    "features": ["lexical_search", "filter"],
                 },
                 {
                     "name": "doc_name",
                     "type": "text",
-                    "features": ["lexical_search", "filter"]
+                    "features": ["lexical_search", "filter"],
                 },
-                {
-                    "name": "text",
-                    "type": "text",
-                    "features": ["lexical_search"]
-                }
+                {"name": "text", "type": "text", "features": ["lexical_search"]},
             ],
-            "tensorFields": ["text"]
+            "tensorFields": ["text"],
         }
-    chunk_store: ChunkEmbeddingStore = cast(ChunkEmbeddingStore, locate(chunk_store)).from_config(
+    chunk_store: ChunkEmbeddingStore = cast(
+        ChunkEmbeddingStore, locate(chunk_store)
+    ).from_config(
         index_name=f"{process_name}_rag",
         url=config.pop("url", "http://localhost"),
         port=config.pop("port", 8882),
         force_init=force_init,
-        **config
+        **config,
     )
     return chunk_store
 
 
 def fill_chunk_vectorstore(
-        process: str,
-        persistent_objects: PersistentObjects,
-        **kwargs
+    process: str, persistent_objects: PersistentObjects, **kwargs
 ) -> bool:
     """
 
@@ -1036,11 +1098,18 @@ def fill_chunk_vectorstore(
     """
     _splitter_class = PreprocessedSpacyTextSplitter
     _split_options = {
-        "doc_metadata_key": kwargs.get("splitter", {}).pop("doc_metadata_key", "doc_id"),
-        "keep_metadata": kwargs.get("splitter", {}).pop("keep_metadata", ["doc_id", "doc_name"]),
+        "doc_metadata_key": kwargs.get("splitter", {}).pop(
+            "doc_metadata_key", "doc_id"
+        ),
+        "keep_metadata": kwargs.get("splitter", {}).pop(
+            "keep_metadata", ["doc_id", "doc_name"]
+        ),
     }
     _splitter_options = {
-        k: v for k, v in kwargs.pop("splitter", {"chunk_size": 400, "chunk_overlap": 100}).items()
+        k: v
+        for k, v in kwargs.pop(
+            "splitter", {"chunk_size": 400, "chunk_overlap": 100}
+        ).items()
         if k in getfullargspec(_splitter_class).args
     }
     _rag = persistent_objects.active_rag
@@ -1053,7 +1122,9 @@ def fill_chunk_vectorstore(
             StepsName.DATA,
         )
         if data_obj is None:
-            logging.error(f"[fill_chunk_vectorstore] Data object not initialized for process '{process}'. See logs for more information.")
+            logging.error(
+                f"[fill_chunk_vectorstore] Data object not initialized for process '{process}'. See logs for more information."
+            )
             return False
         splitter = _splitter_class(**_splitter_options)
 
@@ -1062,12 +1133,21 @@ def fill_chunk_vectorstore(
         except Exception as e:
             logging.warning(f"[fill_chunk_vectorstore] {e}")
 
-        _documents = splitter.split_preprocessed_sentences(data_obj.processed_docs, **_split_options)
+        _documents = splitter.split_preprocessed_sentences(
+            data_obj.processed_docs, **_split_options
+        )
         _field = "text"
-        _rag.vectorstore.add_chunks([
-            dict({_field: d}, **{k: t[1][k] for k in _split_options.get("keep_metadata", [])})
-            for t in _documents for d in t[0]
-        ], _field)
+        _rag.vectorstore.add_chunks(
+            [
+                dict(
+                    {_field: d},
+                    **{k: t[1][k] for k in _split_options.get("keep_metadata", [])},
+                )
+                for t in _documents
+                for d in t[0]
+            ],
+            _field,
+        )
 
         _rag.initializing = False
         _rag.switch_readiness()
@@ -1075,10 +1155,6 @@ def fill_chunk_vectorstore(
     else:
         logging.warning(f"[fill_chunk_vectorstore] Already initializing")
         return False
-
-
-
-
 
 
 if __name__ == "__main__":

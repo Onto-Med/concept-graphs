@@ -7,9 +7,10 @@ from typing import Literal
 
 from transformers import GPT2TokenizerFast
 
-_method_literal = Literal['start', 'end', 'center', 'offset']
+_method_literal = Literal["start", "end", "center", "offset"]
 _cached_tokenizers = dict()
-_default_tokenizers_by_lang = {'en': 'gpt2', 'de': 'dbmdz/german-gpt2'}
+_default_tokenizers_by_lang = {"en": "gpt2", "de": "dbmdz/german-gpt2"}
+
 
 @dataclasses.dataclass
 class ResultsFields:
@@ -26,7 +27,7 @@ def _lies_between(offset_tuple, offset):
 
 def _find_end_character_mapping(offset_mapping, offset):
     """assumes sorted offset_mapping. unless this was modified
-       this will be the default from the tokenizer
+    this will be the default from the tokenizer
     """
     # if the max length is bigger we just return the last index
     if offset >= max(offset_mapping[-1]):
@@ -54,35 +55,42 @@ def truncate_text(text, token_limit, highlight=None, lang: str = "en"):
     """
 
     if highlight is None:
-        method: _method_literal = 'start'
-        center_ind = 0 # this will not be used for this start method
+        method: _method_literal = "start"
+        center_ind = 0  # this will not be used for this start method
     else:
         # TODO the full context may ot get used if the highlight is not centered
         # we would need to add the excess to the end/start
 
-        method: _method_literal = 'offset'
+        method: _method_literal = "offset"
         # get indices of highlight
         inds = find_highlight_index_in_text(text, highlight)
         if inds is None:
-            logging.warning(f"Could not find highlight index in text; using text value. Might exceed token limit.")
+            logging.warning(
+                f"Could not find highlight index in text; using text value. Might exceed token limit."
+            )
             return text
         # get the center of the highlight in chars
-        center_ind = (max(inds) - min(inds))//2 + min(inds)
+        center_ind = (max(inds) - min(inds)) // 2 + min(inds)
         # now map this to tokens and get the left/right char indices to achieve token limit
 
-    ind_left, ind_right = get_token_indices(text, token_limit, method=method, offset=center_ind, lang=lang)
-    trunc_text = text[min(ind_left):max(ind_right)]
+    ind_left, ind_right = get_token_indices(
+        text, token_limit, method=method, offset=center_ind, lang=lang
+    )
+    trunc_text = text[min(ind_left) : max(ind_right)]
 
     return trunc_text
 
 
-def get_token_indices(text: str, token_limit: int,
-                      method: _method_literal = 'start',
-                      tokenizer=None,
-                      offset: int = None,
-                      lang: str = "en"):
+def get_token_indices(
+    text: str,
+    token_limit: int,
+    method: _method_literal = "start",
+    tokenizer=None,
+    offset: int = None,
+    lang: str = "en",
+):
     # leave it here instead of a paramter
-    default_tokenizer = _default_tokenizers_by_lang.get(lang, 'gpt2')
+    default_tokenizer = _default_tokenizers_by_lang.get(lang, "gpt2")
 
     if tokenizer is None:
         if default_tokenizer not in _cached_tokenizers.get(lang, {}):
@@ -93,8 +101,8 @@ def get_token_indices(text: str, token_limit: int,
             tokenizer = _cached_tokenizers[lang][default_tokenizer]
 
     tokenized_text = tokenizer(text, return_offsets_mapping=True)
-    token_ids = tokenized_text['input_ids']
-    character_offsets = tokenized_text['offset_mapping']
+    token_ids = tokenized_text["input_ids"]
+    character_offsets = tokenized_text["offset_mapping"]
     text_token_len = len(token_ids)
 
     # need to get the offset from the start to hit the full size
@@ -109,24 +117,25 @@ def get_token_indices(text: str, token_limit: int,
     token_offset = character_offsets.index(character_offset_tuple[0])
 
     is_odd_offset = 1
-    if token_limit % 2 == 1: is_odd_offset = 0
+    if token_limit % 2 == 1:
+        is_odd_offset = 0
 
-    if method == 'start':
+    if method == "start":
         ind_start = character_offsets[0]
         ind_end = character_offsets[token_limit - 1]
 
-    elif method == 'end':
+    elif method == "end":
         ind_start = character_offsets[delta]
         ind_end = character_offsets[-1]
 
-    elif method == 'center':
+    elif method == "center":
         center_token = text_token_len // 2
         left_ind = max(center_token - token_limit // 2, 0)
         right_ind = min(center_token + token_limit // 2, text_token_len)
         ind_start = character_offsets[left_ind]
         ind_end = character_offsets[right_ind - is_odd_offset]
 
-    elif method == 'offset':
+    elif method == "offset":
         center_token = token_offset
         left_ind = max(center_token - token_limit // 2, 0)
         right_ind = min(center_token + token_limit // 2, text_token_len)
@@ -139,7 +148,9 @@ def get_token_indices(text: str, token_limit: int,
     return ind_start, ind_end
 
 
-def extract_text_from_highlights(res: list, token_limit: int=256, truncate: bool=True, lang: str="en"):
+def extract_text_from_highlights(
+    res: list, token_limit: int = 256, truncate: bool = True, lang: str = "en"
+):
     highlights = []
     texts = []
     metadata = []

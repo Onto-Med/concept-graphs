@@ -31,6 +31,8 @@ class ConceptGraphIntegrationFactory:
             values=[v[1] for v in values],
         )
         if check_for_reasonable_result and (len(_res) != len(doc_dict)):
-            raise AssertionError(f"Count of input embeddings ({len(doc_dict)}) should be equal to count of result ids ({len(_res)}). If you're certain it doesn't need to be this way, set the argument 'check_for_reasonable_result' to 'false' and run this step again.")
+            raise AssertionError(
+                f"Count of input embeddings ({len(doc_dict)}) should be equal to count of result ids ({len(_res)}). If you're certain it doesn't need to be this way, set the argument 'check_for_reasonable_result' to 'false' and run this step again."
+            )
         save_pickle({"updated_embeddings": sorted([int(x) for x in _res])}, _file_path)
         return _res

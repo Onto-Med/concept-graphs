@@ -47,4 +47,6 @@ class TestGraphCreator(TestCase):
 
     def test_build_graph_from_cluster(self):
         gc = GraphCreator(self.chunk_set_dict, self.embeddings)
-        gc.build_graph_from_cluster(random.choices(range(0, len(self.chunk_set_dict)), k=40))
+        gc.build_graph_from_cluster(
+            random.choices(range(0, len(self.chunk_set_dict)), k=40)
+        )

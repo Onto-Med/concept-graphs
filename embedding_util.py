@@ -12,50 +12,42 @@ from src.util_functions import load_pickle
 from load_utils import FactoryLoader
 
 
-#ToDo: I need to check the storage_method config/kwarg; it works but there are some redundancies
+# ToDo: I need to check the storage_method config/kwarg; it works but there are some redundancies
 class PhraseEmbeddingUtil(BaseUtil):
 
-    def __init__(
-            self,
-            app: flask.app.Flask,
-            file_storage: str
-    ):
+    def __init__(self, app: flask.app.Flask, file_storage: str):
         super().__init__(app, file_storage, StepsName.EMBEDDING)
 
     @property
     def default_model(self):
-        return 'sentence-transformers/paraphrase-albert-small-v2'
+        return "sentence-transformers/paraphrase-albert-small-v2"
 
     @property
     def language_model_map(self):
-        return {
-            "en": self.default_model,
-            "de": "Sahajtomar/German-semantic"
-        }
+        return {"en": self.default_model, "de": "Sahajtomar/German-semantic"}
 
     @property
     def default_storage_method(self):
-        return "pickle", None,
+        return (
+            "pickle",
+            None,
+        )
 
     @property
     def storage_method(self) -> tuple[str, Optional[dict]]:
-        if self.config is None or self.config.get("storage_method", "pickle") == "pickle":
+        if (
+            self.config is None
+            or self.config.get("storage_method", "pickle") == "pickle"
+        ):
             return self.default_storage_method
         else:
             return self.config.get("storage_method")
 
     @storage_method.setter
-    def storage_method(
-            self,
-            storage_method: tuple[str, Optional[dict]]
-    ):
+    def storage_method(self, storage_method: tuple[str, Optional[dict]]):
         self.config["storage_method"] = storage_method
 
-    def set_storage_method(
-            self,
-            storage_method: str,
-            connection_dict: dict
-    ):
+    def set_storage_method(self, storage_method: str, connection_dict: dict):
         self.storage_method = (storage_method, connection_dict)
 
     @property
@@ -66,10 +58,8 @@ class PhraseEmbeddingUtil(BaseUtil):
     def default_config(self) -> dict:
         return {
             # 'model': self.default_model,
-            'down_scale_algorithm': None,
-            'storage': {
-                'method': 'pickle'
-            }
+            "down_scale_algorithm": None,
+            "storage": {"method": "pickle"},
         }
 
     @property
@@ -85,10 +75,10 @@ class PhraseEmbeddingUtil(BaseUtil):
         return ["model", "scaling", "vectorstore"]
 
     def read_config(
-            self,
-            config: Optional[Union[FileStorage, dict]],
-            process_name=None,
-            language=None
+        self,
+        config: Optional[Union[FileStorage, dict]],
+        process_name=None,
+        language=None,
     ):
         _response = super().read_config(config, process_name, language)
         if _response is None:
@@ -98,8 +88,13 @@ class PhraseEmbeddingUtil(BaseUtil):
                 )
             _storage = self.config.pop("storage", None)
             if _storage is not None and isinstance(_storage, dict):
-                self.config["storage_method"] = _storage.get("method", self.default_storage_method)
-                if isinstance(self.config["storage_method"], tuple) and self.config["storage_method"][0] == "pickle":
+                self.config["storage_method"] = _storage.get(
+                    "method", self.default_storage_method
+                )
+                if (
+                    isinstance(self.config["storage_method"], tuple)
+                    and self.config["storage_method"][0] == "pickle"
+                ):
                     pass
                 else:
                     for k, v in _storage.get("config", {}).items():
@@ -108,26 +103,21 @@ class PhraseEmbeddingUtil(BaseUtil):
                 self.config["storage_method"] = self.default_storage_method
 
         if language is not None and not self.config.get("model", False):
-            self.config["model"] = self.language_model_map.get(language, self.default_model)
+            self.config["model"] = self.language_model_map.get(
+                language, self.default_model
+            )
         return _response
 
-    def read_stored_config(
-            self,
-            ext: str = "yaml"
-    ):
+    def read_stored_config(self, ext: str = "yaml"):
         return super().read_stored_config(ext)
 
     def has_process(
-            self,
-            process: Optional[str] = None,
-            extensions: Optional[list[str]] = None
+        self, process: Optional[str] = None, extensions: Optional[list[str]] = None
     ):
         return super().has_process(process, extensions)
 
     def delete_process(
-            self,
-            process: Optional[str] = None,
-            extensions: Optional[list[str]] = None
+        self, process: Optional[str] = None, extensions: Optional[list[str]] = None
     ):
         if self.has_process(process):
             _pickle = self._complete_pickle_path(process)
@@ -142,21 +132,18 @@ class PhraseEmbeddingUtil(BaseUtil):
         return SentenceEmbeddingsFactory.create
 
     def _load_pre_components(
-            self,
-            cache_name,
-            active_process_objs: Optional[dict[str, dict]] = None
+        self, cache_name, active_process_objs: Optional[dict[str, dict]] = None
     ) -> Union[tuple, list]:
         _cached = active_process_objs.get(cache_name, {}).get(StepsName.DATA, None)
-        data_obj = FactoryLoader.load_data(self._file_storage, cache_name) if _cached is None else _cached
+        data_obj = (
+            FactoryLoader.load_data(self._file_storage, cache_name)
+            if _cached is None
+            else _cached
+        )
         return (data_obj,)
 
-    def _start_process(
-            self,
-            process_factory,
-            *args,
-            **kwargs
-    ):
-        data_obj, = args
+    def _start_process(self, process_factory, *args, **kwargs):
+        (data_obj,) = args
         emb_obj = None
         try:
             emb_obj = process_factory.create(
@@ -165,7 +152,7 @@ class PhraseEmbeddingUtil(BaseUtil):
                 cache_name=f"{self.process_name}_{self.process_step}",
                 model_name=kwargs.pop("model", self.default_model),
                 # storage_method=self.storage_method,
-                **kwargs
+                **kwargs,
             )
         except Exception as e:
             return False, e

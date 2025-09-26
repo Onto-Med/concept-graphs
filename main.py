@@ -14,26 +14,41 @@ from src import marqo_external_utils
 
 
 def unspecified_server_error():
-    return jsonify(error="Something went wrong; please consult the logs."), HTTPResponses.INTERNAL_SERVER_ERROR
+    return (
+        jsonify(error="Something went wrong; please consult the logs."),
+        HTTPResponses.INTERNAL_SERVER_ERROR,
+    )
 
 
 def path_arg_error(parent_endpoint: str, path_arg: str, possible_path_args: list[str]):
-    return jsonify(
-        error=f"No such path argument '{path_arg}' for '{parent_endpoint}' endpoint.",
-        possible_path_args=[f"/{p}" for p in possible_path_args],
-    ), HTTPResponses.BAD_REQUEST
+    return (
+        jsonify(
+            error=f"No such path argument '{path_arg}' for '{parent_endpoint}' endpoint.",
+            possible_path_args=[f"/{p}" for p in possible_path_args],
+        ),
+        HTTPResponses.BAD_REQUEST,
+    )
 
 
 def setup(
-        static_folder: str = "api",
-        static_url_path: str = "",
-        file_storage_dir: str = "tmp",
-        logging_setup_tuples: Optional[list[tuple]] = None,
+    static_folder: str = "api",
+    static_url_path: str = "",
+    file_storage_dir: str = "tmp",
+    logging_setup_tuples: Optional[list[tuple]] = None,
 ) -> PersistentObjects:
     import logging
+
     if logging_setup_tuples is None:
-        logging_setup_tuples = [("werkzeug", logging.WARN,), ("marqo", logging.WARN)]
-    _app = flask.Flask(__name__, static_folder=static_folder, static_url_path=static_url_path)
+        logging_setup_tuples = [
+            (
+                "werkzeug",
+                logging.WARN,
+            ),
+            ("marqo", logging.WARN),
+        ]
+    _app = flask.Flask(
+        __name__, static_folder=static_folder, static_url_path=static_url_path
+    )
     for log_setup in logging_setup_tuples:
         _logger = logging.getLogger(log_setup[0])
         _logger.setLevel(log_setup[1])
@@ -49,12 +64,13 @@ def setup(
         pipeline_threads_store={},
         current_active_pipeline_objects={},
         file_storage_dir=pathlib.Path(file_storage_dir),
-        active_rag=None
+        active_rag=None,
     )
     if not _po.file_storage_dir.exists():
         _po.file_storage_dir.mkdir()
     populate_running_processes(_po.app, _po.file_storage_dir, _po.running_processes)
     return _po
+
 
 main_objects = setup(static_folder="api", static_url_path="", file_storage_dir="tmp")
 
@@ -72,6 +88,7 @@ main_objects = setup(static_folder="api", static_url_path="", file_storage_dir="
 # ToDo: main_objects.current_active_pipeline_objects stores all serialized step objects per process name; so this object
 # ToDo: could become rather large (if a lot of processes get started); maybe have a config value that stores the last N
 # ToDo: processes and have them have time stamps and delete accordingly
+
 
 @main_objects.app.route("/", methods=["GET"])
 def index():
@@ -181,7 +198,9 @@ def graph_with_arg(path_arg):
             return unspecified_server_error()
         try:
             if path_arg == "statistics":
-                _result = graph_get_statistics(main_objects.app, graph_list, main_objects.file_storage_dir)
+                _result = graph_get_statistics(
+                    main_objects.app, graph_list, main_objects.file_storage_dir
+                )
                 _http_response = HTTPResponses.OK
                 if "error" in _result:
                     _http_response = HTTPResponses.INTERNAL_SERVER_ERROR
@@ -193,9 +212,11 @@ def graph_with_arg(path_arg):
             )
     elif path_arg.isdigit():
         graph_nr = int(path_arg)
-        return graph_get_specific(graph_list, graph_nr, path=main_objects.file_storage_dir, draw=draw)
+        return graph_get_specific(
+            graph_list, graph_nr, path=main_objects.file_storage_dir, draw=draw
+        )
     else:
-        return path_arg_error("graph", path_arg, _path_args + ['#ANY_INTEGER'])
+        return path_arg_error("graph", path_arg, _path_args + ["#ANY_INTEGER"])
 
 
 @main_objects.app.route("/graph/document/<path_arg>", methods=["POST"])
@@ -206,14 +227,26 @@ def graph_document(path_arg):
     if request.headers.get("Content-Type") == "application/json":
         content_json = parse_document_adding_json(request.get_json())
         if content_json is None:
-            return jsonify(error=f"Could not parse json provided in request."), HTTPResponses.BAD_REQUEST
+            return (
+                jsonify(error=f"Could not parse json provided in request."),
+                HTTPResponses.BAD_REQUEST,
+            )
     else:
-        return jsonify(error="Only json request body is supported."), HTTPResponses.NOT_IMPLEMENTED
+        return (
+            jsonify(error="Only json request body is supported."),
+            HTTPResponses.NOT_IMPLEMENTED,
+        )
 
     if path_arg.lower() == "add":
-        _data_proc = main_objects.current_active_pipeline_objects.get(process, {}).get(StepsName.DATA, None)
-        _emb_proc = main_objects.current_active_pipeline_objects.get(process, {}).get(StepsName.EMBEDDING, None)
-        _graph_proc = main_objects.current_active_pipeline_objects.get(process, {}).get(StepsName.GRAPH, None)
+        _data_proc = main_objects.current_active_pipeline_objects.get(process, {}).get(
+            StepsName.DATA, None
+        )
+        _emb_proc = main_objects.current_active_pipeline_objects.get(process, {}).get(
+            StepsName.EMBEDDING, None
+        )
+        _graph_proc = main_objects.current_active_pipeline_objects.get(process, {}).get(
+            StepsName.GRAPH, None
+        )
         _path_base = main_objects.file_storage_dir / process
         document_adding_thread = StoppableThread(
             target_args=(content_json,),
@@ -226,11 +259,21 @@ def graph_document(path_arg):
             },
             group=None,
             target=add_documents_to_concept_graphs,
-            name=None
+            name=None,
         )
-        main_objects.pipeline_threads_store[f"document_addition_{process}"] = document_adding_thread
-        start_thread(main_objects.app, f"document_addition_{process}", document_adding_thread, None)
-        return jsonify(f"Started thread for adding documents for process {process}."), HTTPResponses.OK
+        main_objects.pipeline_threads_store[f"document_addition_{process}"] = (
+            document_adding_thread
+        )
+        start_thread(
+            main_objects.app,
+            f"document_addition_{process}",
+            document_adding_thread,
+            None,
+        )
+        return (
+            jsonify(f"Started thread for adding documents for process {process}."),
+            HTTPResponses.OK,
+        )
     elif path_arg.lower() == "delete":
         return jsonify(error="'Delete' not implemented."), HTTPResponses.NOT_IMPLEMENTED
     else:
@@ -242,11 +285,21 @@ def graph_document_status():
     process = string_conformity(request.args.get("process", "default"))
     _id = f"document_addition_{process}"
     if _id not in main_objects.pipeline_threads_store:
-        return jsonify(error=f"No document addition thread (running or completed) for '{process}' found."), HTTPResponses.NOT_FOUND
+        return (
+            jsonify(
+                error=f"No document addition thread (running or completed) for '{process}' found."
+            ),
+            HTTPResponses.NOT_FOUND,
+        )
     else:
         if return_value := main_objects.pipeline_threads_store.get(_id).return_value:
             return jsonify(return_value[0]), return_value[1]
-        return jsonify(f"Document addition thread for '{process}' seems to be still running."), HTTPResponses.ACCEPTED
+        return (
+            jsonify(
+                f"Document addition thread for '{process}' seems to be still running."
+            ),
+            HTTPResponses.ACCEPTED,
+        )
 
 
 @main_objects.app.route("/pipeline", methods=["POST"])
@@ -256,7 +309,7 @@ def complete_pipeline():
         language="en",
         skip_present=True,
         omitted_pipeline_steps=[],
-        return_statistics=False
+        return_statistics=False,
     )
     try:
         DEFAULT_VECTOR_STORE = {"url": "http://localhost", "port": 8882}
@@ -273,14 +326,19 @@ def complete_pipeline():
         config_object_json = None
         if content_type == "application/json":
             content_type_json = True
-            config_object_json: Optional[pipeline_json_config] = parse_pipeline_config_json(
-                request.json
+            config_object_json: Optional[pipeline_json_config] = (
+                parse_pipeline_config_json(request.json)
             )
 
         query_params = get_pipeline_query_params(
-            main_objects.app, request, main_objects.running_processes, config_object_json
+            main_objects.app,
+            request,
+            main_objects.running_processes,
+            config_object_json,
         )
-        if isinstance(query_params, tuple) and isinstance(query_params[0], flask.Response):
+        if isinstance(query_params, tuple) and isinstance(
+            query_params[0], flask.Response
+        ):
             return query_params
 
         if content_type_json:
@@ -323,9 +381,7 @@ def complete_pipeline():
                 ), int(HTTPResponses.BAD_REQUEST)
             elif data and not document_server_config:
                 _tmp_data = pathlib.Path(
-                    main_objects.file_storage_dir
-                    / ".tmp_streams"
-                    / data.filename
+                    main_objects.file_storage_dir / ".tmp_streams" / data.filename
                 )
                 _tmp_data.parent.mkdir(parents=True, exist_ok=True)
                 data.save(_tmp_data)
@@ -335,9 +391,7 @@ def complete_pipeline():
             labels = request.files.get("labels", None)
             if labels is not None:
                 _tmp_labels = pathlib.Path(
-                    main_objects.file_storage_dir
-                    / ".tmp_streams"
-                    / labels.filename
+                    main_objects.file_storage_dir / ".tmp_streams" / labels.filename
                 )
                 _tmp_labels.parent.mkdir(parents=True, exist_ok=True)
                 labels.save(_tmp_labels)
@@ -345,7 +399,9 @@ def complete_pipeline():
 
             _data_config = request.files.get(f"{StepsName.DATA}_config", None)
             _embedding_config = request.files.get(f"{StepsName.EMBEDDING}_config", None)
-            _clustering_config = request.files.get(f"{StepsName.CLUSTERING}_config", None)
+            _clustering_config = request.files.get(
+                f"{StepsName.CLUSTERING}_config", None
+            )
             _graph_config = request.files.get(f"{StepsName.GRAPH}_config", None)
 
         if vector_store_config is not None:
@@ -361,7 +417,9 @@ def complete_pipeline():
                 )
                 vector_store_config = None
         if not data_upload:
-            ds_base_config = get_data_server_config(document_server_config, main_objects.app)
+            ds_base_config = get_data_server_config(
+                document_server_config, main_objects.app
+            )
             if not check_data_server(ds_base_config):
                 return jsonify(
                     name=query_params.process_name,
@@ -418,11 +476,20 @@ def complete_pipeline():
             k: None for k in StepsName.ALL
         }
         _prev_step_present = True
-        _last_step = StepsName.INTEGRATION if vector_store_config is not None else StepsName.GRAPH
+        _last_step = (
+            StepsName.INTEGRATION
+            if vector_store_config is not None
+            else StepsName.GRAPH
+        )
         for _name, _proc, _conf, _fact in processes:
-            process_obj: BaseUtil = _proc(app=main_objects.app, file_storage=main_objects.file_storage_dir)
+            process_obj: BaseUtil = _proc(
+                app=main_objects.app, file_storage=main_objects.file_storage_dir
+            )
             add_status_to_running_process(
-                query_params.process_name, _name, ProcessStatus.STARTED, main_objects.running_processes
+                query_params.process_name,
+                _name,
+                ProcessStatus.STARTED,
+                main_objects.running_processes,
             )
             if process_obj.has_process(query_params.process_name):
                 if (
@@ -440,13 +507,14 @@ def complete_pipeline():
                         main_objects.running_processes,
                     )
                     if _prev_step_present:
-                        main_objects.current_active_pipeline_objects[query_params.process_name][
-                            _name
-                        ] = FactoryLoader.load(
+                        main_objects.current_active_pipeline_objects[
+                            query_params.process_name
+                        ][_name] = FactoryLoader.load(
                             step=_name,
                             path=str(
                                 pathlib.Path(
-                                    main_objects.file_storage_dir, query_params.process_name
+                                    main_objects.file_storage_dir,
+                                    query_params.process_name,
                                 ).resolve()
                             ),
                             process=query_params.process_name,
@@ -478,7 +546,9 @@ def complete_pipeline():
 
             if _name == StepsName.DATA:
                 process_obj: PreprocessingUtil
-                process_obj.read_labels(labels if label_getter is None else label_getter)
+                process_obj.read_labels(
+                    labels if label_getter is None else label_getter
+                )
                 process_obj.read_data(
                     data, replace_keys=replace_keys, label_getter=label_getter
                 )
@@ -529,13 +599,18 @@ def complete_pipeline():
 
         main_objects.pipeline_threads_store[query_params.process_name] = pipeline_thread
         start_thread(
-            main_objects.app, query_params.process_name, pipeline_thread, main_objects.pipeline_threads_store
+            main_objects.app,
+            query_params.process_name,
+            pipeline_thread,
+            main_objects.pipeline_threads_store,
         )
 
         if query_params.return_statistics:
             pipeline_thread.join()
             _graph_stats_dict = graph_get_statistics(
-                app=main_objects.app, data=query_params.process_name, path=main_objects.file_storage_dir
+                app=main_objects.app,
+                data=query_params.process_name,
+                path=main_objects.file_storage_dir,
             )
             return (
                 jsonify(name=query_params.process_name, **_graph_stats_dict),
@@ -589,7 +664,9 @@ def get_pipeline_default_configuration():
             logging.info(f"Returning configuration for '{process}' pipeline.")
             try:
                 _config = load_configs(
-                    app=main_objects.app, process_name=process, path_to_configs=main_objects.file_storage_dir
+                    app=main_objects.app,
+                    process_name=process,
+                    path_to_configs=main_objects.file_storage_dir,
                 )
                 return (
                     jsonify(
@@ -620,7 +697,9 @@ def get_all_processes_api():
 def delete_process(process_id):
     hard_stop = request.args.get("hard_stop", False)
     process_id = string_conformity(process_id)
-    if process_id not in set(main_objects.running_processes.keys()).union(main_objects.current_active_pipeline_objects.keys()):
+    if process_id not in set(main_objects.running_processes.keys()).union(
+        main_objects.current_active_pipeline_objects.keys()
+    ):
         return Response(
             f"There is no such process '{process_id}'.\n",
             status=int(HTTPResponses.NOT_FOUND),
@@ -642,7 +721,14 @@ def delete_process(process_id):
                 hard_stop=hard_stop,
             )
     _delete_thread = StoppableThread(
-        target_args=(main_objects.app, main_objects.file_storage_dir, process_id, main_objects.running_processes, main_objects.current_active_pipeline_objects, to_stop),
+        target_args=(
+            main_objects.app,
+            main_objects.file_storage_dir,
+            process_id,
+            main_objects.running_processes,
+            main_objects.current_active_pipeline_objects,
+            to_stop,
+        ),
         group=None,
         target=delete_pipeline,
         name=None,
@@ -676,17 +762,26 @@ def init_rag():
             force_init = get_bool_expression(request.args.get("force", "false"))
             _config = parse_rag_config_json(request.json)
             if _config is None:
-                return jsonify(f"RAG config couldn't be parsed."), int(HTTPResponses.BAD_REQUEST)
+                return jsonify(f"RAG config couldn't be parsed."), int(
+                    HTTPResponses.BAD_REQUEST
+                )
             else:
                 _rag_thread_id = f"rag_fill_vectorstore_{process}"
-                vector_store = initialize_chunk_vectorstore(process, _config.vectorstore_server, force_init=force_init)
-                _chatter = _config.chatter.pop("chatter", "src.rag.chatters.BlabladorChatter.BlabladorChatter")
+                vector_store = initialize_chunk_vectorstore(
+                    process, _config.vectorstore_server, force_init=force_init
+                )
+                _chatter = _config.chatter.pop(
+                    "chatter", "src.rag.chatters.BlabladorChatter.BlabladorChatter"
+                )
                 main_objects.active_rag = ActiveRAG(
-                    rag=RAG
-                        .with_chatter(api_key=_config.api_key, chatter=_chatter, language=_config.language, **_config.chatter)
-                        .with_prompt(prompt_template_config=_config.prompt_template),
+                    rag=RAG.with_chatter(
+                        api_key=_config.api_key,
+                        chatter=_chatter,
+                        language=_config.language,
+                        **_config.chatter,
+                    ).with_prompt(prompt_template_config=_config.prompt_template),
                     vectorstore=vector_store,
-                    process=process
+                    process=process,
                 )
                 if (not vector_store.is_filled()) or force_init:
                     _rag_init_thread = StoppableThread(
@@ -697,50 +792,94 @@ def init_rag():
                     )
                     _rag_init_thread.start()
                     sleep(1.0)
-                    main_objects.pipeline_threads_store[_rag_thread_id] = _rag_init_thread
-                    return jsonify("Starting initializing RAG component."), int(HTTPResponses.OK)
-                elif _init_thread := main_objects.pipeline_threads_store.get(_rag_thread_id, None):
+                    main_objects.pipeline_threads_store[_rag_thread_id] = (
+                        _rag_init_thread
+                    )
+                    return jsonify("Starting initializing RAG component."), int(
+                        HTTPResponses.OK
+                    )
+                elif _init_thread := main_objects.pipeline_threads_store.get(
+                    _rag_thread_id, None
+                ):
                     _init_thread: StoppableThread
                     if not _init_thread.return_value:
-                        return jsonify(f"There already seems to be an initialization thread running for process {process}. Please wait for it to finish."), int(HTTPResponses.ACCEPTED)
+                        return jsonify(
+                            f"There already seems to be an initialization thread running for process {process}. Please wait for it to finish."
+                        ), int(HTTPResponses.ACCEPTED)
                 main_objects.active_rag.switch_readiness()
             return jsonify("Initialized RAG component."), int(HTTPResponses.OK)
         else:
-            return jsonify(f"Wrong content type '{request.headers.get('Content-Type')}'; need 'application/json'"), int(HTTPResponses.BAD_REQUEST)
+            return jsonify(
+                f"Wrong content type '{request.headers.get('Content-Type')}'; need 'application/json'"
+            ), int(HTTPResponses.BAD_REQUEST)
     else:
-        return jsonify(f"Method not supported: '{request.method}'."), int(HTTPResponses.BAD_REQUEST)
+        return jsonify(f"Method not supported: '{request.method}'."), int(
+            HTTPResponses.BAD_REQUEST
+        )
 
 
-@main_objects.app.route("/rag/question", methods=["GET"])
+@main_objects.app.route("/rag/question", methods=["GET", "POST"])
 def rag_question():
-    #ToDo: add filter_by={"doc_id": [list of ids]} to "get_chunks", when doc filtering is used.
-    # Probably needs POST method
-    if request.method == "GET":
+    _doc_ids = []
+    if (
+        request.method == "POST"
+        and request.headers.get("Content-Type") == "application/json"
+    ):
+        if request.json is not None:
+            _doc_ids = get_doc_ids(request.json)
+    if request.method in ["GET", "POST"]:
         if main_objects.active_rag is None or not main_objects.active_rag.ready:
-            return jsonify(f"No active and ready rag component found."
-                           f" You need to initialize it first and wait for it to be ready."), int(HTTPResponses.NOT_FOUND)
+            return jsonify(
+                f"No active and ready rag component found."
+                f" You need to initialize it first and wait for it to be ready."
+            ), int(HTTPResponses.NOT_FOUND)
         question = request.args.get("q", request.args.get("question", False))
         process = string_conformity(request.args.get("process", "default"))
         language = main_objects.active_rag.rag.language
         if not question:
             return jsonify("No question supplied."), int(HTTPResponses.BAD_REQUEST)
         elif main_objects.active_rag.process != process:
-            return (jsonify(f"There is no ready and active RAG component for '{process}'."
-                           f" Currently active is : '{main_objects.active_rag.process}'; use the 'init' endpoint."),
-                    int(HTTPResponses.BAD_REQUEST))
+            return (
+                jsonify(
+                    f"There is no ready and active RAG component for '{process}'."
+                    f" Currently active is : '{main_objects.active_rag.process}'; use the 'init' endpoint."
+                ),
+                int(HTTPResponses.BAD_REQUEST),
+            )
         else:
-            _documents = list(zip(
-                *itemgetter(1, -1)(extract_text_from_highlights(main_objects.active_rag.vectorstore.get_chunks(question), token_limit=150, lang=language))
-            ))
-            _success, _answer = main_objects.active_rag.rag.with_documents(_documents, concat_by="doc_id").build_and_invoke(question)
-            _reference = {k: v.metadata for k, v in main_objects.active_rag.rag.documents.items()}
+            _documents = list(
+                zip(
+                    *itemgetter(1, -1)(
+                        extract_text_from_highlights(
+                            main_objects.active_rag.vectorstore.get_chunks(
+                                question,
+                                filter_by=(
+                                    {"doc_id": _doc_ids} if len(_doc_ids) > 0 else None
+                                ),
+                            ),
+                            token_limit=150,
+                            lang=language,
+                        )
+                    )
+                )
+            )
+            _success, _answer = main_objects.active_rag.rag.with_documents(
+                _documents, concat_by="doc_id"
+            ).build_and_invoke(question)
+            _reference = {
+                k: v.metadata for k, v in main_objects.active_rag.rag.documents.items()
+            }
             if _success:
-                return jsonify(answer=_answer, info=json.dumps(_reference, ensure_ascii=False)), int(HTTPResponses.OK)
+                return jsonify(
+                    answer=_answer, info=json.dumps(_reference, ensure_ascii=False)
+                ), int(HTTPResponses.OK)
             else:
                 logging.error(f"[RAG Question]: {_answer}")
                 return jsonify(error=_answer), int(HTTPResponses.INTERNAL_SERVER_ERROR)
     else:
-        return jsonify(f"Method not supported: '{request.method}'."), int(HTTPResponses.BAD_REQUEST)
+        return jsonify(f"Method not supported: '{request.method}'."), int(
+            HTTPResponses.BAD_REQUEST
+        )
 
 
 @main_objects.app.route("/status", methods=["GET"])

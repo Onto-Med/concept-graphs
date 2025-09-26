@@ -76,7 +76,9 @@ def pairwise(iterable):
     return zip(a, b)
 
 
-def load_pickle(file_path: Union[pathlib.Path, str, io.IOBase], logger: logging.Logger = None) -> Any:
+def load_pickle(
+    file_path: Union[pathlib.Path, str, io.IOBase], logger: logging.Logger = None
+) -> Any:
     if logger is None:
         logger = logging.getLogger()
     if isinstance(file_path, str):
@@ -360,7 +362,7 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
         self, embedding: Any, check_for_same: bool, **kwargs
     ) -> dict[str, set]:
         """Store the embedding and return its id in a dictionary with the following keys:
-            'added', 'retained', 'added_idx', 'retained_idx'
+        'added', 'retained', 'added_idx', 'retained_idx'
         """
         raise NotImplementedError
 
@@ -373,7 +375,7 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
         check_for_same: bool,
     ) -> dict[str, set]:
         """Store the embeddings and return their ids (as well as their indices) in a dictionary with the following keys:
-            'added', 'retained', 'added_idx', 'retained_idx'"""
+        'added', 'retained', 'added_idx', 'retained_idx'"""
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -410,7 +412,9 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
 class DocumentStore(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
-    def add_document(self, document: Union[Document, tuple[Document, dict]], as_tuple: bool = False) -> dict[str, dict[str, dict[str,list[str]]]]:
+    def add_document(
+        self, document: Union[Document, tuple[Document, dict]], as_tuple: bool = False
+    ) -> dict[str, dict[str, dict[str, list[str]]]]:
         """
         Adds a document to the store
 
@@ -430,7 +434,11 @@ class DocumentStore(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def add_documents(self, document: Union[Iterable[Document], Iterable[tuple[Document, dict]]], as_tuple: bool = False) -> dict[str, dict[str, dict[str, dict[str, list[str]]]]]:
+    def add_documents(
+        self,
+        document: Union[Iterable[Document], Iterable[tuple[Document, dict]]],
+        as_tuple: bool = False,
+    ) -> dict[str, dict[str, dict[str, dict[str, list[str]]]]]:
         """
         Adds documents from the Iterable to the store
 
