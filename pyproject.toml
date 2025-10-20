@@ -28,6 +28,7 @@ dependencies = [
     "munch==4.0.0",
     "networkx==3.2.1",
     "numba==0.59.0",
+    "pip>=25.2",
     "pyvis==0.3.2",
     "python-Levenshtein==0.25.0",
     "PyYAML==6.0.1",
