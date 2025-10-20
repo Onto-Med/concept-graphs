@@ -1146,7 +1146,7 @@ def fill_chunk_vectorstore(
                 for t in _documents
                 for d in t[0]
             ],
-            _field,
+            # _field,
         )
 
         _rag.initializing = False
