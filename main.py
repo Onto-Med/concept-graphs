@@ -929,5 +929,17 @@ def get_data_server():
         return jsonify(f"Method not supported: '{request.method}'.")
 
 
+@main_objects.app.route("/status/rag", methods=["GET"])
+def get_rag_status():
+    _process = string_conformity(request.args.get("process", "default"))
+    _has_rag = main_objects.active_rag is not None
+    if _process is not None and _has_rag and main_objects.active_rag.process == _process:
+        return jsonify(active=main_objects.active_rag.ready, name=_process, error=None), int(HTTPResponses.OK)
+    _err_string = f"RAG is active but it seems for the process: '{main_objects.active_rag.process}'" if _has_rag else "The RAG component is not initialized."
+    return jsonify(
+        active=False, name=_process, error=_err_string
+    ), int(HTTPResponses.NOT_FOUND)
+
+
 if __name__ in ["__main__"]:
     main_objects.app.run(host="0.0.0.0", port=9010)

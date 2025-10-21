@@ -368,6 +368,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DocumentServerStatus"
+  /status/rag:
+    parameters:
+      - $ref: "#/components/parameters/process_name"
+    get:
+      summary: Get the status of a RAG component for a specific process
+      responses:
+        "200":
+          description: Status of the RAG component
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RAGStatus"
+        "404":
+          description: Process not found
 components:
   schemas:
     Status:
@@ -429,6 +443,18 @@ components:
       required:
         - reachable
         - message
+    RAGStatus:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "default"
+        active:
+          type: boolean
+          example: true
+        error:
+          type: string
+          example: "None"
     GraphDocumentAddition:
       type: object
       properties:
