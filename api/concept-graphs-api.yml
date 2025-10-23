@@ -2,7 +2,7 @@ openapi: "3.0.3"
 info:
   title: Concept Graphs API
   description: API for managing concept graphs
-  version: "0.9.1"
+  version: "0.9.3"
 servers:
   - url: http://top-prod:9007
   - url: http://localhost:9007
@@ -220,7 +220,7 @@ paths:
                 $ref: "#/components/schemas/ProcessesResponse"
   /processes/{process}/delete:
     parameters:
-      - $ref: "#/components/parameters/process_name"
+      - $ref: "#/components/parameters/process"
     delete:
       summary: Sets a process to be deleted from the cache and any finished & serialized steps
       parameters:
@@ -238,7 +238,7 @@ paths:
           description: No such process found
   /processes/{process}/stop:
     parameters:
-      - $ref: "#/components/parameters/process_name"
+      - $ref: "#/components/parameters/process"
     get:
       summary: Sets a process to be stopped
       parameters:
@@ -254,6 +254,71 @@ paths:
           description: Process was set to be stopped
         "404":
           description: No such process found
+  /rag/init:
+    parameters:
+      - $ref: "#/components/parameters/process_name"
+      - name: force
+        in: query
+        schema:
+          type: boolean
+        description: Resets an index for this process if present
+        example: false
+    post:
+      summary: Initializes a RAG with the config provided
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RAGConfiguration"
+      responses:
+        "200":
+          description: Initialization successful
+        "202":
+          description: Found already initializing thread
+        "400":
+          description: Something went wrong
+  /rag/question:
+    summary: Poses a question to the RAG component for the specified corpus/process
+    parameters:
+      - $ref: "#/components/parameters/process_name"
+      - name: q
+        in: query
+        required: true
+        schema:
+          type: string
+        description: The question to pose
+        example: "?"
+    get:
+      responses:
+        "200":
+          description: The answer
+        "400":
+          description: Either no question posed or wrong method
+        "404":
+          description: No active RAG component found
+        "500":
+          description: Something went wrong
+    post:
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              properties:
+                doc_ids:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: The answer
+        "400":
+          description: Either no question posed or wrong method
+        "404":
+          description: No active RAG component found
+        "500":
+          description: Something went wrong
   /status:
     parameters:
       - $ref: "#/components/parameters/process_name"
@@ -303,6 +368,20 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/DocumentServerStatus"
+  /status/rag:
+    parameters:
+      - $ref: "#/components/parameters/process_name"
+    get:
+      summary: Get the status of a RAG component for a specific process
+      responses:
+        "200":
+          description: Status of the RAG component
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RAGStatus"
+        "404":
+          description: Process not found
 components:
   schemas:
     Status:
@@ -364,6 +443,18 @@ components:
       required:
         - reachable
         - message
+    RAGStatus:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "default"
+        active:
+          type: boolean
+          example: true
+        error:
+          type: string
+          example: "None"
     GraphDocumentAddition:
       type: object
       properties:
@@ -628,7 +719,38 @@ components:
             url:
               type: string
               example: "http://localhost"
+    RAGConfiguration:
+      properties:
+        api_key:
+          type: string
+          required: true
+          example: ""
+        chatter:
+          type: object
+        language:
+          type: string
+          example: "en"
+        prompt_template:
+          type: object
+        vectorstore_server:
+          type: object
+          properties:
+            url:
+              type: string
+              example: "http://localhost"
+            port:
+              type: integer
+              example: 8882
+            index_settings:
+              type: object
   parameters:
+    process:
+      name: process
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Name of the process
     process_name:
       name: process
       in: query

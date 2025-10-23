@@ -3,7 +3,6 @@ import pathlib
 from typing import Optional, Union, List, Iterable, Tuple
 
 import numpy as np
-import tensorflow as tf
 import torch
 import umap
 from sentence_transformers import SentenceTransformer
@@ -302,21 +301,23 @@ def cosine(v1, v2):
 
 def cosine_against_collection(v1, v2, vector_dim, as_tensor=True):
     if isinstance(v1, np.ndarray):
-        _vector1 = tf.math.l2_normalize(
-            torch.reshape(torch.from_numpy(v1), [1, vector_dim]), 1
+        _vector1 = torch.nn.functional.normalize(
+            torch.reshape(torch.from_numpy(v1), [1, vector_dim])
         )
     else:
-        _vector1 = tf.math.l2_normalize(v1, 1)
+        _vector1 = torch.nn.functional.normalize(v1)
     if isinstance(v2, np.ndarray):
         if len(v2.shape) == 1:
             _shape = [1, vector_dim]
         else:
             _shape = [len(v2), vector_dim]
-        _vector2 = tf.math.l2_normalize(torch.reshape(torch.from_numpy(v2), _shape), 1)
+        _vector2 = torch.nn.functional.normalize(
+            torch.reshape(torch.from_numpy(v2), _shape)
+        )
     else:
-        _vector2 = tf.math.l2_normalize(v2, 1)
+        _vector2 = torch.nn.functional.normalize(v2)
 
-    _cosine_tensor = tf.matmul(_vector1, tf.transpose(_vector2, [1, 0]))
+    _cosine_tensor = torch.matmul(_vector1, torch.transpose(_vector2, 0, 1))
     if as_tensor:
         return _cosine_tensor
     return _cosine_tensor.numpy().tolist()[0]
@@ -333,7 +334,7 @@ def top_k_cosine(
     _cosine_similarity = cosine_against_collection(
         single_embed, collection_embed, vector_dim
     )
-    _reshaped_cs = tf.reshape(
+    _reshaped_cs = torch.reshape(
         _cosine_similarity,
         [
             _cosine_similarity.shape[1],
@@ -342,17 +343,15 @@ def top_k_cosine(
 
     if top_k is not None:
         return (
-            tf.math.top_k(
+            torch.topk(
                 _reshaped_cs, k=min(collection_embed.shape[0], top_k), sorted=to_sorted
             )
             .indices.numpy()
             .tolist()
         )
 
-    _vals = tf.where(
-        tf.math.greater_equal(_reshaped_cs, tf.constant([distance], dtype="float32"))
-    )
-    _reshaped_vals = tf.reshape(
+    _vals = torch.nonzero(torch.ge(_reshaped_cs, distance))
+    _reshaped_vals = torch.reshape(
         _vals,
         [
             _vals.shape[0],

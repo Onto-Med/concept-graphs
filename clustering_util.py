@@ -13,11 +13,7 @@ from src.cluster_functions import PhraseClusterFactory
 
 class ClusteringUtil(BaseUtil):
 
-    def __init__(
-            self,
-            app: flask.app.Flask,
-            file_storage: str
-    ):
+    def __init__(self, app: flask.app.Flask, file_storage: str):
         super().__init__(app, file_storage, StepsName.CLUSTERING)
 
     @property
@@ -32,10 +28,10 @@ class ClusteringUtil(BaseUtil):
             "scaling_n_neighbors": 10,
             "scaling_min_dist": 0.1,
             "scaling_n_components": 100,
-            "scaling_metric": 'euclidean',
+            "scaling_metric": "euclidean",
             "scaling_random_state": 42,
             "deduction_k_min": 2,
-            "deduction_k_max": 100
+            "deduction_k_max": 100,
         }
 
     @property
@@ -51,10 +47,10 @@ class ClusteringUtil(BaseUtil):
         return ["clustering", "scaling", "deduction", "algorithm", "downscale"]
 
     def read_config(
-            self,
-            config: Optional[Union[FileStorage, dict]],
-            process_name=None,
-            language=None
+        self,
+        config: Optional[Union[FileStorage, dict]],
+        process_name=None,
+        language=None,
     ):
         _response = super().read_config(config, process_name, language)
         if _response is None:
@@ -64,24 +60,16 @@ class ClusteringUtil(BaseUtil):
                         self.config[k] = v
         return _response
 
-
-    def read_stored_config(
-            self,
-            ext: str = "yaml"
-    ):
+    def read_stored_config(self, ext: str = "yaml"):
         return super().read_stored_config(ext)
 
     def has_process(
-            self,
-            process: Optional[str] = None,
-            extensions: Optional[list[str]] = None
+        self, process: Optional[str] = None, extensions: Optional[list[str]] = None
     ) -> bool:
         return super().has_process(process, extensions)
 
     def delete_process(
-            self,
-            process: Optional[str] = None,
-            extensions: Optional[list[str]] = None
+        self, process: Optional[str] = None, extensions: Optional[list[str]] = None
     ) -> None:
         return super().delete_process(process, ["pickle"])
 
@@ -89,21 +77,18 @@ class ClusteringUtil(BaseUtil):
         return PhraseClusterFactory.create
 
     def _load_pre_components(
-            self,
-            cache_name,
-            active_process_objs: Optional[dict[str, dict]] = None
+        self, cache_name, active_process_objs: Optional[dict[str, dict]] = None
     ) -> tuple:
         _cached = active_process_objs.get(cache_name, {}).get(StepsName.EMBEDDING, None)
-        sent_emb = FactoryLoader.load_embedding(self._file_storage, cache_name) if _cached is None else _cached
+        sent_emb = (
+            FactoryLoader.load_embedding(self._file_storage, cache_name)
+            if _cached is None
+            else _cached
+        )
         return (sent_emb,)
 
-    def _start_process(
-            self,
-            process_factory,
-            *args,
-            **kwargs
-    ):
-        sent_emb, = args
+    def _start_process(self, process_factory, *args, **kwargs):
+        (sent_emb,) = args
         algorithm = kwargs.pop("algorithm", "kmeans")
         downscale = kwargs.pop("downscale", "umap")
 
@@ -116,7 +101,7 @@ class ClusteringUtil(BaseUtil):
                 cluster_algorithm=algorithm,
                 down_scale_algorithm=downscale,
                 cluster_by_down_scale=True,  # ToDo: is this feasible to toggle via config?
-                **kwargs
+                **kwargs,
             )
         except Exception as e:
             return False, e
