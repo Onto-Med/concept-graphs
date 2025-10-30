@@ -819,6 +819,10 @@ def get_omit_pipeline_steps(steps: object) -> list[str]:
 
 
 def add_documents_to_concept_graphs(
+        #ToDo?: ``store_permanently`` only changes whether new phrases will be stored in graphs!
+        #   --> regardless of the former argument:
+        #       - docs won't be stored in the processed_data
+        #       - docs (their phrase embeddings) will be stored in the vector store
     content_json: document_adding_json,
     data_processing: Optional[
         data_functions.DataProcessingFactory.DataProcessing
