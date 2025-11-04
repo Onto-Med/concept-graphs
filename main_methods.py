@@ -1056,7 +1056,7 @@ def initialize_chunk_vectorstore(
     if config.get("index_settings", None) is None or len(config["index_settings"]) == 0:
         config["index_settings"] = {
             "type": "structured",
-            "model": "multilingual-e5-base",
+            "model": "hf/multilingual-e5-base",
             "normalizeEmbeddings": True,
             "textPreprocessing": {
                 "splitLength": 3,
