@@ -722,6 +722,22 @@ components:
             url:
               type: string
               example: "http://localhost"
+    RAGPromptTemplate:
+      properties:
+        templates:
+          type: object
+          description: "Keys are language codes and values are the respective prompts"
+          properties:
+            en:
+              type: string
+            de:
+              type: string
+        input_variables:
+          type: array
+          description: "A list of variables that are referenced in the prompt (i.e. surrounded by curly brackets)."
+          items:
+            type: string
+      example: {}
     RAGConfiguration:
       properties:
         api_key:
@@ -734,7 +750,7 @@ components:
           type: string
           example: "en"
         prompt_template:
-          type: object
+          $ref: "#/components/schemas/RAGPromptTemplate"
         vectorstore_server:
           type: object
           properties:

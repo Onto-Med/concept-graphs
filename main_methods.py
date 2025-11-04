@@ -134,7 +134,7 @@ def parse_rag_config_json(response_json) -> Optional[rag_config_json]:
         _chatter = config.get("chatter", None)
         _api_key = config.get("api_key", "")
         _lang = config.get("language", "en")
-        _prompt = config.get("prompt_template", None)
+        _prompt = config.get("prompt_template", {})
         _vs = config.get(
             "vectorstore_server",
             config.get("vector_store_server", config.get("vector-store_server", None)),
@@ -143,7 +143,7 @@ def parse_rag_config_json(response_json) -> Optional[rag_config_json]:
             {} if (_chatter is None or not isinstance(_chatter, dict)) else _chatter,
             _api_key,
             _lang,
-            None if len(_prompt) == 0 else _prompt,
+            None if (_prompt is not None and len(_prompt) == 0) else _prompt,
             _vs,
         )
     except Exception as e:

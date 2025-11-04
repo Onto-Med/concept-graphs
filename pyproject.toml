@@ -54,7 +54,9 @@ Repository = "https://github.com/Onto-Med/concept-graphs"
 "Bug Tracker" = "https://github.com/Onto-Med/concept-graphs/issues"
 
 [dependency-groups]
-vectorstore = ["marqo==3.13.0"]
+vectorstore = [
+    "marqo==3.18.0",
+]
 rag = [
     "langchain",
     "langchain-core",
