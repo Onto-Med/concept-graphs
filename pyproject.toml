@@ -1,6 +1,6 @@
 [project]
 name = "concept-graphs"
-version = "0.9.4"
+version = "0.9.5"
 description = ""
 authors = [
     { name = "Franz Matthies", email = "franz.matthies@imise.uni-leipzig.de" },

@@ -821,12 +821,14 @@ def init_rag():
 @main_objects.app.route("/rag/question", methods=["GET", "POST"])
 def rag_question():
     _doc_ids = []
+    _doc_part_limit = 15
     if (
         request.method == "POST"
         and request.headers.get("Content-Type") == "application/json"
     ):
         if request.json is not None:
             _doc_ids = get_doc_ids(request.json)
+            _doc_part_limit = request.json.get("limit", 15)
     if request.method in ["GET", "POST"]:
         if main_objects.active_rag is None or not main_objects.active_rag.ready:
             return jsonify(
@@ -856,6 +858,7 @@ def rag_question():
                                 filter_by=(
                                     {"doc_id": _doc_ids} if len(_doc_ids) > 0 else None
                                 ),
+                                limit=_doc_part_limit
                             ),
                             token_limit=150,
                             lang=language,

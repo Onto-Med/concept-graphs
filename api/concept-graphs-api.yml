@@ -2,7 +2,7 @@ openapi: "3.0.3"
 info:
   title: Concept Graphs API
   description: API for managing concept graphs
-  version: "0.9.3"
+  version: "0.9.5"
 servers:
   - url: http://top-prod:9007
   - url: http://localhost:9007
@@ -310,6 +310,9 @@ paths:
                   type: array
                   items:
                     type: string
+                limit:
+                  type: integer
+                  example: 15
       responses:
         "200":
           description: The answer

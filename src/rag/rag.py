@@ -37,6 +37,10 @@ class RAG:
         ] = "src.rag.chatters.BlabladorChatter.BlabladorChatter",
         **kwargs,
     ) -> "RAG":
+        if chatter is None:
+            raise TypeError(
+                f"'chatter' seems to be 'None' but must be an implementation of the Chatter class, or a string denoting the location of said class."
+            )
         chatter = (
             chatter
             if chatter is not None
@@ -87,6 +91,11 @@ class RAG:
         if not "api_key" in kwargs:
             kwargs["api_key"] = api_key
         self._initialized_chatter = self._chatter.with_kwargs(**kwargs)
+        if self._initialized_chatter is None:
+            raise ValueError(
+                "Chatter failed to initialize!"
+                "Please consult the logs; maybe no model was provided or model couldn't be loaded?"
+            )
         return self
 
     def with_prompt(
