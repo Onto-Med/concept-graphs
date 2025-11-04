@@ -90,10 +90,16 @@ class MarqoChunkEmbeddingStore(ChunkEmbeddingStore):
                 f"{list(filter_by.keys())[0]} IN ({', '.join(filter_by.get(list(filter_by.keys())[0]))})"
             )
         )
+        _search_kwargs = {
+            "search_method": "HYBRID",
+            "limit": limit,
+            "hybrid_parameters": {"alpha": 0.6},
+            # "language": , #Todo?
+        }
         if filter_by is None:
             return (
                 self._client.index(self._index_name)
-                .search(question, limit=limit)
+                .search(question, **_search_kwargs)
                 .get(ResultsFields.hits, [])
             )
         else:
@@ -104,7 +110,10 @@ class MarqoChunkEmbeddingStore(ChunkEmbeddingStore):
                 result.extend(
                     self._client.index(self._index_name)
                     .search(
-                        question, limit=limit, offset=_offset, filter_string=filter_str
+                        question,
+                        offset=_offset,
+                        filter_string=filter_str,
+                        **_search_kwargs,
                     )
                     .get(ResultsFields.hits, [])
                 )

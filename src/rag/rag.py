@@ -101,16 +101,14 @@ class RAG:
     def with_prompt(
         self, lang: str = "en", prompt_template_config: Optional[dict[str, Any]] = None
     ) -> "RAG":
-        # ToDo: prompt for english needs to be aligned to german
         """
 
         :param lang:
         :param prompt_template_config: {templates: {language: template_str}, input_variables: variables_list}
         :return:
         """
-        templates = (
-            {
-                "en": """
+        _templates = {
+            "en": """
                 Given the following extracted parts of several different documents ("SOURCES") and a question ("QUESTION"), create a final answer one paragraph long. 
                 Don't try to make up an answer and use the text in the SOURCES only for the answer. If you don't know the answer, just say that you don't know. 
                 QUESTION: {question}
@@ -120,26 +118,29 @@ class RAG:
                 =========
                 ANSWER:
                 """,
-                "de": """
-                Gegeben sind die die folgenden Teile verschiedener Dokumente ("QUELLEN") und eine Frage ("FRAGE"), erstelle eine kurze abschließende Antwort mit etwa einer Länge eines Absatz.
-                Dabei sollen die "QUELLEN" individuell betrachtet werden! Referenziere in der Antwort die QUELLEN! Erwähne nur positive Antworten! 
-                Versuche niemals eine Antwort zu erfinden! Benutze außschließlich die Texte aus den QUELLEN für die Antwort. Wenn du keine Antwort hast, sage einfach, dass du es nicht weißt! 
+            "de": """
+                Gegeben sind die folgenden Teile verschiedener Dokumente ("QUELLEN") und eine Frage ("FRAGE"), erstelle eine kurze abschließende "ANTWORT" mit etwa einer Länge eines Absatzes.
+                Dabei sollen die "QUELLEN" individuell betrachtet werden! Referenziere in der Antwort die "QUELLEN"! Erwähne nur positive Antworten! 
+                Versuche niemals eine Antwort zu erfinden! Benutze ausschließlich die Texte aus den "QUELLEN" für die "ANTWORT". Wenn du keine "ANTWORT" hast, sage einfach, dass du es nicht weißt! 
                 FRAGE: {question}
                 =========
                 QUELLEN:
                 {summaries}
                 =========
-                ANSWER:
+                ANTWORT:
                 """,
-            }
-            if (
-                prompt_template_config is None
-                or not prompt_template_config.get("templates", None)
-            )
-            else prompt_template_config.get("templates")
-        )
+        }
+        if prompt_template_config is None or not prompt_template_config.get(
+            "templates", None
+        ):
+            templates = _templates
+        else:
+            templates = prompt_template_config.get("templates")
+
         self._prompt = PromptTemplate(
-            template=templates.get(self.get_rag_language(lang)),
+            template=templates.get(
+                self.get_rag_language(lang), _templates.get(self.get_rag_language(lang))
+            ),
             input_variables=(
                 ["summaries", "question"]
                 if prompt_template_config is None
