@@ -310,6 +310,9 @@ paths:
                   type: array
                   items:
                     type: string
+                limit:
+                  type: integer
+                  example: 15
       responses:
         "200":
           description: The answer
