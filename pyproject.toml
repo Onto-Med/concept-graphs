@@ -1,6 +1,6 @@
 [project]
 name = "concept-graphs"
-version = "0.9.4"
+version = "0.9.5"
 description = ""
 authors = [
     { name = "Franz Matthies", email = "franz.matthies@imise.uni-leipzig.de" },
@@ -54,7 +54,9 @@ Repository = "https://github.com/Onto-Med/concept-graphs"
 "Bug Tracker" = "https://github.com/Onto-Med/concept-graphs/issues"
 
 [dependency-groups]
-vectorstore = ["marqo==3.13.0"]
+vectorstore = [
+    "marqo==3.18.0",
+]
 rag = [
     "langchain",
     "langchain-core",
