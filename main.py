@@ -219,11 +219,12 @@ def graph_with_arg(path_arg):
         return path_arg_error("graph", path_arg, _path_args + ["#ANY_INTEGER"])
 
 
-@main_objects.app.route("/graph/document/<path_arg>", methods=["POST"])
-def graph_document(path_arg):
+@main_objects.app.route("/graph/document/<path_arg>", methods=["POST", "DELETE"])
+def graph_document(path_arg = None):
     # ToDo: add getting documents from document_server
     # ToDo: resolve not implemented exceptions
     process = string_conformity(request.args.get("process", "default"))
+    method = request.method
     if request.headers.get("Content-Type") == "application/json":
         content_json = parse_document_adding_json(request.get_json())
         if content_json is None:
@@ -237,7 +238,7 @@ def graph_document(path_arg):
             HTTPResponses.NOT_IMPLEMENTED,
         )
 
-    if path_arg.lower() == "add":
+    if method == "POST" and path_arg is not None and path_arg.lower() is "add":
         _data_proc = main_objects.current_active_pipeline_objects.get(process, {}).get(
             StepsName.DATA, None
         )
@@ -274,10 +275,16 @@ def graph_document(path_arg):
             jsonify(f"Started thread for adding documents for process {process}."),
             HTTPResponses.OK,
         )
-    elif path_arg.lower() == "delete":
+    elif method == "DELETE" and path_arg is not None:
         return jsonify(error="'Delete' not implemented."), HTTPResponses.NOT_IMPLEMENTED
     else:
-        return path_arg_error("graph/document", path_arg, ["add", "delete"])
+        err_msg = f"Either method 'POST' or 'DELETE' expected, but '{method.upper()}' was given instead."
+        if path_arg is None:
+            if method == "DELETE":
+                err_msg = f"No path argument provided for 'DELETE' method; this method needs an id."
+            elif method == "POST":
+                err_msg = f"Please use 'add' as path argument for 'POST' method."
+        return jsonify(error=err_msg), HTTPResponses.BAD_REQUEST
 
 
 @main_objects.app.route("/graph/document/add/status", methods=["GET"])
