@@ -23,7 +23,54 @@ This phase was intentionally low-risk:
 - no dataclass redesign yet
 - no Flask Blueprint changes
 
-The underlying class is still currently named `PersistentObjects`; that should be addressed in the next phase when we introduce clearer typed context dataclasses.
+### Validation
+
+Ran compile check and import smoke test successfully.
+
+## Phase 2: introduce `AppContext`
+
+Completed.
+
+### What changed
+
+Renamed the runtime context dataclass from `PersistentObjects` to `AppContext` in `main_utils.py`.
+
+Updated new code imports/type hints to use:
+
+```python
+from main_utils import AppContext
+```
+
+`main.py` now creates an `AppContext` directly:
+
+```python
+app_context = AppContext(...)
+```
+
+### Compatibility
+
+Kept a backwards-compatible alias:
+
+```python
+PersistentObjects = AppContext
+```
+
+This keeps older references or serialized objects safer while new code uses the clearer name.
+
+### Scope
+
+This phase preserved the existing flat field layout:
+
+```python
+app
+running_processes
+pipeline_threads_store
+current_active_pipeline_objects
+file_storage_dir
+active_rag
+```
+
+No behavior was changed yet. Grouping state into smaller subcontexts is reserved for Phase 3.
 
 ### Validation
 
@@ -38,18 +85,31 @@ Ran import smoke test successfully:
 ```bash
 uv run python - <<'PY'
 import main
+from main_utils import AppContext, PersistentObjects
+assert isinstance(main.app_context, AppContext)
+assert PersistentObjects is AppContext
 print(type(main.app_context).__name__)
-print('phase 1 imports ok')
+print('phase 2 imports ok')
 PY
 ```
 
 Result:
 
 ```text
-PersistentObjects
-phase 1 imports ok
+AppContext
+phase 2 imports ok
 ```
 
 ## Next proposed phase
 
-Phase 2 should introduce clearer context dataclasses, likely starting by renaming/replacing `PersistentObjects` with `AppContext` while preserving the existing fields for compatibility.
+Phase 3 should group the flat runtime fields into smaller dataclasses, while preserving compatibility properties where useful.
+
+Likely groups:
+
+```text
+AppContext.processes.running
+AppContext.processes.threads
+AppContext.pipeline.active_objects
+AppContext.storage.file_storage_dir
+AppContext.rag.active
+```

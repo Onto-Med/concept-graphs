@@ -4,7 +4,7 @@ from typing import Optional
 
 import flask
 
-from main_utils import PersistentObjects
+from main_utils import AppContext
 from src.api.routes import register_routes
 from src.pipeline.processes import populate_running_processes
 
@@ -14,7 +14,7 @@ def setup(
     static_url_path: str = "",
     file_storage_dir: str = "tmp",
     logging_setup_tuples: Optional[list[tuple]] = None,
-) -> PersistentObjects:
+) -> AppContext:
     """Create the Flask app and initialize shared runtime state."""
     if logging_setup_tuples is None:
         logging_setup_tuples = [
@@ -34,7 +34,7 @@ def setup(
         root_logger.handlers.clear()
     root_logger.addHandler(flask.logging.default_handler)
 
-    app_context = PersistentObjects(
+    app_context = AppContext(
         app=app,
         running_processes={},
         pipeline_threads_store={},

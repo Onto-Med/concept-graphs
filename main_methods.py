@@ -34,7 +34,7 @@ from main_utils import (
     StoppableThread,
     string_conformity,
     BaseUtil,
-    PersistentObjects,
+    AppContext,
 )
 from src.rag.TextSplitters import PreprocessedSpacyTextSplitter
 from src.rag.embedding_stores.AbstractEmbeddingStore import ChunkEmbeddingStore
@@ -616,9 +616,7 @@ def initialize_chunk_vectorstore(
     return chunk_store
 
 
-def fill_chunk_vectorstore(
-    process: str, app_context: PersistentObjects, **kwargs
-) -> bool:
+def fill_chunk_vectorstore(process: str, app_context: AppContext, **kwargs) -> bool:
     """
 
     :param process:

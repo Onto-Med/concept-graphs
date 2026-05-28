@@ -67,13 +67,25 @@ class ActiveRAG:
 
 
 @dataclass
-class PersistentObjects:
+class AppContext:
+    """Shared Flask application context and runtime state.
+
+    The fields are intentionally kept flat for now to preserve behavior while
+    the codebase migrates away from the former ``PersistentObjects`` name.
+    Later phases can group this state into smaller context dataclasses.
+    """
+
     app: flask.Flask
     running_processes: dict
     pipeline_threads_store: dict
     current_active_pipeline_objects: dict
     file_storage_dir: pathlib.Path
     active_rag: Optional[ActiveRAG]
+
+
+# Backwards-compatible alias for code or pickles that still reference the old
+# name. New code should import/use AppContext.
+PersistentObjects = AppContext
 
 
 @dataclass
