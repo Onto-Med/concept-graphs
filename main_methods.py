@@ -4,7 +4,6 @@ import os
 import pathlib
 import pickle
 import shutil
-import sys
 import uuid
 from collections import OrderedDict, defaultdict, namedtuple
 from inspect import getfullargspec
@@ -45,8 +44,6 @@ from main_utils import (
 )
 from src.rag.TextSplitters import PreprocessedSpacyTextSplitter
 from src.rag.embedding_stores.AbstractEmbeddingStore import ChunkEmbeddingStore
-
-sys.path.insert(0, "src")
 from src import data_functions, cluster_functions, embedding_functions
 from src.graph_functions import GraphIncorp
 from src.util_functions import DocumentStore, EmbeddingStore, save_pickle

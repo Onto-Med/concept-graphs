@@ -2,9 +2,9 @@ import pathlib
 import random
 from unittest import TestCase
 
-from data_functions import clean_span
-from graph_functions import GraphCreator
-from util_functions import unpickle_or_run
+from src.data_functions import clean_span
+from src.graph_functions import GraphCreator
+from src.util_functions import unpickle_or_run
 
 
 class TestGraphCreator(TestCase):

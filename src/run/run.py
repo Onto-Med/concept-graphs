@@ -3,7 +3,6 @@ import logging
 import os
 import random
 import re
-import sys
 import time
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -14,11 +13,8 @@ import pandas as pd
 import spacy
 from sklearn.datasets import fetch_20newsgroups
 
-sys.path.insert(0, "../../src")
-import cluster_functions
-import data_functions
-import embedding_functions
-from util_functions import load_pickle
+from src import cluster_functions, data_functions, embedding_functions
+from src.util_functions import load_pickle
 
 logging.basicConfig()
 logging.root.setLevel(logging.INFO)

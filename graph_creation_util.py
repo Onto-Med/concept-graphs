@@ -1,4 +1,3 @@
-import sys
 from pathlib import Path
 from typing import Optional, Union, Callable
 
@@ -8,8 +7,6 @@ from pyvis import network as net
 from werkzeug.datastructures import FileStorage
 
 from load_utils import FactoryLoader
-
-sys.path.insert(0, "src")
 from main_utils import StepsName, BaseUtil
 from src.cluster_functions import WordEmbeddingClustering
 from src.util_functions import save_pickle

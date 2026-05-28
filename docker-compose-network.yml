@@ -6,6 +6,9 @@ services:
       - 9007:9007
     volumes:
       - results:/rest_api/tmp
+      - type: bind
+        source: .
+        target: /rest_api/
     networks:
       - concept-graphs-network
 

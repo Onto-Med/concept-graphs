@@ -1,4 +1,3 @@
-import sys
 import zipfile
 from pathlib import Path
 from types import GeneratorType
@@ -9,7 +8,6 @@ import yaml
 from dataclass_wizard import JSONSerializable
 from werkzeug.datastructures import FileStorage
 
-sys.path.insert(0, "src")
 from main_utils import (
     StepsName,
     get_bool_expression,

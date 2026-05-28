@@ -2,12 +2,9 @@ import itertools
 import logging
 import pathlib
 import pickle
-import sys
 from math import prod
 
-
-sys.path.insert(0, "../run/")
-from test import (
+from src.run.test import (
     load_embedding_clustering_factory,
     create_clusterings,
     calculate_scores,

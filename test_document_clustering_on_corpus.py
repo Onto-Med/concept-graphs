@@ -1,6 +1,5 @@
 import pathlib
 import unittest
-import sys
 
 from sklearn.cluster import KMeans
 
@@ -9,7 +8,6 @@ from main_utils import StepsName
 from src.cluster_functions import WordEmbeddingClustering
 
 # from src.cluster_functions import WordEmbeddingClustering
-sys.path.insert(0, "src")
 from src import data_functions, embedding_functions, cluster_functions, graph_functions
 
 

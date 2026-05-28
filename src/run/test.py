@@ -1,7 +1,6 @@
 import logging
 import pathlib
 import pprint
-import sys
 from collections import defaultdict
 from itertools import product as product_iter
 from typing import Union, Iterable, Tuple
@@ -9,9 +8,7 @@ from typing import Union, Iterable, Tuple
 import dill as pickle
 from sklearn.cluster import AgglomerativeClustering, KMeans
 
-sys.path.insert(0, "../../src/")
-import cluster_functions
-import embedding_functions
+from src import cluster_functions, embedding_functions
 
 logging.basicConfig()
 logging.root.setLevel(logging.INFO)

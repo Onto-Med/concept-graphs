@@ -7,8 +7,6 @@ from main_utils import StoppableThread, ActiveRAG
 from src.rag.embedding_stores.AbstractEmbeddingStore import ChunkEmbeddingStore
 from src.rag.marqo_rag_utils import extract_text_from_highlights
 from src.rag.rag import RAG
-
-sys.path.insert(0, "src")
 from src import integration_functions
 from src import marqo_external_utils
 

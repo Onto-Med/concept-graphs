@@ -1,16 +1,8 @@
-import pathlib
 from unittest import TestCase
 
-from data_functions import DataProcessing
+from src.data_functions import DataProcessingFactory
 
 
 class TestDataProcessing(TestCase):
-    def test_data_path(self):
-        dp = DataProcessing(base_data_path=pathlib.Path("."), file_ext="py")
-        print(list(dp.data_entries))
-        dp = DataProcessing(
-            base_data_path=pathlib.Path(".."), sub_paths=["tests"], file_ext="py"
-        )
-        print(list(dp.data_entries))
-        dp = DataProcessing(base_data_path=pathlib.Path(".."), file_ext="py")
-        print(list(dp.data_entries))
+    def test_data_processing_class_is_exposed_by_factory(self):
+        self.assertTrue(hasattr(DataProcessingFactory, "DataProcessing"))

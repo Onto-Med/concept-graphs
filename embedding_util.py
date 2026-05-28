@@ -1,10 +1,8 @@
-import sys
 from typing import Optional, Union, Callable
 
 import flask
 from werkzeug.datastructures import FileStorage
 
-sys.path.insert(0, "src")
 from main_utils import StepsName, BaseUtil
 from src.marqo_external_utils import MarqoEmbeddingStore
 from src.embedding_functions import SentenceEmbeddingsFactory
