@@ -2,17 +2,46 @@
 
 ## Summary
 
-The project is now significantly cleaner and more Pythonic than at the start of the refactoring. The main improvements are structural: imports are explicit, route handling has been split out of `main.py`, and formerly top-level modules have been moved into clearer packages.
+The project has been substantially reorganized from a script-heavy/prototype layout into a more package-oriented Flask application.
 
-The remaining work is mostly about deeper internal decomposition, test reliability, and smaller Pythonic cleanups such as safer error handling, logging, and configuration models.
+Major completed work includes:
+
+- top-level module cleanup
+- domain package organization
+- Flask Blueprint route structure
+- narrower route dependencies
+- Flask app factory pattern
+- split of `main_methods.py`
+- split of `main_utils.py`
+- Docker entrypoint and compose cleanup
+
+At this point, the remaining cleanup work is mostly around tests, large core modules, utility-module decomposition, linting, and smaller Pythonic improvements.
+
+## Current Top-Level Layout
+
+Only one Python file remains in the repository root:
+
+```text
+main.py
+```
+
+`main.py` now exposes a Flask app factory:
+
+```python
+create_app()
+create_app_context()
+configure_logging()
+```
+
+The application no longer creates a global app/context at import time.
 
 ## Completed Improvements
 
 ### Package and import cleanup
 
-- Removed `sys.path.insert(...)` usage.
-- Replaced wildcard import from `main_methods` with explicit imports.
-- Moved former top-level `src/*.py` modules into domain packages:
+Completed.
+
+Former top-level implementation modules were moved into focused packages:
 
 ```text
 src/core/
@@ -22,19 +51,19 @@ src/pipeline/
 src/api/
 ```
 
-- Added a compatibility import redirector in `src/__init__.py` for older pickle/module paths.
-
-### Root directory cleanup
-
-Only these Python files now remain in the project root:
+Examples:
 
 ```text
-main.py
-main_methods.py
-main_utils.py
+src/data_functions.py            -> src/core/data_functions.py
+src/embedding_functions.py       -> src/core/embedding_functions.py
+src/cluster_functions.py         -> src/core/cluster_functions.py
+src/graph_functions.py           -> src/core/graph_functions.py
+src/integration_functions.py     -> src/core/integration_functions.py
+src/util_functions.py            -> src/common/util_functions.py
+src/marqo_external_utils.py      -> src/storage/marqo_external_utils.py
 ```
 
-Moved root utility files into package locations, for example:
+Root utility files were also moved:
 
 ```text
 load_utils.py              -> src/pipeline/load_utils.py
@@ -46,42 +75,111 @@ integration_util.py        -> src/pipeline/steps/integration_util.py
 download_models.py         -> src/scripts/download_models.py
 ```
 
-### API structure
+Other import cleanup:
 
-`main.py` is now mostly responsible for:
+- removed `sys.path.insert(...)` usage
+- removed wildcard imports from app code
+- updated package build config to include nested `src/**/*.py`
+- added a compatibility import redirector in `src/__init__.py` for old pickle/module paths
 
-- creating the Flask app
-- setting up logging
-- initializing shared runtime state
-- registering routes
-- starting the server
+### Flask app factory
 
-Routes were split into modules under:
+Completed.
 
-```text
-src/api/routes/
+`main.py` now uses the standard Flask app factory pattern:
+
+```python
+def create_app(...) -> flask.Flask:
+    ...
 ```
 
-Current route modules include:
+The app context is attached to:
+
+```python
+app.extensions["concept_graphs_context"]
+```
+
+Docker/Waitress now starts the app with factory-call mode:
 
 ```text
-artifacts.py
-graph_documents.py
-pipeline.py
-processes.py
-rag.py
-status.py
-static.py
+waitress-serve --call main:create_app
+```
+
+### App context refactor
+
+Completed.
+
+The former broad `main_objects`/`PersistentObjects` style was replaced with grouped runtime context objects:
+
+```text
+src/api/context.py
+```
+
+Current context classes:
+
+```python
+ActiveRAG
+ProcessContext
+PipelineContext
+StorageContext
+RagContext
+AppContext
+```
+
+Runtime state is now grouped by responsibility:
+
+```python
+app_context.processes.running
+app_context.processes.threads
+app_context.pipeline.active_objects
+app_context.storage.file_storage_dir
+app_context.rag.active
+```
+
+### Flask Blueprints
+
+Completed.
+
+All route modules under `src/api/routes/` now use Blueprint factories.
+
+Current route modules:
+
+```text
+src/api/routes/artifacts.py
+src/api/routes/graph_documents.py
+src/api/routes/pipeline.py
+src/api/routes/processes.py
+src/api/routes/rag.py
+src/api/routes/status.py
+src/api/routes/static.py
+```
+
+Current Blueprint factory signatures use narrowed dependencies:
+
+```python
+create_static_blueprint(app)
+create_status_blueprint(app, rag)
+create_artifact_blueprint(app, storage, pipeline)
+create_graph_document_blueprint(app, processes, pipeline, storage)
+create_pipeline_blueprint(app, processes, pipeline, storage)
+create_process_blueprint(app, processes, pipeline, storage)
+create_rag_blueprint(rag, processes, storage, pipeline)
 ```
 
 ### Pipeline route refactor
 
-The large `/pipeline` handler was moved into `src/api/pipeline.py` and decomposed into smaller helper functions.
+Completed.
 
-`run_complete_pipeline()` is now short and readable, while helpers handle:
+The `/pipeline` route orchestration was moved into:
+
+```text
+src/api/pipeline.py
+```
+
+The module now separates concerns such as:
 
 - request parsing
-- temporary uploads
+- temporary upload handling
 - vector-store config normalization
 - document-server loading
 - process preparation
@@ -89,70 +187,160 @@ The large `/pipeline` handler was moved into `src/api/pipeline.py` and decompose
 - background thread startup
 - response creation
 
+### `main_methods.py` split
+
+Completed.
+
+`main_methods.py` was split into focused service modules and removed.
+
+New modules:
+
+```text
+src/api/services/pipeline_params.py
+src/api/services/document_server.py
+src/api/services/configuration.py
+src/api/services/artifact_responses.py
+src/api/services/process_management.py
+src/api/services/rag_vectorstore.py
+```
+
+### `main_utils.py` split
+
+Completed.
+
+`main_utils.py` was split into focused modules and removed.
+
+New modules:
+
+```text
+src/api/context.py
+src/api/responses.py
+src/common/parsing.py
+src/common/spacy_utils.py
+src/common/threads.py
+src/pipeline/base.py
+src/pipeline/document_results.py
+src/pipeline/status.py
+```
+
 ### Docker cleanup
 
-`.dockerignore` was expanded so Docker builds exclude tests, notebooks, virtual environments, caches, and local development artifacts.
+Completed.
 
-Excluded examples:
+Improvements:
 
-```text
-test/
-src/tests/
-jupyter-notebooks/
-*.ipynb
-.venv/
-.pytest_cache/
-__pycache__/
-.idea/
+- `.dockerignore` excludes tests, notebooks, virtual environments, caches, and dev artifacts
+- Docker entrypoint updated for the app factory
+- `uv run --no-sync` added to avoid dependency sync at container startup
+- `docker-compose-network.yml` no longer bind-mounts the project over `/rest_api`
+- `docker-compose.yml` image tag updated to `0.9.6`
+- added `docker-compose-es.yml` for Elasticsearch
+
+## Current Validation Status
+
+Recent successful checks:
+
+```bash
+uv run python -m compileall -q main.py src test
 ```
 
-## Current Assessment
-
-The project structure is now much more maintainable. The main top-level organization problems have been addressed.
-
-The project now resembles an application package rather than a research/prototype script collection. The remaining issues are mostly inside large domain modules and tests.
-
-## Remaining Issues
-
-### `main_methods.py` is still too broad
-
-`main_methods.py` is smaller than before, but still mixes several responsibilities:
-
-- config loading
-- graph response helpers
-- data-server helpers
-- RAG/vectorstore helpers
-- deletion helpers
-
-Suggested future split:
+Flask smoke checks have passed for representative endpoints, including:
 
 ```text
-src/api/services/configuration.py
-src/api/services/data_server.py
-src/api/services/graph_responses.py
-src/api/services/rag_vectorstore.py
-src/pipeline/deletion.py
+GET /                                                 -> 200
+GET /openapi                                          -> 200
+GET /status/rag                                       -> 404 when RAG is not initialized
+GET /processes                                        -> 404 when no processes exist
+GET /pipeline/configuration?default=true&language=en  -> 200
+GET /rag/question?q=test                              -> 404 when RAG is not initialized
 ```
 
-### Route modules could use Flask Blueprints
+## Known Test Status
 
-The route modules currently use registration functions with nested route handlers. This works, but a more idiomatic Flask structure would use `Blueprint`s.
+The full test suite still fails for pre-existing reasons unrelated to the structural refactors:
 
-Example target:
+```text
+src/pruning/test_unimodal.py
+  NameError: name 'ig' is not defined
+
+src/tests/test_graph_functions.py
+  incomplete TestGraphCreator fixture setup
+
+test/test_main_utils.py
+test/test_document_clustering_on_corpus.py
+  missing pickle fixtures under tmp/
+```
+
+Fixing or quarantining these tests is now one of the highest-value next steps.
+
+## Remaining Issues / Recommended Next Steps
+
+### 1. Fix or quarantine broken tests
+
+Priority: high.
+
+Suggested actions:
+
+- handle optional `igraph` dependency properly
+- skip fixture-dependent tests when pickle fixtures are missing
+- repair incomplete graph test setup
+- add small smoke/unit tests for app factory and route registration
+
+### 2. Add Ruff
+
+Priority: high.
+
+Ruff would help detect:
+
+- unused imports
+- broad exceptions
+- undefined names
+- import ordering issues
+- simple modernization opportunities
+
+### 3. Split `src/common/util_functions.py`
+
+Still mixed. It contains concerns such as:
+
+- pickle I/O
+- color helpers
+- store abstractions
+- spaCy extension helpers
+- miscellaneous utilities
+
+Suggested target split:
+
+```text
+src/common/io.py
+src/common/colors.py
+src/common/spacy_extensions.py
+src/common/stores.py
+src/common/iterables.py
+```
+
+### 4. Replace namedtuples/config containers with dataclasses
+
+Some request/query/config objects still use namedtuple-style structures.
+
+Suggested target:
 
 ```python
-bp = Blueprint("rag", __name__)
-
-@bp.route("/rag/init", methods=["POST"])
-def init_rag():
+@dataclass(frozen=True)
+class PipelineQueryParams:
     ...
 ```
 
-Then register blueprints in `main.py`.
+### 5. Replace remaining `print(...)` calls with logging
 
-### Core modules remain large
+Several library/runtime modules still contain `print(...)` calls. These should use module loggers instead.
 
-Large files still include:
+### 6. Replace remaining broad `except Exception` blocks where practical
+
+Broad exception handling still exists in multiple places. Some may be acceptable at route boundaries, but internal logic should become more specific where possible.
+
+### 7. Continue splitting large domain modules
+
+The biggest remaining modules are still in the domain layer:
 
 ```text
 src/core/cluster_functions.py
@@ -161,8 +349,6 @@ src/core/graph_functions.py
 src/storage/marqo_external_utils.py
 src/common/util_functions.py
 ```
-
-These are now in better locations, but could later be split internally.
 
 Possible future structure:
 
@@ -188,58 +374,15 @@ src/storage/marqo/
   embeddings.py
 ```
 
-### Utility module is still mixed
-
-`src/common/util_functions.py` contains several unrelated concerns:
-
-- pickle I/O
-- color handling
-- store abstractions
-- clustering helpers
-- spaCy extension setup
-
-Suggested split:
-
-```text
-src/common/io.py
-src/common/colors.py
-src/common/spacy_extensions.py
-src/common/stores.py
-src/common/iterables.py
-```
-
-### Pythonic cleanup still needed
-
-Remaining patterns to improve:
-
-- broad `except Exception` blocks
-- `print(...)` calls in reusable/library code
-- `yaml.load` usage
-- namedtuple config objects
-- large methods
-- some Java-style class names
-
-### Tests need attention
-
-The test suite still fails for pre-existing reasons unrelated to the recent refactors:
-
-- missing `ig`/igraph usage in pruning tests
-- tests depending on absent pickle fixtures under `tmp/`
-- incomplete `TestGraphCreator` fixture setup
-
-Fixing or quarantining these tests should be a priority before deeper refactoring.
-
-## Recommended Next Steps
-
-1. Fix or quarantine broken tests.
-2. Convert route modules to Flask Blueprints.
-3. Split `main_methods.py` into focused service modules.
-4. Replace request/config namedtuples with dataclasses.
-5. Replace `yaml.load` with `yaml.safe_load` where possible.
-6. Replace library `print(...)` calls with logging.
-7. Add Ruff for linting and import cleanup.
-8. Gradually split large core modules into smaller domain modules.
-
 ## Overall Status
 
-The project is in a much better structural state. The biggest remaining risk is the unreliable test suite, which makes future refactoring harder to verify. Once tests are stabilized, the project will be well positioned for deeper cleanup of the core domain modules.
+The major application-structure refactors are complete. The project now has a much cleaner Flask/package architecture:
+
+- app factory
+- Blueprints
+- grouped app context
+- service modules
+- only `main.py` at root
+- domain packages under `src/`
+
+The next best investments are test stabilization, linting, and gradual decomposition of large core/domain modules.
