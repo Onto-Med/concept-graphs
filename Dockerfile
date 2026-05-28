@@ -4,6 +4,7 @@ RUN pip install uv
 
 WORKDIR /rest_api
 
+# Tests and Jupyter notebooks are excluded from the build context via .dockerignore.
 COPY . .
 
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
