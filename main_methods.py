@@ -18,12 +18,12 @@ from munch import Munch
 from werkzeug.datastructures import FileStorage
 from yaml.representer import RepresenterError
 
-from preprocessing_util import PreprocessingUtil
-from embedding_util import PhraseEmbeddingUtil
-from clustering_util import ClusteringUtil
-from graph_creation_util import GraphCreationUtil, visualize_graph
-from integration_util import ConceptGraphIntegrationUtil
-from load_utils import FactoryLoader
+from src.pipeline.steps.preprocessing_util import PreprocessingUtil
+from src.pipeline.steps.embedding_util import PhraseEmbeddingUtil
+from src.pipeline.steps.clustering_util import ClusteringUtil
+from src.pipeline.steps.graph_creation_util import GraphCreationUtil, visualize_graph
+from src.pipeline.steps.integration_util import ConceptGraphIntegrationUtil
+from src.pipeline.load_utils import FactoryLoader
 from main_utils import (
     ProcessStatus,
     HTTPResponses,

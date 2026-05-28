@@ -14,11 +14,11 @@ import yaml
 from flask import jsonify, request
 from werkzeug.datastructures import FileStorage
 
-from clustering_util import ClusteringUtil
-from embedding_util import PhraseEmbeddingUtil
-from graph_creation_util import GraphCreationUtil
-from integration_util import ConceptGraphIntegrationUtil
-from load_utils import FactoryLoader
+from src.pipeline.steps.clustering_util import ClusteringUtil
+from src.pipeline.steps.embedding_util import PhraseEmbeddingUtil
+from src.pipeline.steps.graph_creation_util import GraphCreationUtil
+from src.pipeline.steps.integration_util import ConceptGraphIntegrationUtil
+from src.pipeline.load_utils import FactoryLoader
 from main_methods import (
     check_data_server,
     get_data_server_config,
@@ -39,7 +39,7 @@ from main_utils import (
     add_status_to_running_process,
     pipeline_query_params,
 )
-from preprocessing_util import PreprocessingUtil
+from src.pipeline.steps.preprocessing_util import PreprocessingUtil
 from src.core import (
     cluster_functions,
     data_functions,

@@ -161,7 +161,9 @@ class MLF:
                     {"significance": 0.0},
                 ),
             )[2]["significance"]
-        except TypeError as te:  # ToDo: there were case where TypeErrors were thrown (comparison btw. 'NoneType') but I thought I made sure no 'NoneType' was allowed in the list...
+        except (
+            TypeError
+        ) as te:  # ToDo: there were case where TypeErrors were thrown (comparison btw. 'NoneType') but I thought I made sure no 'NoneType' was allowed in the list...
             logging.error(f"{te}\n-->\t{graph.edges(data=True)}")
             max_sig = 0.0
         for _, _, d in graph.edges(data=True):

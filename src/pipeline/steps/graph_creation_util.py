@@ -6,7 +6,7 @@ import networkx as nx
 from pyvis import network as net
 from werkzeug.datastructures import FileStorage
 
-from load_utils import FactoryLoader
+from src.pipeline.load_utils import FactoryLoader
 from main_utils import StepsName, BaseUtil
 from src.core.cluster_functions import WordEmbeddingClustering
 from src.common.util_functions import save_pickle

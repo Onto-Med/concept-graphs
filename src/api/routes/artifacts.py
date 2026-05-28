@@ -4,7 +4,7 @@ import pathlib
 
 from flask import Response, jsonify, request
 
-from load_utils import FactoryLoader
+from src.pipeline.load_utils import FactoryLoader
 from main_methods import (
     clustering_get_concepts,
     data_get_statistics,

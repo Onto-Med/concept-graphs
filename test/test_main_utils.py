@@ -1,7 +1,7 @@
 import pathlib
 import unittest
 
-from load_utils import FactoryLoader
+from src.pipeline.load_utils import FactoryLoader
 from main_utils import StepsName
 
 

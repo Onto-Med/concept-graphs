@@ -92,7 +92,7 @@ class PreprocessedSpacyTextSplitter(TextSplitter):
 
 if __name__ == "__main__":
     import pathlib
-    from load_utils import FactoryLoader
+    from src.pipeline.load_utils import FactoryLoader
 
     _data = FactoryLoader.load_data(
         str(pathlib.Path("../../tmp/grascco_stem").resolve()), "grascco_stem"

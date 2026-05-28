@@ -190,7 +190,7 @@ class RAG:
 if __name__ == "__main__":
     import sys
     import pathlib
-    from load_utils import FactoryLoader
+    from src.pipeline.load_utils import FactoryLoader
     from TextSplitters import PreprocessedSpacyTextSplitter
 
     _args = {a.split("=")[0]: a.split("=")[1] for a in sys.argv[1:]}

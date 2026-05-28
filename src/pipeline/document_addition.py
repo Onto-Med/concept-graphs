@@ -10,7 +10,7 @@ from typing import Optional, Union
 import networkx as nx
 import numpy as np
 
-from load_utils import FactoryLoader
+from src.pipeline.load_utils import FactoryLoader
 from main_utils import HTTPResponses, StepsName, transform_document_addition_results
 from src.core import data_functions, embedding_functions
 from src.api.request_parsing import document_adding_json
