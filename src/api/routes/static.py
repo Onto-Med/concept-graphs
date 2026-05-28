@@ -1,13 +1,18 @@
 """Routes serving static API documentation assets."""
 
+from flask import Blueprint
 
-def register_static_routes(app_context):
-    """Register root and OpenAPI UI routes."""
 
-    @app_context.app.route("/", methods=["GET"])
+def create_static_blueprint(app_context):
+    """Create the blueprint for root and OpenAPI UI routes."""
+    blueprint = Blueprint("static_routes", __name__)
+
+    @blueprint.route("/", methods=["GET"])
     def index():
         return openapi()
 
-    @app_context.app.route("/openapi", methods=["GET"])
+    @blueprint.route("/openapi", methods=["GET"])
     def openapi():
         return app_context.app.send_static_file("index.html")
+
+    return blueprint
