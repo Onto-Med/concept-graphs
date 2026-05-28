@@ -8,7 +8,6 @@ from src.util_functions import unpickle_or_run
 
 
 class TestGraphCreator(TestCase):
-
     def setUp(self) -> None:
         pickle_base = pathlib.Path("../../pickles/")
 

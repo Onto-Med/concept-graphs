@@ -410,7 +410,6 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
 
 
 class DocumentStore(metaclass=abc.ABCMeta):
-
     @abc.abstractmethod
     def add_document(
         self, document: Union[Document, tuple[Document, dict]], as_tuple: bool = False

@@ -13,7 +13,6 @@ from src.util_functions import save_pickle
 
 
 class GraphCreationUtil(BaseUtil):
-
     def __init__(self, app: flask.app.Flask, file_storage: str):
         super().__init__(app, file_storage, StepsName.GRAPH)
 

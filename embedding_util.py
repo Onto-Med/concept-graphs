@@ -12,7 +12,6 @@ from load_utils import FactoryLoader
 
 # ToDo: I need to check the storage_method config/kwarg; it works but there are some redundancies
 class PhraseEmbeddingUtil(BaseUtil):
-
     def __init__(self, app: flask.app.Flask, file_storage: str):
         super().__init__(app, file_storage, StepsName.EMBEDDING)
 

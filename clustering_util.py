@@ -9,7 +9,6 @@ from src.cluster_functions import PhraseClusterFactory
 
 
 class ClusteringUtil(BaseUtil):
-
     def __init__(self, app: flask.app.Flask, file_storage: str):
         super().__init__(app, file_storage, StepsName.CLUSTERING)
 

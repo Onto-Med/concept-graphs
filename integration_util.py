@@ -12,7 +12,6 @@ from src.util_functions import load_pickle, EmbeddingStore
 
 
 class ConceptGraphIntegrationUtil(BaseUtil):
-
     def __init__(
         self,
         app: Flask,

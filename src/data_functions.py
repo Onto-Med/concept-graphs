@@ -39,7 +39,6 @@ def _populate_chunk_set_dict_with_doc(
 
 
 class DataProcessingFactory:
-
     @classmethod
     def load(
         cls, data_obj_path: Union[pathlib.Path, str, io.IOBase]
@@ -638,9 +637,9 @@ class DataProcessingFactory:
                     )
                     _offset = _chunk_dict["offset"]
                     if (not (_negated_chunk and omit_negated_chunks)) and data is None:
-                        self._document_chunk_matrix[
-                            ch["doc_index"]
-                        ] += f"{self._chunk_boundary}{_text}"
+                        self._document_chunk_matrix[ch["doc_index"]] += (
+                            f"{self._chunk_boundary}{_text}"
+                        )
 
                     if _csdt.get(_text, False) and not (
                         _negated_chunk and omit_negated_chunks

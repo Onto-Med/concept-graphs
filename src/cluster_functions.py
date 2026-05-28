@@ -637,9 +637,7 @@ class WordEmbeddingClustering:
                         return_predecessors=True,
                         directed=False,
                     )
-                except (
-                    NegativeCycleError
-                ):  # ToDo: don't know if this is appropriate: it would skip th whole concept graph
+                except NegativeCycleError:  # ToDo: don't know if this is appropriate: it would skip th whole concept graph
                     continue
                 bool_cut = (distance <= cutoff) & (distance > 0)
                 absolute_distance = construct_dist_matrix(
@@ -653,10 +651,11 @@ class WordEmbeddingClustering:
                     _gc_id = graph_cluster[i]
                     _idx = np.where(bool_cut[i, :])
                     _scores = (
-                        distance_real[i, :][_idx]
-                        / np.exp(absolute_distance[i, :][_idx])
-                    ) * (
-                        graph_cluster[_idx] == _gc_id
+                        (
+                            distance_real[i, :][_idx]
+                            / np.exp(absolute_distance[i, :][_idx])
+                        )
+                        * (graph_cluster[_idx] == _gc_id)
                     )  # product: only count score if both nodes are in same sub cluster: graph_cluster
                     self._document_concept_matrix[
                         list(set(_d for d in documents[_idx] for _d in d)), j
@@ -1121,7 +1120,6 @@ class PhraseClusterFactory:
                 and self._cluster_alg != "affinity-prop"
                 and _estimator is not None
             ):
-
                 _n_clusters_given = self._cluster_alg_kwargs.get("n_clusters", False)
                 if self._kelbow_alg_kwargs.get("enabled", False):
                     _deduction_kwargs = self._kelbow_alg_kwargs.copy()

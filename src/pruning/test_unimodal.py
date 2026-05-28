@@ -13,7 +13,6 @@ from . import unimodal
 
 
 class Test_MLF(unittest.TestCase):
-
     def test_convert_to_graph(self):
 
         # Must raise ValueError if graph not simple

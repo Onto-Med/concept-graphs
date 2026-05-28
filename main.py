@@ -7,6 +7,7 @@ from main_utils import StoppableThread, ActiveRAG
 from src.rag.embedding_stores.AbstractEmbeddingStore import ChunkEmbeddingStore
 from src.rag.marqo_rag_utils import extract_text_from_highlights
 from src.rag.rag import RAG
+from src.api.pipeline import run_complete_pipeline
 from src import integration_functions
 from src import marqo_external_utils
 
@@ -218,7 +219,7 @@ def graph_with_arg(path_arg):
 
 
 @main_objects.app.route("/graph/document/<path_arg>", methods=["POST", "DELETE"])
-def graph_document(path_arg = None):
+def graph_document(path_arg=None):
     # ToDo: add getting documents from document_server
     # ToDo: resolve not implemented exceptions
     process = string_conformity(request.args.get("process", "default"))
@@ -236,7 +237,7 @@ def graph_document(path_arg = None):
             HTTPResponses.NOT_IMPLEMENTED,
         )
 
-    if method == "POST" and path_arg is not None and path_arg.lower() is "add":
+    if method == "POST" and path_arg is not None and path_arg.lower() == "add":
         _data_proc = main_objects.current_active_pipeline_objects.get(process, {}).get(
             StepsName.DATA, None
         )
@@ -309,340 +310,7 @@ def graph_document_status():
 
 @main_objects.app.route("/pipeline", methods=["POST"])
 def complete_pipeline():
-    query_params = pipeline_query_params(
-        process_name="not set",
-        language="en",
-        skip_present=True,
-        omitted_pipeline_steps=[],
-        return_statistics=False,
-    )
-    try:
-        DEFAULT_VECTOR_STORE = {"url": "http://localhost", "port": 8882}
-        data = request.files.get("data", False)
-        data_upload = False
-        document_server_config = request.files.get("document_server_config", False)
-        vector_store_config = request.files.get("vectorstore_server_config", False)
-        replace_keys = None
-        label_getter = None
-        labels = None
-
-        content_type = request.headers.get("Content-Type")
-        content_type_json = False
-        config_object_json = None
-        if content_type == "application/json":
-            content_type_json = True
-            config_object_json: Optional[pipeline_json_config] = (
-                parse_pipeline_config_json(request.json)
-            )
-
-        query_params = get_pipeline_query_params(
-            main_objects.app,
-            request,
-            main_objects.running_processes,
-            config_object_json,
-        )
-        if isinstance(query_params, tuple) and isinstance(
-            query_params[0], flask.Response
-        ):
-            return query_params
-
-        if content_type_json:
-            _document_server = config_object_json.document_server
-            vector_store_config = (
-                config_object_json.vectorstore_server
-                if config_object_json.vectorstore_server is not None
-                else DEFAULT_VECTOR_STORE
-            )
-            if _document_server is not None:
-                replace_keys = _document_server.get("replace_keys", {"text": "content"})
-                label_getter = _document_server.get("label_key", None)
-                document_server_config = _document_server.copy()
-            else:
-                return jsonify(
-                    name=(
-                        config_object_json.name
-                        if config_object_json.name is not None
-                        else query_params.process_name
-                    ),
-                    error="No configuration entry for documents on a server provided.",
-                ), int(HTTPResponses.BAD_REQUEST)
-            _data_config = config_object_json.data
-            _embedding_config = config_object_json.embedding
-            _clustering_config = config_object_json.clustering
-            _graph_config = config_object_json.graph
-
-        else:
-            if vector_store_config:
-                if isinstance(vector_store_config, FileStorage):
-                    vector_store_config = yaml.safe_load(vector_store_config.stream)
-                else:
-                    vector_store_config = DEFAULT_VECTOR_STORE
-            else:
-                vector_store_config = DEFAULT_VECTOR_STORE
-            if not data and not document_server_config:
-                return jsonify(
-                    name=query_params.process_name,
-                    error="Neither data provided for upload with 'data' key nor a config file for documents on a server",
-                ), int(HTTPResponses.BAD_REQUEST)
-            elif data and not document_server_config:
-                _tmp_data = pathlib.Path(
-                    main_objects.file_storage_dir / ".tmp_streams" / data.filename
-                )
-                _tmp_data.parent.mkdir(parents=True, exist_ok=True)
-                data.save(_tmp_data)
-                data = _tmp_data
-                data_upload = True
-
-            labels = request.files.get("labels", None)
-            if labels is not None:
-                _tmp_labels = pathlib.Path(
-                    main_objects.file_storage_dir / ".tmp_streams" / labels.filename
-                )
-                _tmp_labels.parent.mkdir(parents=True, exist_ok=True)
-                labels.save(_tmp_labels)
-                labels = _tmp_labels
-
-            _data_config = request.files.get(f"{StepsName.DATA}_config", None)
-            _embedding_config = request.files.get(f"{StepsName.EMBEDDING}_config", None)
-            _clustering_config = request.files.get(
-                f"{StepsName.CLUSTERING}_config", None
-            )
-            _graph_config = request.files.get(f"{StepsName.GRAPH}_config", None)
-
-        if vector_store_config is not None:
-            _url = vector_store_config.pop("url", "http://localhost")
-            _port = str(vector_store_config.pop("port", 8882))
-            vector_store_config["client_url"] = f"{_url}:{_port}"
-            if not marqo_external_utils.MarqoEmbeddingStore.is_accessible(
-                vector_store_config.copy()
-            ):
-                logging.warning(
-                    f"Vector store doesn't seem to be accessible under '{vector_store_config['client_url']}'."
-                    f" Using 'pickle' storage."
-                )
-                vector_store_config = None
-        if not data_upload:
-            ds_base_config = get_data_server_config(
-                document_server_config, main_objects.app
-            )
-            if not check_data_server(ds_base_config):
-                return jsonify(
-                    name=query_params.process_name,
-                    error=f"There is no data server at the specified location ({ds_base_config}) or it contains no data.",
-                ), int(HTTPResponses.NOT_FOUND)
-            # ToDo: don't know if I want this, but 'get_documents_from_es_server' can now filter documents
-            data = get_documents_from_es_server(
-                url=ds_base_config["url"],
-                port=ds_base_config["port"],
-                index=ds_base_config["index"],
-                size=int(ds_base_config["size"]),
-                other_id=ds_base_config["other_id"],
-            )
-            replace_keys = ds_base_config.get("replace_keys", {"text": "content"})
-            label_getter = ds_base_config.get("label_key", None)
-
-        processes = [
-            (
-                StepsName.DATA,
-                PreprocessingUtil,
-                _data_config,
-                data_functions.DataProcessingFactory,
-            ),
-            (
-                StepsName.EMBEDDING,
-                PhraseEmbeddingUtil,
-                _embedding_config,
-                embedding_functions.SentenceEmbeddingsFactory,
-            ),
-            (
-                StepsName.CLUSTERING,
-                ClusteringUtil,
-                _clustering_config,
-                cluster_functions.PhraseClusterFactory,
-            ),
-            (
-                StepsName.GRAPH,
-                GraphCreationUtil,
-                _graph_config,
-                cluster_functions.WordEmbeddingClustering,
-            ),
-        ]
-        if vector_store_config is not None:
-            processes.append(
-                (
-                    StepsName.INTEGRATION,
-                    ConceptGraphIntegrationUtil,
-                    {},
-                    integration_functions.ConceptGraphIntegrationFactory,
-                )
-            )
-        processes_threading = []
-        main_objects.current_active_pipeline_objects[query_params.process_name] = {
-            k: None for k in StepsName.ALL
-        }
-        _prev_step_present = True
-        _last_step = (
-            StepsName.INTEGRATION
-            if vector_store_config is not None
-            else StepsName.GRAPH
-        )
-        for _name, _proc, _conf, _fact in processes:
-            process_obj: BaseUtil = _proc(
-                app=main_objects.app, file_storage=main_objects.file_storage_dir
-            )
-            add_status_to_running_process(
-                query_params.process_name,
-                _name,
-                ProcessStatus.STARTED,
-                main_objects.running_processes,
-            )
-            if process_obj.has_process(query_params.process_name):
-                if (
-                    _name in query_params.omitted_pipeline_steps
-                    or query_params.skip_present
-                ):
-                    logging.info(
-                        f"Skipping {_name} because "
-                        f"{'omitted' if _name in query_params.omitted_pipeline_steps else 'skip_present'}."
-                    )
-                    add_status_to_running_process(
-                        query_params.process_name,
-                        _name,
-                        ProcessStatus.FINISHED,
-                        main_objects.running_processes,
-                    )
-                    if _prev_step_present:
-                        main_objects.current_active_pipeline_objects[
-                            query_params.process_name
-                        ][_name] = FactoryLoader.load(
-                            step=_name,
-                            path=str(
-                                pathlib.Path(
-                                    main_objects.file_storage_dir,
-                                    query_params.process_name,
-                                ).resolve()
-                            ),
-                            process=query_params.process_name,
-                            data_obj=main_objects.current_active_pipeline_objects[
-                                query_params.process_name
-                            ].get(StepsName.DATA, None),
-                            emb_obj=main_objects.current_active_pipeline_objects[
-                                query_params.process_name
-                            ].get(StepsName.EMBEDDING, None),
-                            vector_store=vector_store_config,
-                        )
-                    continue
-                else:
-                    process_obj.delete_process(query_params.process_name)
-                    _last_step = _name
-            else:
-                _last_step = _name
-                _prev_step_present = False
-
-            read_config(
-                app=main_objects.app,
-                processor=process_obj,
-                process_type=_name,
-                process_name=query_params.process_name,
-                config=_conf,
-                language=query_params.language,
-                mode="json" if content_type_json else "yaml",
-            )
-
-            if _name == StepsName.DATA:
-                process_obj: PreprocessingUtil
-                process_obj.read_labels(
-                    labels if label_getter is None else label_getter
-                )
-                process_obj.read_data(
-                    data, replace_keys=replace_keys, label_getter=label_getter
-                )
-            if _name == StepsName.EMBEDDING:
-                process_obj.storage_method = (
-                    (
-                        "pickle",
-                        None,
-                    )
-                    if vector_store_config is None
-                    else (
-                        (
-                            "vectorstore",
-                            vector_store_config,
-                        )
-                        if process_obj.storage_method == "vectorstore"
-                        else (
-                            "pickle",
-                            None,
-                        )
-                    )
-                )
-            if _name == StepsName.INTEGRATION:
-                process_obj.config["check_for_reasonable_result"] = True
-
-            processes_threading.append(
-                (
-                    process_obj,
-                    _fact,
-                    _name,
-                )
-            )
-
-        pipeline_thread = StoppableThread(
-            target_args=(
-                main_objects.app,
-                processes_threading,
-                query_params.process_name,
-                main_objects.running_processes,
-                main_objects.pipeline_threads_store,
-                main_objects.current_active_pipeline_objects,
-                _last_step,
-            ),
-            group=None,
-            target=start_processes,
-            name=None,
-        )
-
-        main_objects.pipeline_threads_store[query_params.process_name] = pipeline_thread
-        start_thread(
-            main_objects.app,
-            query_params.process_name,
-            pipeline_thread,
-            main_objects.pipeline_threads_store,
-        )
-
-        if query_params.return_statistics:
-            pipeline_thread.join()
-            _graph_stats_dict = graph_get_statistics(
-                app=main_objects.app,
-                data=query_params.process_name,
-                path=main_objects.file_storage_dir,
-            )
-            return (
-                jsonify(name=query_params.process_name, **_graph_stats_dict),
-                (
-                    int(HTTPResponses.OK)
-                    if "error" not in _graph_stats_dict
-                    else int(HTTPResponses.INTERNAL_SERVER_ERROR)
-                ),
-            )
-        else:
-            return (
-                jsonify(
-                    name=query_params.process_name,
-                    status=main_objects.running_processes.get(
-                        query_params.process_name, {"status": []}
-                    ).get("status"),
-                ),
-                int(HTTPResponses.ACCEPTED),
-            )
-    except Exception as e:
-        return (
-            jsonify(
-                name=query_params.process_name,
-                error=str(e),
-            ),
-            int(HTTPResponses.INTERNAL_SERVER_ERROR),
-        )
+    return run_complete_pipeline(main_objects)
 
 
 @main_objects.app.route("/pipeline/configuration", methods=["GET"])
@@ -863,7 +531,7 @@ def rag_question():
                                 filter_by=(
                                     {"doc_id": _doc_ids} if len(_doc_ids) > 0 else None
                                 ),
-                                limit=_doc_part_limit
+                                limit=_doc_part_limit,
                             ),
                             token_limit=150,
                             lang=language,
@@ -941,12 +609,22 @@ def get_data_server():
 def get_rag_status():
     _process = string_conformity(request.args.get("process", "default"))
     _has_rag = main_objects.active_rag is not None
-    if _process is not None and _has_rag and main_objects.active_rag.process == _process:
-        return jsonify(active=main_objects.active_rag.ready, name=_process, error=None), int(HTTPResponses.OK)
-    _err_string = f"RAG is active but it seems for the process: '{main_objects.active_rag.process}'" if _has_rag else "The RAG component is not initialized."
-    return jsonify(
-        active=False, name=_process, error=_err_string
-    ), int(HTTPResponses.NOT_FOUND)
+    if (
+        _process is not None
+        and _has_rag
+        and main_objects.active_rag.process == _process
+    ):
+        return jsonify(
+            active=main_objects.active_rag.ready, name=_process, error=None
+        ), int(HTTPResponses.OK)
+    _err_string = (
+        f"RAG is active but it seems for the process: '{main_objects.active_rag.process}'"
+        if _has_rag
+        else "The RAG component is not initialized."
+    )
+    return jsonify(active=False, name=_process, error=_err_string), int(
+        HTTPResponses.NOT_FOUND
+    )
 
 
 if __name__ in ["__main__"]:

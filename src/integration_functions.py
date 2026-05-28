@@ -7,7 +7,6 @@ from src.util_functions import EmbeddingStore, save_pickle
 
 
 class ConceptGraphIntegrationFactory:
-
     @staticmethod
     def create(
         embedding_store: EmbeddingStore,

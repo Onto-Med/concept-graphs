@@ -399,8 +399,10 @@ def show_top_k_for_concepts(
                     f"\t{embedding_object.data_processing_obj.data_chunk_sets[i]['text']}"
                 )
             else:
-                yield _c_id, i, embedding_object.data_processing_obj.data_chunk_sets[i][
-                    "text"
-                ]
+                yield (
+                    _c_id,
+                    i,
+                    embedding_object.data_processing_obj.data_chunk_sets[i]["text"],
+                )
         if not yield_concepts:
             print("\n")
