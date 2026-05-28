@@ -1,15 +1,16 @@
 """Routes for external service and RAG status checks."""
 
-from flask import jsonify, request
+from flask import Blueprint, jsonify, request
 
 from main_methods import check_data_server, get_data_server_config
 from main_utils import HTTPResponses, string_conformity
 
 
-def register_status_routes(app_context):
-    """Register document-server and RAG status routes."""
+def create_status_blueprint(app_context):
+    """Create the blueprint for document-server and RAG status routes."""
+    blueprint = Blueprint("status_routes", __name__)
 
-    @app_context.app.route("/status/document-server", methods=["POST", "GET"])
+    @blueprint.route("/status/document-server", methods=["POST", "GET"])
     def get_data_server():
         if request.method == "POST":
             if request.headers.get("Content-Type") == "application/json":
@@ -43,7 +44,7 @@ def register_status_routes(app_context):
             return jsonify("Method 'GET' not yet implemented.")
         return jsonify(f"Method not supported: '{request.method}'.")
 
-    @app_context.app.route("/status/rag", methods=["GET"])
+    @blueprint.route("/status/rag", methods=["GET"])
     def get_rag_status():
         process = string_conformity(request.args.get("process", "default"))
         has_rag = app_context.rag.active is not None
@@ -63,3 +64,5 @@ def register_status_routes(app_context):
         return jsonify(active=False, name=process, error=err_string), int(
             HTTPResponses.NOT_FOUND
         )
+
+    return blueprint
