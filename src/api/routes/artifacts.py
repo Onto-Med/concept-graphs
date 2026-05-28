@@ -2,7 +2,7 @@
 
 import pathlib
 
-from flask import Response, jsonify, request
+from flask import Blueprint, Response, jsonify, request
 
 from src.pipeline.load_utils import FactoryLoader
 from main_methods import (
@@ -17,10 +17,11 @@ from src.core import embedding_functions
 from src.api.routes.common import path_arg_error, unspecified_server_error
 
 
-def register_artifact_routes(app_context):
-    """Register preprocessing, embedding, clustering, and graph routes."""
+def create_artifact_blueprint(app_context):
+    """Create the blueprint for preprocessing, embedding, clustering, and graph routes."""
+    blueprint = Blueprint("artifact_routes", __name__)
 
-    @app_context.app.route("/preprocessing/<path_arg>", methods=["GET"])
+    @blueprint.route("/preprocessing/<path_arg>", methods=["GET"])
     def data_preprocessing_with_arg(path_arg):
         process = string_conformity(request.args.get("process", "default"))
         path_arg = path_arg.lower()
@@ -45,7 +46,7 @@ def register_artifact_routes(app_context):
                 return jsonify(noun_chunks=data_obj.data_chunk_sets), HTTPResponses.OK
         return path_arg_error("preprocessing", path_arg, path_args)
 
-    @app_context.app.route("/embedding/<path_arg>", methods=["GET"])
+    @blueprint.route("/embedding/<path_arg>", methods=["GET"])
     def phrase_embedding_with_arg(path_arg):
         process = string_conformity(request.args.get("process", "default"))
         path_arg = path_arg.lower()
@@ -68,7 +69,7 @@ def register_artifact_routes(app_context):
                 return embedding_get_statistics(emb_obj)
         return path_arg_error("embedding", path_arg, path_args)
 
-    @app_context.app.route("/clustering/<path_arg>", methods=["GET"])
+    @blueprint.route("/clustering/<path_arg>", methods=["GET"])
     def clustering_with_arg(path_arg):
         process = string_conformity(request.args.get("process", "default"))
         top_k = int(request.args.get("top_k", 15))
@@ -110,7 +111,7 @@ def register_artifact_routes(app_context):
                 return clustering_get_concepts(cluster_gen)
         return path_arg_error("clustering", path_arg, path_args)
 
-    @app_context.app.route("/graph/<path_arg>", methods=["POST", "GET"])
+    @blueprint.route("/graph/<path_arg>", methods=["POST", "GET"])
     def graph_with_arg(path_arg):
         process = string_conformity(request.args.get("process", "default"))
         draw = get_bool_expression(request.args.get("draw", False))
@@ -151,3 +152,5 @@ def register_artifact_routes(app_context):
                 draw=draw,
             )
         return path_arg_error("graph", path_arg, path_args + ["#ANY_INTEGER"])
+
+    return blueprint

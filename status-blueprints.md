@@ -1,103 +1,53 @@
 # Flask Blueprint Refactor Status
 
-## Phase 1: convert static routes
+## Summary
 
-Completed.
+The API route modules have been converted from direct `app.route(...)` registration to Flask Blueprint factories.
 
-### What changed
+Each route module now owns a `create_*_blueprint(app_context)` function, and `src/api/routes/__init__.py` registers all returned blueprints on the Flask app.
 
-Converted `src/api/routes/static.py` from direct app-route registration to a Blueprint factory.
+## Completed phases
 
-### Routes affected
+### Phase 1: static routes
+
+Converted `src/api/routes/static.py`.
+
+Routes:
 
 ```text
 GET /
 GET /openapi
 ```
 
-### Validation
+### Phase 2: status routes
 
-Ran compile check and Flask smoke test successfully.
+Converted `src/api/routes/status.py`.
 
-## Phase 2: convert status routes
-
-Completed.
-
-### What changed
-
-Converted `src/api/routes/status.py` from direct app-route registration to a Blueprint factory.
-
-### Routes affected
+Routes:
 
 ```text
 GET/POST /status/document-server
 GET      /status/rag
 ```
 
-### Validation
+### Phase 3: pipeline routes
 
-Ran Black, compile check, and Flask smoke tests successfully.
+Converted `src/api/routes/pipeline.py`.
 
-## Phase 3: convert pipeline routes
-
-Completed.
-
-### What changed
-
-Converted `src/api/routes/pipeline.py` from direct app-route registration to a Blueprint factory.
-
-### Routes affected
+Routes:
 
 ```text
 POST /pipeline
 GET  /pipeline/configuration
 ```
 
-### Scope
+The heavier orchestration code in `src/api/pipeline.py` was not changed.
 
-This phase kept behavior and URLs unchanged. The heavier pipeline orchestration code in `src/api/pipeline.py` was not changed.
+### Phase 4: process routes
 
-### Validation
+Converted `src/api/routes/processes.py`.
 
-Ran Black, compile check, and Flask smoke tests successfully.
-
-## Phase 4: convert process routes
-
-Completed.
-
-### What changed
-
-Converted `src/api/routes/processes.py` from direct app-route registration to a Blueprint factory.
-
-Before:
-
-```python
-def register_process_routes(app_context):
-    @app_context.app.route("/processes", methods=["GET"])
-    def get_all_processes_api():
-        ...
-```
-
-After:
-
-```python
-def create_process_blueprint(app_context):
-    blueprint = Blueprint("process_routes", __name__)
-
-    @blueprint.route("/processes", methods=["GET"])
-    def get_all_processes_api():
-        ...
-
-    return blueprint
-```
-
-`src/api/routes/__init__.py` now registers this blueprint with:
-
-```python
-app_context.app.register_blueprint(create_process_blueprint(app_context))
-```
-
-### Routes affected
+Routes:
 
 ```text
 GET    /processes
@@ -106,53 +56,114 @@ GET    /processes/<process_id>/stop
 GET    /status
 ```
 
-### Scope
+### Phase 5: graph document routes
 
-This phase kept behavior and URLs unchanged. It only changed route registration style for the process route module.
+Converted `src/api/routes/graph_documents.py`.
 
-### Validation
+Routes:
 
-Ran Black, compile check, and Flask smoke tests successfully:
+```text
+POST/DELETE /graph/document/<path_arg>
+GET         /graph/document/add/status
+```
+
+### Phase 6: artifact routes
+
+Converted `src/api/routes/artifacts.py`.
+
+Routes:
+
+```text
+GET      /preprocessing/<path_arg>
+GET      /embedding/<path_arg>
+GET      /clustering/<path_arg>
+GET/POST /graph/<path_arg>
+```
+
+### Phase 7: RAG routes
+
+Converted `src/api/routes/rag.py`.
+
+Routes:
+
+```text
+POST     /rag/init
+GET/POST /rag/question
+```
+
+## Current structure
+
+`src/api/routes/__init__.py` now imports blueprint factories:
+
+```python
+from src.api.routes.artifacts import create_artifact_blueprint
+from src.api.routes.graph_documents import create_graph_document_blueprint
+from src.api.routes.pipeline import create_pipeline_blueprint
+from src.api.routes.processes import create_process_blueprint
+from src.api.routes.rag import create_rag_blueprint
+from src.api.routes.static import create_static_blueprint
+from src.api.routes.status import create_status_blueprint
+```
+
+and registers them with:
+
+```python
+app_context.app.register_blueprint(create_static_blueprint(app_context))
+app_context.app.register_blueprint(create_artifact_blueprint(app_context))
+app_context.app.register_blueprint(create_graph_document_blueprint(app_context))
+app_context.app.register_blueprint(create_pipeline_blueprint(app_context))
+app_context.app.register_blueprint(create_process_blueprint(app_context))
+app_context.app.register_blueprint(create_rag_blueprint(app_context))
+app_context.app.register_blueprint(create_status_blueprint(app_context))
+```
+
+## Validation
+
+Ran Black successfully:
 
 ```bash
-uv run --group test black src/api/routes/processes.py src/api/routes/__init__.py
+uv run --group test black src/api/routes
+```
+
+Ran compile check successfully:
+
+```bash
 uv run python -m compileall -q main.py main_methods.py main_utils.py src test
 ```
 
-Smoke-tested:
+Ran Flask route smoke checks successfully for converted routes, including URL-map validation for:
 
 ```text
-GET /processes                  -> 404 when no saved processes exist
-GET /status?process=missing...  -> 404 when no process exists
-URL map contains DELETE /processes/<process_id>/delete
-URL map contains GET    /processes/<process_id>/stop
+/preprocessing/<path_arg>
+/embedding/<path_arg>
+/clustering/<path_arg>
+/graph/<path_arg>
+/graph/document/<path_arg>
+/graph/document/add/status
+/rag/init
+/rag/question
 ```
 
-Result:
+Also smoke-tested selected endpoint responses:
 
 ```text
-blueprint phase 4 validation ok
+GET /preprocessing/unknown       -> 400
+GET /embedding/unknown           -> 400
+GET /clustering/unknown          -> 400
+GET /graph/document/add/status   -> 404 when no document-addition thread exists
+GET /rag/question?q=test         -> 404 when RAG is not initialized
 ```
 
-## Current blueprint conversion status
+## Full pytest status
 
-Converted:
+`uv run pytest -q` still fails for the same pre-existing unrelated test issues:
 
-```text
-src/api/routes/static.py
-src/api/routes/status.py
-src/api/routes/pipeline.py
-src/api/routes/processes.py
-```
+- `NameError: name 'ig' is not defined` in `src/pruning/test_unimodal.py`
+- incomplete `TestGraphCreator` fixture setup
+- missing pickle fixtures under `tmp/`
 
-Still pending:
+These failures do not appear related to the Blueprint conversion.
 
-```text
-src/api/routes/artifacts.py
-src/api/routes/graph_documents.py
-src/api/routes/rag.py
-```
+## Result
 
-## Next proposed phase
-
-Convert `src/api/routes/graph_documents.py` next. It is smaller than artifacts and RAG, but includes background thread creation, so it should be validated carefully.
+All route modules under `src/api/routes/` now use Blueprint factories. The project has a more idiomatic Flask structure while preserving the existing URL paths and behavior.

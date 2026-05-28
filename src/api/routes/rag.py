@@ -5,7 +5,7 @@ import logging
 from operator import itemgetter
 from time import sleep
 
-from flask import jsonify, request
+from flask import Blueprint, jsonify, request
 
 from main_methods import (
     fill_chunk_vectorstore,
@@ -24,10 +24,11 @@ from src.rag.marqo_rag_utils import extract_text_from_highlights
 from src.rag.rag import RAG
 
 
-def register_rag_routes(app_context):
-    """Register RAG initialization, question, and answer routes."""
+def create_rag_blueprint(app_context):
+    """Create the blueprint for RAG initialization and question routes."""
+    blueprint = Blueprint("rag_routes", __name__)
 
-    @app_context.app.route("/rag/init", methods=["POST"])
+    @blueprint.route("/rag/init", methods=["POST"])
     def init_rag():
         if request.method == "POST":
             if request.headers.get("Content-Type") == "application/json":
@@ -85,7 +86,7 @@ def register_rag_routes(app_context):
             HTTPResponses.BAD_REQUEST
         )
 
-    @app_context.app.route("/rag/question", methods=["GET", "POST"])
+    @blueprint.route("/rag/question", methods=["GET", "POST"])
     def rag_question():
         doc_ids = []
         doc_part_limit = 15
@@ -148,3 +149,5 @@ def register_rag_routes(app_context):
         return jsonify(f"Method not supported: '{request.method}'."), int(
             HTTPResponses.BAD_REQUEST
         )
+
+    return blueprint

@@ -1,6 +1,6 @@
 """Routes for adding documents to existing concept graphs."""
 
-from flask import jsonify, request
+from flask import Blueprint, jsonify, request
 
 from main_methods import (
     add_documents_to_concept_graphs,
@@ -10,10 +10,11 @@ from main_methods import (
 from main_utils import HTTPResponses, StepsName, StoppableThread, string_conformity
 
 
-def register_graph_document_routes(app_context):
-    """Register document addition routes for concept graphs."""
+def create_graph_document_blueprint(app_context):
+    """Create the blueprint for document addition routes for concept graphs."""
+    blueprint = Blueprint("graph_document_routes", __name__)
 
-    @app_context.app.route("/graph/document/<path_arg>", methods=["POST", "DELETE"])
+    @blueprint.route("/graph/document/<path_arg>", methods=["POST", "DELETE"])
     def graph_document(path_arg=None):
         process = string_conformity(request.args.get("process", "default"))
         method = request.method
@@ -81,7 +82,7 @@ def register_graph_document_routes(app_context):
                 err_msg = "Please use 'add' as path argument for 'POST' method."
         return jsonify(error=err_msg), HTTPResponses.BAD_REQUEST
 
-    @app_context.app.route("/graph/document/add/status", methods=["GET"])
+    @blueprint.route("/graph/document/add/status", methods=["GET"])
     def graph_document_status():
         process = string_conformity(request.args.get("process", "default"))
         thread_id = f"document_addition_{process}"
@@ -100,3 +101,5 @@ def register_graph_document_routes(app_context):
             ),
             HTTPResponses.ACCEPTED,
         )
+
+    return blueprint
