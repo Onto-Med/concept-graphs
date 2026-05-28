@@ -7,6 +7,9 @@ services:
       - 9007:9007
     volumes:
       - results:/rest_api/tmp
+      # Development-only bind mount. This hides the image's /rest_api contents
+      # including its build-time .venv, so uv may need to sync dependencies on
+      # container start unless a compatible local .venv is present.
       - .:/rest_api
 
 volumes:

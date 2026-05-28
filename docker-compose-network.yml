@@ -1,14 +1,11 @@
 services:
   concept-graphs-api:
-    image: imise/top/concept-graphs-api:0.9.5
+    image: imise/top/concept-graphs-api:0.9.6
     restart: unless-stopped
     ports:
       - 9007:9007
     volumes:
       - results:/rest_api/tmp
-      - type: bind
-        source: .
-        target: /rest_api/
     networks:
       - concept-graphs-network
 
