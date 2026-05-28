@@ -4,7 +4,13 @@ from typing import Optional
 
 import flask
 
-from main_utils import AppContext
+from main_utils import (
+    AppContext,
+    PipelineContext,
+    ProcessContext,
+    RagContext,
+    StorageContext,
+)
 from src.api.routes import register_routes
 from src.pipeline.processes import populate_running_processes
 
@@ -36,11 +42,10 @@ def setup(
 
     app_context = AppContext(
         app=app,
-        running_processes={},
-        pipeline_threads_store={},
-        current_active_pipeline_objects={},
-        file_storage_dir=pathlib.Path(file_storage_dir),
-        active_rag=None,
+        processes=ProcessContext(running={}, threads={}),
+        pipeline=PipelineContext(active_objects={}),
+        storage=StorageContext(file_storage_dir=pathlib.Path(file_storage_dir)),
+        rag=RagContext(),
     )
     app_context.file_storage_dir.mkdir(exist_ok=True)
     populate_running_processes(

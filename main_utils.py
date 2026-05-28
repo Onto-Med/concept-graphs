@@ -67,20 +67,72 @@ class ActiveRAG:
 
 
 @dataclass
-class AppContext:
-    """Shared Flask application context and runtime state.
+class ProcessContext:
+    """Runtime process/thread tracking state."""
 
-    The fields are intentionally kept flat for now to preserve behavior while
-    the codebase migrates away from the former ``PersistentObjects`` name.
-    Later phases can group this state into smaller context dataclasses.
-    """
+    running: dict
+    threads: dict
+
+
+@dataclass
+class PipelineContext:
+    """Runtime state for active pipeline objects."""
+
+    active_objects: dict
+
+
+@dataclass
+class StorageContext:
+    """Filesystem locations used by the application."""
+
+    file_storage_dir: pathlib.Path
+
+
+@dataclass
+class RagContext:
+    """Runtime RAG state."""
+
+    active: Optional[ActiveRAG] = None
+
+
+@dataclass
+class AppContext:
+    """Shared Flask application context and grouped runtime state."""
 
     app: flask.Flask
-    running_processes: dict
-    pipeline_threads_store: dict
-    current_active_pipeline_objects: dict
-    file_storage_dir: pathlib.Path
-    active_rag: Optional[ActiveRAG]
+    processes: ProcessContext
+    pipeline: PipelineContext
+    storage: StorageContext
+    rag: RagContext
+
+    @property
+    def running_processes(self) -> dict:
+        """Compatibility alias for ``processes.running``."""
+        return self.processes.running
+
+    @property
+    def pipeline_threads_store(self) -> dict:
+        """Compatibility alias for ``processes.threads``."""
+        return self.processes.threads
+
+    @property
+    def current_active_pipeline_objects(self) -> dict:
+        """Compatibility alias for ``pipeline.active_objects``."""
+        return self.pipeline.active_objects
+
+    @property
+    def file_storage_dir(self) -> pathlib.Path:
+        """Compatibility alias for ``storage.file_storage_dir``."""
+        return self.storage.file_storage_dir
+
+    @property
+    def active_rag(self) -> Optional[ActiveRAG]:
+        """Compatibility alias for ``rag.active``."""
+        return self.rag.active
+
+    @active_rag.setter
+    def active_rag(self, value: Optional[ActiveRAG]) -> None:
+        self.rag.active = value
 
 
 # Backwards-compatible alias for code or pickles that still reference the old
