@@ -2,16 +2,17 @@
 
 from typing import Optional
 
-from flask import Response, jsonify, request
+from flask import Blueprint, Response, jsonify, request
 
 from main_methods import delete_pipeline, stop_thread
 from main_utils import HTTPResponses, ProcessStatus, StoppableThread, string_conformity
 
 
-def register_process_routes(app_context):
-    """Register process listing, status, deletion, and stop routes."""
+def create_process_blueprint(app_context):
+    """Create the blueprint for process listing, status, deletion, and stop routes."""
+    blueprint = Blueprint("process_routes", __name__)
 
-    @app_context.app.route("/processes", methods=["GET"])
+    @blueprint.route("/processes", methods=["GET"])
     def get_all_processes_api():
         if len(app_context.processes.running) > 0:
             return jsonify(
@@ -19,7 +20,7 @@ def register_process_routes(app_context):
             )
         return jsonify("No saved processes."), int(HTTPResponses.NOT_FOUND)
 
-    @app_context.app.route("/processes/<process_id>/delete", methods=["DELETE"])
+    @blueprint.route("/processes/<process_id>/delete", methods=["DELETE"])
     def delete_process(process_id):
         hard_stop = request.args.get("hard_stop", False)
         process_id = string_conformity(process_id)
@@ -66,7 +67,7 @@ def register_process_routes(app_context):
             f"Process '{process_id}' set to be deleted.", status=HTTPResponses.OK
         )
 
-    @app_context.app.route("/processes/<process_id>/stop", methods=["GET"])
+    @blueprint.route("/processes/<process_id>/stop", methods=["GET"])
     def stop_pipeline(process_id):
         if request.method == "GET":
             hard_stop = request.args.get("hard_stop", False)
@@ -80,7 +81,7 @@ def register_process_routes(app_context):
             )
         return jsonify(f"Method not supported: {request.method}")
 
-    @app_context.app.route("/status", methods=["GET"])
+    @blueprint.route("/status", methods=["GET"])
     def get_status_of():
         process = string_conformity(request.args.get("process", "default"))
         if process is not None:
@@ -90,3 +91,5 @@ def register_process_routes(app_context):
         return jsonify(
             name=process, error=f"No such (running) process: '{process}'"
         ), int(HTTPResponses.NOT_FOUND)
+
+    return blueprint
