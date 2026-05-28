@@ -8,24 +8,22 @@ from main_methods import delete_pipeline, stop_thread
 from main_utils import HTTPResponses, ProcessStatus, StoppableThread, string_conformity
 
 
-def create_process_blueprint(app_context):
+def create_process_blueprint(app, processes, pipeline, storage):
     """Create the blueprint for process listing, status, deletion, and stop routes."""
     blueprint = Blueprint("process_routes", __name__)
 
     @blueprint.route("/processes", methods=["GET"])
     def get_all_processes_api():
-        if len(app_context.processes.running) > 0:
-            return jsonify(
-                processes=[p for p in app_context.processes.running.values()]
-            )
+        if len(processes.running) > 0:
+            return jsonify(processes=[p for p in processes.running.values()])
         return jsonify("No saved processes."), int(HTTPResponses.NOT_FOUND)
 
     @blueprint.route("/processes/<process_id>/delete", methods=["DELETE"])
     def delete_process(process_id):
         hard_stop = request.args.get("hard_stop", False)
         process_id = string_conformity(process_id)
-        if process_id not in set(app_context.processes.running.keys()).union(
-            app_context.pipeline.active_objects.keys()
+        if process_id not in set(processes.running.keys()).union(
+            pipeline.active_objects.keys()
         ):
             return Response(
                 f"There is no such process '{process_id}'.\n",
@@ -35,27 +33,25 @@ def create_process_blueprint(app_context):
         if any(
             [
                 step.get("status") in [ProcessStatus.RUNNING, ProcessStatus.STARTED]
-                for step in app_context.processes.running.get(process_id).get(
-                    "status", []
-                )
+                for step in processes.running.get(process_id).get("status", [])
             ]
         ):
             to_stop: Optional[StoppableThread]
-            if to_stop := app_context.processes.threads.get(process_id, None):
+            if to_stop := processes.threads.get(process_id, None):
                 stop_thread(
-                    app=app_context.app,
+                    app=app,
                     process_name=process_id,
-                    threading_store=app_context.processes.threads,
-                    process_tracker=app_context.processes.running,
+                    threading_store=processes.threads,
+                    process_tracker=processes.running,
                     hard_stop=hard_stop,
                 )
         delete_thread = StoppableThread(
             target_args=(
-                app_context.app,
-                app_context.storage.file_storage_dir,
+                app,
+                storage.file_storage_dir,
                 process_id,
-                app_context.processes.running,
-                app_context.pipeline.active_objects,
+                processes.running,
+                pipeline.active_objects,
                 to_stop,
             ),
             group=None,
@@ -73,10 +69,10 @@ def create_process_blueprint(app_context):
             hard_stop = request.args.get("hard_stop", False)
             process_id = string_conformity(process_id)
             return stop_thread(
-                app=app_context.app,
+                app=app,
                 process_name=process_id,
-                threading_store=app_context.processes.threads,
-                process_tracker=app_context.processes.running,
+                threading_store=processes.threads,
+                process_tracker=processes.running,
                 hard_stop=hard_stop,
             )
         return jsonify(f"Method not supported: {request.method}")
@@ -85,7 +81,7 @@ def create_process_blueprint(app_context):
     def get_status_of():
         process = string_conformity(request.args.get("process", "default"))
         if process is not None:
-            response = app_context.processes.running.get(process, None)
+            response = processes.running.get(process, None)
             if response is not None:
                 return jsonify(response), int(HTTPResponses.OK)
         return jsonify(

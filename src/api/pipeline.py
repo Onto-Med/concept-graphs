@@ -54,6 +54,16 @@ DEFAULT_VECTOR_STORE = {"url": "http://localhost", "port": 8882}
 
 
 @dataclass
+class PipelineRouteContext:
+    """Dependencies needed by pipeline route orchestration."""
+
+    app: flask.Flask
+    processes: object
+    pipeline: object
+    storage: object
+
+
+@dataclass
 class PipelineRequestData:
     data: object = False
     data_upload: bool = False
@@ -489,8 +499,11 @@ def _pipeline_response(app_context, query_params, pipeline_thread: StoppableThre
     )
 
 
-def run_complete_pipeline(app_context):
+def run_complete_pipeline(app, processes, pipeline, storage):
     """Handle the /pipeline endpoint by preparing and starting a pipeline run."""
+    app_context = PipelineRouteContext(
+        app=app, processes=processes, pipeline=pipeline, storage=storage
+    )
     query_params = _default_query_params()
     try:
         content_type_json = request.headers.get("Content-Type") == "application/json"

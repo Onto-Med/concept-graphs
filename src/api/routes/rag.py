@@ -24,7 +24,7 @@ from src.rag.marqo_rag_utils import extract_text_from_highlights
 from src.rag.rag import RAG
 
 
-def create_rag_blueprint(app_context):
+def create_rag_blueprint(rag, processes, storage, pipeline):
     """Create the blueprint for RAG initialization and question routes."""
     blueprint = Blueprint("rag_routes", __name__)
 
@@ -47,7 +47,7 @@ def create_rag_blueprint(app_context):
                 chatter = config.chatter.pop(
                     "chatter", "src.rag.chatters.BlabladorChatter.BlabladorChatter"
                 )
-                app_context.rag.active = ActiveRAG(
+                rag.active = ActiveRAG(
                     rag=RAG.with_chatter(
                         api_key=config.api_key,
                         chatter=chatter,
@@ -59,25 +59,23 @@ def create_rag_blueprint(app_context):
                 )
                 if (not vector_store.is_filled()) or force_init:
                     rag_init_thread = StoppableThread(
-                        target_args=(process, app_context),
+                        target_args=(process, rag, storage, pipeline),
                         group=None,
                         target=fill_chunk_vectorstore,
                         name=None,
                     )
                     rag_init_thread.start()
                     sleep(1.0)
-                    app_context.processes.threads[rag_thread_id] = rag_init_thread
+                    processes.threads[rag_thread_id] = rag_init_thread
                     return jsonify("Starting initializing RAG component."), int(
                         HTTPResponses.OK
                     )
-                if init_thread := app_context.processes.threads.get(
-                    rag_thread_id, None
-                ):
+                if init_thread := processes.threads.get(rag_thread_id, None):
                     if not init_thread.return_value:
                         return jsonify(
                             f"There already seems to be an initialization thread running for process {process}. Please wait for it to finish."
                         ), int(HTTPResponses.ACCEPTED)
-                app_context.rag.active.switch_readiness()
+                rag.active.switch_readiness()
                 return jsonify("Initialized RAG component."), int(HTTPResponses.OK)
             return jsonify(
                 f"Wrong content type '{request.headers.get('Content-Type')}'; need 'application/json'"
@@ -98,21 +96,21 @@ def create_rag_blueprint(app_context):
             doc_ids = get_doc_ids(request.json)
             doc_part_limit = request.json.get("limit", 15)
         if request.method in ["GET", "POST"]:
-            if app_context.rag.active is None or not app_context.rag.active.ready:
+            if rag.active is None or not rag.active.ready:
                 return jsonify(
                     "No active and ready rag component found."
                     " You need to initialize it first and wait for it to be ready."
                 ), int(HTTPResponses.NOT_FOUND)
             question = request.args.get("q", request.args.get("question", False))
             process = string_conformity(request.args.get("process", "default"))
-            language = app_context.rag.active.rag.language
+            language = rag.active.rag.language
             if not question:
                 return jsonify("No question supplied."), int(HTTPResponses.BAD_REQUEST)
-            if app_context.rag.active.process != process:
+            if rag.active.process != process:
                 return (
                     jsonify(
                         f"There is no ready and active RAG component for '{process}'."
-                        f" Currently active is : '{app_context.rag.active.process}'; use the 'init' endpoint."
+                        f" Currently active is : '{rag.active.process}'; use the 'init' endpoint."
                     ),
                     int(HTTPResponses.BAD_REQUEST),
                 )
@@ -121,7 +119,7 @@ def create_rag_blueprint(app_context):
                 zip(
                     *itemgetter(1, -1)(
                         extract_text_from_highlights(
-                            app_context.rag.active.vectorstore.get_chunks(
+                            rag.active.vectorstore.get_chunks(
                                 question,
                                 filter_by=(
                                     {"doc_id": doc_ids} if len(doc_ids) > 0 else None
@@ -134,12 +132,10 @@ def create_rag_blueprint(app_context):
                     )
                 )
             )
-            success, answer = app_context.rag.active.rag.with_documents(
+            success, answer = rag.active.rag.with_documents(
                 documents, concat_by="doc_id"
             ).build_and_invoke(question)
-            reference = {
-                k: v.metadata for k, v in app_context.rag.active.rag.documents.items()
-            }
+            reference = {k: v.metadata for k, v in rag.active.rag.documents.items()}
             if success:
                 return jsonify(
                     answer=answer, info=json.dumps(reference, ensure_ascii=False)

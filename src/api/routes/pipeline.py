@@ -16,13 +16,13 @@ from main_utils import (
 from src.api.pipeline import run_complete_pipeline
 
 
-def create_pipeline_blueprint(app_context):
+def create_pipeline_blueprint(app, processes, pipeline, storage):
     """Create the blueprint for pipeline execution and configuration routes."""
     blueprint = Blueprint("pipeline_routes", __name__)
 
     @blueprint.route("/pipeline", methods=["POST"])
     def complete_pipeline():
-        return run_complete_pipeline(app_context)
+        return run_complete_pipeline(app, processes, pipeline, storage)
 
     @blueprint.route("/pipeline/configuration", methods=["GET"])
     def get_pipeline_default_configuration():
@@ -50,9 +50,9 @@ def create_pipeline_blueprint(app_context):
         logging.info("Returning configuration for '%s' pipeline.", process)
         try:
             config = load_configs(
-                app=app_context.app,
+                app=app,
                 process_name=process,
-                path_to_configs=app_context.storage.file_storage_dir,
+                path_to_configs=storage.file_storage_dir,
             )
             return (
                 jsonify(

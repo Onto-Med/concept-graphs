@@ -3,7 +3,7 @@
 from flask import Blueprint
 
 
-def create_static_blueprint(app_context):
+def create_static_blueprint(app):
     """Create the blueprint for root and OpenAPI UI routes."""
     blueprint = Blueprint("static_routes", __name__)
 
@@ -13,6 +13,6 @@ def create_static_blueprint(app_context):
 
     @blueprint.route("/openapi", methods=["GET"])
     def openapi():
-        return app_context.app.send_static_file("index.html")
+        return app.send_static_file("index.html")
 
     return blueprint

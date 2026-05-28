@@ -10,7 +10,7 @@ from main_methods import (
 from main_utils import HTTPResponses, StepsName, StoppableThread, string_conformity
 
 
-def create_graph_document_blueprint(app_context):
+def create_graph_document_blueprint(app, processes, pipeline, storage):
     """Create the blueprint for document addition routes for concept graphs."""
     blueprint = Blueprint("graph_document_routes", __name__)
 
@@ -32,16 +32,16 @@ def create_graph_document_blueprint(app_context):
             )
 
         if method == "POST" and path_arg is not None and path_arg.lower() == "add":
-            data_proc = app_context.pipeline.active_objects.get(process, {}).get(
+            data_proc = pipeline.active_objects.get(process, {}).get(
                 StepsName.DATA, None
             )
-            emb_proc = app_context.pipeline.active_objects.get(process, {}).get(
+            emb_proc = pipeline.active_objects.get(process, {}).get(
                 StepsName.EMBEDDING, None
             )
-            graph_proc = app_context.pipeline.active_objects.get(process, {}).get(
+            graph_proc = pipeline.active_objects.get(process, {}).get(
                 StepsName.GRAPH, None
             )
-            path_base = app_context.storage.file_storage_dir / process
+            path_base = storage.file_storage_dir / process
             document_adding_thread = StoppableThread(
                 target_args=(content_json,),
                 target_kwargs={
@@ -55,11 +55,9 @@ def create_graph_document_blueprint(app_context):
                 target=add_documents_to_concept_graphs,
                 name=None,
             )
-            app_context.processes.threads[f"document_addition_{process}"] = (
-                document_adding_thread
-            )
+            processes.threads[f"document_addition_{process}"] = document_adding_thread
             start_thread(
-                app_context.app,
+                app,
                 f"document_addition_{process}",
                 document_adding_thread,
                 None,
@@ -86,14 +84,14 @@ def create_graph_document_blueprint(app_context):
     def graph_document_status():
         process = string_conformity(request.args.get("process", "default"))
         thread_id = f"document_addition_{process}"
-        if thread_id not in app_context.processes.threads:
+        if thread_id not in processes.threads:
             return (
                 jsonify(
                     error=f"No document addition thread (running or completed) for '{process}' found."
                 ),
                 HTTPResponses.NOT_FOUND,
             )
-        if return_value := app_context.processes.threads.get(thread_id).return_value:
+        if return_value := processes.threads.get(thread_id).return_value:
             return jsonify(return_value[0]), return_value[1]
         return (
             jsonify(

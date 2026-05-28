@@ -6,7 +6,7 @@ from main_methods import check_data_server, get_data_server_config
 from main_utils import HTTPResponses, string_conformity
 
 
-def create_status_blueprint(app_context):
+def create_status_blueprint(app, rag):
     """Create the blueprint for document-server and RAG status routes."""
     blueprint = Blueprint("status_routes", __name__)
 
@@ -24,9 +24,7 @@ def create_status_blueprint(app_context):
                     name="document server check",
                     status="No document server config file provided",
                 ), int(HTTPResponses.BAD_REQUEST)
-            base_config = get_data_server_config(
-                document_server_config, app_context.app
-            )
+            base_config = get_data_server_config(document_server_config, app)
             if not check_data_server(base_config):
                 return (
                     jsonify(
@@ -47,17 +45,13 @@ def create_status_blueprint(app_context):
     @blueprint.route("/status/rag", methods=["GET"])
     def get_rag_status():
         process = string_conformity(request.args.get("process", "default"))
-        has_rag = app_context.rag.active is not None
-        if (
-            process is not None
-            and has_rag
-            and app_context.rag.active.process == process
-        ):
-            return jsonify(
-                active=app_context.rag.active.ready, name=process, error=None
-            ), int(HTTPResponses.OK)
+        has_rag = rag.active is not None
+        if process is not None and has_rag and rag.active.process == process:
+            return jsonify(active=rag.active.ready, name=process, error=None), int(
+                HTTPResponses.OK
+            )
         err_string = (
-            f"RAG is active but it seems for the process: '{app_context.rag.active.process}'"
+            f"RAG is active but it seems for the process: '{rag.active.process}'"
             if has_rag
             else "The RAG component is not initialized."
         )

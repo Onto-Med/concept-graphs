@@ -17,7 +17,7 @@ from src.core import embedding_functions
 from src.api.routes.common import path_arg_error, unspecified_server_error
 
 
-def create_artifact_blueprint(app_context):
+def create_artifact_blueprint(app, storage, pipeline):
     """Create the blueprint for preprocessing, embedding, clustering, and graph routes."""
     blueprint = Blueprint("artifact_routes", __name__)
 
@@ -29,13 +29,9 @@ def create_artifact_blueprint(app_context):
         path_args = ["statistics", "noun_chunks"]
         if path_arg in path_args:
             data_obj = FactoryLoader.with_active_objects(
-                str(
-                    pathlib.Path(
-                        app_context.storage.file_storage_dir, process
-                    ).resolve()
-                ),
+                str(pathlib.Path(storage.file_storage_dir, process).resolve()),
                 process,
-                app_context.pipeline.active_objects,
+                pipeline.active_objects,
                 StepsName.DATA,
             )
             if data_obj is None:
@@ -54,13 +50,9 @@ def create_artifact_blueprint(app_context):
         path_args = ["statistics"]
         if path_arg in path_args:
             emb_obj = FactoryLoader.with_active_objects(
-                str(
-                    pathlib.Path(
-                        app_context.storage.file_storage_dir, process
-                    ).resolve()
-                ),
+                str(pathlib.Path(storage.file_storage_dir, process).resolve()),
                 process,
-                app_context.pipeline.active_objects,
+                pipeline.active_objects,
                 StepsName.EMBEDDING,
             )
             if emb_obj is None:
@@ -79,26 +71,18 @@ def create_artifact_blueprint(app_context):
         path_args = ["concepts"]
         if path_arg in path_args:
             cluster_obj = FactoryLoader.with_active_objects(
-                str(
-                    pathlib.Path(
-                        app_context.storage.file_storage_dir, process
-                    ).resolve()
-                ),
+                str(pathlib.Path(storage.file_storage_dir, process).resolve()),
                 process,
-                app_context.pipeline.active_objects,
+                pipeline.active_objects,
                 StepsName.CLUSTERING,
             )
             if cluster_obj is None:
                 return unspecified_server_error()
             if path_arg == "concepts":
                 emb_obj = FactoryLoader.with_active_objects(
-                    str(
-                        pathlib.Path(
-                            app_context.storage.file_storage_dir, process
-                        ).resolve()
-                    ),
+                    str(pathlib.Path(storage.file_storage_dir, process).resolve()),
                     process,
-                    app_context.pipeline.active_objects,
+                    pipeline.active_objects,
                     StepsName.EMBEDDING,
                 )
                 cluster_gen = embedding_functions.show_top_k_for_concepts(
@@ -117,9 +101,9 @@ def create_artifact_blueprint(app_context):
         draw = get_bool_expression(request.args.get("draw", False))
         path_arg = path_arg.lower()
         graph_list = FactoryLoader.with_active_objects(
-            str(pathlib.Path(app_context.storage.file_storage_dir, process).resolve()),
+            str(pathlib.Path(storage.file_storage_dir, process).resolve()),
             process,
-            app_context.pipeline.active_objects,
+            pipeline.active_objects,
             StepsName.GRAPH,
         )
 
@@ -130,9 +114,9 @@ def create_artifact_blueprint(app_context):
             try:
                 if path_arg == "statistics":
                     result = graph_get_statistics(
-                        app_context.app,
+                        app,
                         graph_list,
-                        app_context.storage.file_storage_dir,
+                        storage.file_storage_dir,
                     )
                     http_response = HTTPResponses.OK
                     if "error" in result:
@@ -148,7 +132,7 @@ def create_artifact_blueprint(app_context):
             return graph_get_specific(
                 graph_list,
                 graph_nr,
-                path=app_context.storage.file_storage_dir,
+                path=storage.file_storage_dir,
                 draw=draw,
             )
         return path_arg_error("graph", path_arg, path_args + ["#ANY_INTEGER"])
