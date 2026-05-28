@@ -4,7 +4,7 @@ import json
 import logging
 import pathlib
 
-from flask import jsonify, request
+from flask import Blueprint, jsonify, request
 
 from main_methods import load_configs
 from main_utils import (
@@ -16,14 +16,15 @@ from main_utils import (
 from src.api.pipeline import run_complete_pipeline
 
 
-def register_pipeline_routes(app_context):
-    """Register pipeline execution and configuration routes."""
+def create_pipeline_blueprint(app_context):
+    """Create the blueprint for pipeline execution and configuration routes."""
+    blueprint = Blueprint("pipeline_routes", __name__)
 
-    @app_context.app.route("/pipeline", methods=["POST"])
+    @blueprint.route("/pipeline", methods=["POST"])
     def complete_pipeline():
         return run_complete_pipeline(app_context)
 
-    @app_context.app.route("/pipeline/configuration", methods=["GET"])
+    @blueprint.route("/pipeline/configuration", methods=["GET"])
     def get_pipeline_default_configuration():
         if request.method != "GET":
             return HTTPResponses.BAD_REQUEST
@@ -66,3 +67,5 @@ def register_pipeline_routes(app_context):
         return jsonify(
             message=f"Couldn't find/read configuration for '{process}'."
         ), int(HTTPResponses.NOT_FOUND)
+
+    return blueprint

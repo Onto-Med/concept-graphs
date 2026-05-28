@@ -8,49 +8,12 @@ Completed.
 
 Converted `src/api/routes/static.py` from direct app-route registration to a Blueprint factory.
 
-Before:
-
-```python
-def register_static_routes(app_context):
-    @app_context.app.route("/", methods=["GET"])
-    def index():
-        ...
-```
-
-After:
-
-```python
-def create_static_blueprint(app_context):
-    blueprint = Blueprint("static_routes", __name__)
-
-    @blueprint.route("/", methods=["GET"])
-    def index():
-        ...
-
-    return blueprint
-```
-
-`src/api/routes/__init__.py` now registers this blueprint with:
-
-```python
-app_context.app.register_blueprint(create_static_blueprint(app_context))
-```
-
 ### Routes affected
 
 ```text
 GET /
 GET /openapi
 ```
-
-### Scope
-
-This was intentionally the smallest route conversion:
-
-- no behavior changes
-- no URL changes
-- no other route modules converted yet
-- still uses the current `AppContext` dependency style
 
 ### Validation
 
@@ -64,23 +27,42 @@ Completed.
 
 Converted `src/api/routes/status.py` from direct app-route registration to a Blueprint factory.
 
+### Routes affected
+
+```text
+GET/POST /status/document-server
+GET      /status/rag
+```
+
+### Validation
+
+Ran Black, compile check, and Flask smoke tests successfully.
+
+## Phase 3: convert pipeline routes
+
+Completed.
+
+### What changed
+
+Converted `src/api/routes/pipeline.py` from direct app-route registration to a Blueprint factory.
+
 Before:
 
 ```python
-def register_status_routes(app_context):
-    @app_context.app.route("/status/rag", methods=["GET"])
-    def get_rag_status():
+def register_pipeline_routes(app_context):
+    @app_context.app.route("/pipeline", methods=["POST"])
+    def complete_pipeline():
         ...
 ```
 
 After:
 
 ```python
-def create_status_blueprint(app_context):
-    blueprint = Blueprint("status_routes", __name__)
+def create_pipeline_blueprint(app_context):
+    blueprint = Blueprint("pipeline_routes", __name__)
 
-    @blueprint.route("/status/rag", methods=["GET"])
-    def get_rag_status():
+    @blueprint.route("/pipeline", methods=["POST"])
+    def complete_pipeline():
         ...
 
     return blueprint
@@ -89,42 +71,64 @@ def create_status_blueprint(app_context):
 `src/api/routes/__init__.py` now registers this blueprint with:
 
 ```python
-app_context.app.register_blueprint(create_status_blueprint(app_context))
+app_context.app.register_blueprint(create_pipeline_blueprint(app_context))
 ```
 
 ### Routes affected
 
 ```text
-GET/POST /status/document-server
-GET      /status/rag
+POST /pipeline
+GET  /pipeline/configuration
 ```
 
 ### Scope
 
-This phase kept behavior and URLs unchanged. It only changed route registration style for the status module.
+This phase kept behavior and URLs unchanged. It only changed route registration style for the pipeline route module.
+
+The heavier pipeline orchestration code in `src/api/pipeline.py` was not changed.
 
 ### Validation
 
 Ran Black, compile check, and Flask smoke tests successfully:
 
 ```bash
-uv run --group test black src/api/routes/status.py src/api/routes/__init__.py
+uv run --group test black src/api/routes/pipeline.py src/api/routes/__init__.py
 uv run python -m compileall -q main.py main_methods.py main_utils.py src test
 ```
 
 Smoke-tested:
 
 ```text
-GET /status/rag              -> 404 when RAG is not initialized
-GET /status/document-server  -> 200 with current placeholder GET behavior
+GET /pipeline/configuration?default=true&language=en -> 200 or 404 depending on config availability
+URL map contains POST /pipeline
+URL map contains GET /pipeline/configuration
 ```
 
 Result:
 
 ```text
-blueprint phase 2 validation ok
+blueprint phase 3 validation ok
+```
+
+## Current blueprint conversion status
+
+Converted:
+
+```text
+src/api/routes/static.py
+src/api/routes/status.py
+src/api/routes/pipeline.py
+```
+
+Still pending:
+
+```text
+src/api/routes/artifacts.py
+src/api/routes/graph_documents.py
+src/api/routes/processes.py
+src/api/routes/rag.py
 ```
 
 ## Next proposed phase
 
-Convert another relatively small route module, likely `src/api/routes/processes.py` or `src/api/routes/pipeline.py`, to a Blueprint factory.
+Convert `src/api/routes/processes.py` next. It is more involved than static/status/pipeline, but still smaller than artifacts and RAG.
