@@ -6,7 +6,7 @@ from typing import Optional
 
 import flask
 
-from main_utils import StoppableThread
+from src.common.threads import StoppableThread
 from src.pipeline.steps.clustering_util import ClusteringUtil
 from src.pipeline.steps.embedding_util import PhraseEmbeddingUtil
 from src.pipeline.steps.graph_creation_util import GraphCreationUtil

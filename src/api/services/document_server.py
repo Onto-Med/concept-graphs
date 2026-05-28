@@ -8,7 +8,7 @@ import yaml
 from munch import Munch
 from werkzeug.datastructures import FileStorage
 
-from main_utils import get_bool_expression
+from src.common.parsing import get_bool_expression
 from src.api.services.pipeline_params import get_dict_expression
 
 

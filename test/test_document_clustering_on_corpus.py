@@ -4,7 +4,7 @@ import unittest
 from sklearn.cluster import KMeans
 
 from src.pipeline.load_utils import FactoryLoader
-from main_utils import StepsName
+from src.pipeline.status import StepsName
 from src.core.cluster_functions import WordEmbeddingClustering
 
 # from src.core.cluster_functions import WordEmbeddingClustering

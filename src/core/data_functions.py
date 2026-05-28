@@ -18,7 +18,10 @@ from spacy.tokens import DocBin
 from spacy.tokens.doc import Doc
 from tqdm.autonotebook import tqdm
 
-from main_utils import load_spacy_model, get_default_spacy_model
+from src.common.spacy_utils import (
+    load_spacy_model,
+    get_default_spacy_model,
+)
 from src.negspacy.negation import Negex
 from src.negspacy.utils import FeaturesOfInterest
 from src.common.util_functions import (

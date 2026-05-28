@@ -3,7 +3,8 @@ from typing import Optional, Union, Callable
 import flask
 from werkzeug.datastructures import FileStorage
 
-from main_utils import StepsName, BaseUtil
+from src.pipeline.base import BaseUtil
+from src.pipeline.status import StepsName
 from src.storage.marqo_external_utils import MarqoEmbeddingStore
 from src.core.embedding_functions import SentenceEmbeddingsFactory
 from src.common.util_functions import load_pickle

@@ -2,7 +2,7 @@
 
 from flask import jsonify
 
-from main_utils import HTTPResponses
+from src.api.responses import HTTPResponses
 
 
 def unspecified_server_error():

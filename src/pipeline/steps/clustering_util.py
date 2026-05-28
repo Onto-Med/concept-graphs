@@ -4,7 +4,8 @@ import flask
 from werkzeug.datastructures import FileStorage
 
 from src.pipeline.load_utils import FactoryLoader
-from main_utils import StepsName, BaseUtil
+from src.pipeline.base import BaseUtil
+from src.pipeline.status import StepsName
 from src.core.cluster_functions import PhraseClusterFactory
 
 

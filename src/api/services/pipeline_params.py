@@ -5,13 +5,15 @@ from typing import Union
 import flask
 from flask import jsonify
 
-from main_utils import (
-    HTTPResponses,
+from src.api.responses import HTTPResponses
+from src.common.parsing import (
+    get_bool_expression,
+    string_conformity,
+)
+from src.pipeline.status import (
     PipelineLanguage,
     ProcessStatus,
-    get_bool_expression,
     pipeline_query_params,
-    string_conformity,
 )
 from src.api.request_parsing import pipeline_json_config
 

@@ -8,14 +8,14 @@ import yaml
 from dataclass_wizard import JSONSerializable
 from werkzeug.datastructures import FileStorage
 
-from main_utils import (
-    StepsName,
-    get_bool_expression,
+from src.common.parsing import get_bool_expression
+from src.common.spacy_utils import (
     NegspacyConfig,
     load_spacy_model,
     get_default_spacy_model,
-    BaseUtil,
 )
+from src.pipeline.base import BaseUtil
+from src.pipeline.status import StepsName
 from src.core.data_functions import DataProcessingFactory
 from src.negspacy.utils import FeaturesOfInterest
 

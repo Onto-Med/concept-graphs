@@ -9,14 +9,14 @@ from typing import Optional, Union
 import flask
 from flask import Response
 
-from main_utils import (
-    HTTPResponses,
+from src.api.responses import HTTPResponses
+from src.common.threads import StoppableThread
+from src.pipeline.base import BaseUtil
+from src.pipeline.status import (
     ProcessStatus,
-    StoppableThread,
     add_status_to_running_process,
     steps_relation_dict,
     StepsName,
-    BaseUtil,
 )
 
 

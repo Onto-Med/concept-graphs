@@ -12,7 +12,12 @@ from src.api.services.artifact_responses import (
     graph_get_specific,
     graph_get_statistics,
 )
-from main_utils import HTTPResponses, StepsName, get_bool_expression, string_conformity
+from src.api.responses import HTTPResponses
+from src.common.parsing import (
+    get_bool_expression,
+    string_conformity,
+)
+from src.pipeline.status import StepsName
 from src.core import embedding_functions
 from src.api.routes.common import path_arg_error, unspecified_server_error
 

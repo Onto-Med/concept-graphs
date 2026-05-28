@@ -6,7 +6,10 @@ from flask import Blueprint, Response, jsonify, request
 
 from src.api.services.process_management import delete_pipeline
 from src.pipeline.processes import stop_thread
-from main_utils import HTTPResponses, ProcessStatus, StoppableThread, string_conformity
+from src.api.responses import HTTPResponses
+from src.common.parsing import string_conformity
+from src.common.threads import StoppableThread
+from src.pipeline.status import ProcessStatus
 
 
 def create_process_blueprint(app, processes, pipeline, storage):

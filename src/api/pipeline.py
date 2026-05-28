@@ -29,12 +29,12 @@ from src.api.services.document_server import (
 )
 from src.api.services.pipeline_params import get_pipeline_query_params
 from src.pipeline.processes import start_processes, start_thread
-from main_utils import (
-    BaseUtil,
-    HTTPResponses,
+from src.api.responses import HTTPResponses
+from src.common.threads import StoppableThread
+from src.pipeline.base import BaseUtil
+from src.pipeline.status import (
     ProcessStatus,
     StepsName,
-    StoppableThread,
     add_status_to_running_process,
     pipeline_query_params,
 )

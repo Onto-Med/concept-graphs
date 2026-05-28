@@ -6,7 +6,8 @@ from typing import Union, Optional, Callable
 from flask import Response, Flask
 from werkzeug.datastructures import FileStorage
 
-from main_utils import BaseUtil, StepsName
+from src.pipeline.base import BaseUtil
+from src.pipeline.status import StepsName
 from src.core.integration_functions import ConceptGraphIntegrationFactory
 from src.common.util_functions import load_pickle, EmbeddingStore
 

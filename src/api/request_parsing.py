@@ -6,7 +6,7 @@ from typing import Optional
 
 from munch import Munch
 
-from main_utils import string_conformity
+from src.common.parsing import string_conformity
 
 
 pipeline_json_config = namedtuple(

@@ -10,7 +10,9 @@ from flask import request
 from werkzeug.datastructures import FileStorage
 from yaml.representer import RepresenterError
 
-from main_utils import BaseUtil, StepsName, string_conformity
+from src.common.parsing import string_conformity
+from src.pipeline.base import BaseUtil
+from src.pipeline.status import StepsName
 from src.pipeline.steps.clustering_util import ClusteringUtil
 from src.pipeline.steps.embedding_util import PhraseEmbeddingUtil
 from src.pipeline.steps.graph_creation_util import GraphCreationUtil

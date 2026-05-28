@@ -4,7 +4,7 @@ from typing import Optional, Union
 
 import networkx as nx
 
-from main_utils import StepsName
+from src.pipeline.status import StepsName
 from src.core.cluster_functions import PhraseClusterFactory
 from src.core.data_functions import DataProcessingFactory
 from src.core.embedding_functions import SentenceEmbeddingsFactory

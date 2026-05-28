@@ -3,7 +3,8 @@
 from flask import Blueprint, jsonify, request
 
 from src.api.services.document_server import check_data_server, get_data_server_config
-from main_utils import HTTPResponses, string_conformity
+from src.api.responses import HTTPResponses
+from src.common.parsing import string_conformity
 
 
 def create_status_blueprint(app, rag):

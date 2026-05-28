@@ -2,7 +2,7 @@ import pathlib
 import unittest
 
 from src.pipeline.load_utils import FactoryLoader
-from main_utils import StepsName
+from src.pipeline.status import StepsName
 
 
 class TestLoadFactory(unittest.TestCase):

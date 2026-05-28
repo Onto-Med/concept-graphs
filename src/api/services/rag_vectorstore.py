@@ -6,7 +6,7 @@ from inspect import getfullargspec
 from pydoc import locate
 from typing import Optional, cast
 
-from main_utils import StepsName
+from src.pipeline.status import StepsName
 from src.pipeline.load_utils import FactoryLoader
 from src.rag.TextSplitters import PreprocessedSpacyTextSplitter
 from src.rag.embedding_stores.AbstractEmbeddingStore import ChunkEmbeddingStore

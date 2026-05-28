@@ -12,13 +12,13 @@ from src.api.services.rag_vectorstore import (
     fill_chunk_vectorstore,
     initialize_chunk_vectorstore,
 )
-from main_utils import (
-    ActiveRAG,
-    HTTPResponses,
-    StoppableThread,
+from src.api.context import ActiveRAG
+from src.api.responses import HTTPResponses
+from src.common.parsing import (
     get_bool_expression,
     string_conformity,
 )
+from src.common.threads import StoppableThread
 from src.rag.marqo_rag_utils import extract_text_from_highlights
 from src.rag.rag import RAG
 

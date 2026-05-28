@@ -5,7 +5,10 @@ from flask import Blueprint, jsonify, request
 from src.api.request_parsing import parse_document_adding_json
 from src.pipeline.document_addition import add_documents_to_concept_graphs
 from src.pipeline.processes import start_thread
-from main_utils import HTTPResponses, StepsName, StoppableThread, string_conformity
+from src.api.responses import HTTPResponses
+from src.common.parsing import string_conformity
+from src.common.threads import StoppableThread
+from src.pipeline.status import StepsName
 
 
 def create_graph_document_blueprint(app, processes, pipeline, storage):
