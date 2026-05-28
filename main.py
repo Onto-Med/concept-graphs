@@ -47,11 +47,11 @@ def setup(
         storage=StorageContext(file_storage_dir=pathlib.Path(file_storage_dir)),
         rag=RagContext(),
     )
-    app_context.file_storage_dir.mkdir(exist_ok=True)
+    app_context.storage.file_storage_dir.mkdir(exist_ok=True)
     populate_running_processes(
         app_context.app,
-        app_context.file_storage_dir,
-        app_context.running_processes,
+        app_context.storage.file_storage_dir,
+        app_context.processes.running,
     )
     return app_context
 

@@ -70,7 +70,7 @@ file_storage_dir
 active_rag
 ```
 
-No behavior was changed yet. Grouping state into smaller subcontexts is reserved for Phase 3.
+No behavior was changed yet. Grouping state into smaller subcontexts was reserved for Phase 3.
 
 ### Validation
 
@@ -135,7 +135,81 @@ PersistentObjects = AppContext
 
 ### Scope
 
-This phase changed the internal shape of `AppContext`, but intentionally did not update every route and service to use the nested fields yet. That is Phase 4.
+This phase changed the internal shape of `AppContext`, but intentionally did not update every route and service to use the nested fields yet. That was reserved for Phase 4.
+
+### Validation
+
+Ran compile check and smoke tests successfully.
+
+## Phase 4: use explicit grouped context access
+
+Completed.
+
+### What changed
+
+Replaced direct use of compatibility fields with explicit grouped context access across the codebase.
+
+Examples:
+
+```python
+app_context.running_processes
+```
+
+became:
+
+```python
+app_context.processes.running
+```
+
+```python
+app_context.pipeline_threads_store
+```
+
+became:
+
+```python
+app_context.processes.threads
+```
+
+```python
+app_context.current_active_pipeline_objects
+```
+
+became:
+
+```python
+app_context.pipeline.active_objects
+```
+
+```python
+app_context.file_storage_dir
+```
+
+became:
+
+```python
+app_context.storage.file_storage_dir
+```
+
+```python
+app_context.active_rag
+```
+
+became:
+
+```python
+app_context.rag.active
+```
+
+### Compatibility
+
+The compatibility properties remain on `AppContext` for now, but normal project code no longer uses them directly.
+
+A grep check confirms no remaining direct `app_context.<old_field>` usages in Python files.
+
+### Formatting
+
+Ran Black after the replacements.
 
 ### Validation
 
@@ -145,54 +219,41 @@ Ran compile check successfully:
 uv run python -m compileall -q main.py main_methods.py main_utils.py src test
 ```
 
-Ran compatibility smoke test successfully:
+Ran grouped-context smoke test successfully:
 
 ```bash
 uv run python - <<'PY'
 import main
-from main_utils import AppContext
 ctx = main.app_context
-assert isinstance(ctx, AppContext)
-assert ctx.running_processes is ctx.processes.running
-assert ctx.pipeline_threads_store is ctx.processes.threads
-assert ctx.current_active_pipeline_objects is ctx.pipeline.active_objects
-assert ctx.file_storage_dir is ctx.storage.file_storage_dir
-assert ctx.active_rag is ctx.rag.active
-print('phase 3 compatibility aliases ok')
+assert ctx.processes.running is ctx.running_processes
+assert ctx.processes.threads is ctx.pipeline_threads_store
+assert ctx.pipeline.active_objects is ctx.current_active_pipeline_objects
+assert ctx.storage.file_storage_dir == ctx.file_storage_dir
+assert ctx.rag.active is ctx.active_rag
+client = ctx.app.test_client()
+for path in ['/', '/openapi']:
+    assert client.get(path).status_code == 200
+print('phase 4 validation ok')
 PY
 ```
 
-Also smoke-tested basic Flask endpoints:
+Result:
 
 ```text
-/        200
-/openapi 200
+phase 4 validation ok
 ```
 
-## Next proposed phase
+## Current state
 
-Phase 4 should start replacing compatibility-property usage with explicit grouped access where it improves clarity, for example:
+The broad application context is now clearer and more Pythonic:
 
-```python
-app_context.running_processes
-```
+- `AppContext` is the explicit top-level runtime container.
+- Runtime state is grouped by responsibility.
+- Project code uses grouped access rather than flat compatibility aliases.
+- Backwards-compatible aliases remain available for a future cleanup pass.
 
-to:
+## Possible next cleanup
 
-```python
-app_context.processes.running
-```
+A later phase could remove the compatibility properties and `PersistentObjects` alias once we are confident no old references or serialized objects require them.
 
-and:
-
-```python
-app_context.active_rag
-```
-
-to:
-
-```python
-app_context.rag.active
-```
-
-This can be done module-by-module to keep the diff reviewable.
+Another good next step would be converting route registration functions to Flask Blueprints, using `AppContext` or narrower subcontexts as dependencies.

@@ -51,7 +51,7 @@ def register_pipeline_routes(app_context):
             config = load_configs(
                 app=app_context.app,
                 process_name=process,
-                path_to_configs=app_context.file_storage_dir,
+                path_to_configs=app_context.storage.file_storage_dir,
             )
             return (
                 jsonify(

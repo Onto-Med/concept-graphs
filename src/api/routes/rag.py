@@ -46,7 +46,7 @@ def register_rag_routes(app_context):
                 chatter = config.chatter.pop(
                     "chatter", "src.rag.chatters.BlabladorChatter.BlabladorChatter"
                 )
-                app_context.active_rag = ActiveRAG(
+                app_context.rag.active = ActiveRAG(
                     rag=RAG.with_chatter(
                         api_key=config.api_key,
                         chatter=chatter,
@@ -65,18 +65,18 @@ def register_rag_routes(app_context):
                     )
                     rag_init_thread.start()
                     sleep(1.0)
-                    app_context.pipeline_threads_store[rag_thread_id] = rag_init_thread
+                    app_context.processes.threads[rag_thread_id] = rag_init_thread
                     return jsonify("Starting initializing RAG component."), int(
                         HTTPResponses.OK
                     )
-                if init_thread := app_context.pipeline_threads_store.get(
+                if init_thread := app_context.processes.threads.get(
                     rag_thread_id, None
                 ):
                     if not init_thread.return_value:
                         return jsonify(
                             f"There already seems to be an initialization thread running for process {process}. Please wait for it to finish."
                         ), int(HTTPResponses.ACCEPTED)
-                app_context.active_rag.switch_readiness()
+                app_context.rag.active.switch_readiness()
                 return jsonify("Initialized RAG component."), int(HTTPResponses.OK)
             return jsonify(
                 f"Wrong content type '{request.headers.get('Content-Type')}'; need 'application/json'"
@@ -97,21 +97,21 @@ def register_rag_routes(app_context):
             doc_ids = get_doc_ids(request.json)
             doc_part_limit = request.json.get("limit", 15)
         if request.method in ["GET", "POST"]:
-            if app_context.active_rag is None or not app_context.active_rag.ready:
+            if app_context.rag.active is None or not app_context.rag.active.ready:
                 return jsonify(
                     "No active and ready rag component found."
                     " You need to initialize it first and wait for it to be ready."
                 ), int(HTTPResponses.NOT_FOUND)
             question = request.args.get("q", request.args.get("question", False))
             process = string_conformity(request.args.get("process", "default"))
-            language = app_context.active_rag.rag.language
+            language = app_context.rag.active.rag.language
             if not question:
                 return jsonify("No question supplied."), int(HTTPResponses.BAD_REQUEST)
-            if app_context.active_rag.process != process:
+            if app_context.rag.active.process != process:
                 return (
                     jsonify(
                         f"There is no ready and active RAG component for '{process}'."
-                        f" Currently active is : '{app_context.active_rag.process}'; use the 'init' endpoint."
+                        f" Currently active is : '{app_context.rag.active.process}'; use the 'init' endpoint."
                     ),
                     int(HTTPResponses.BAD_REQUEST),
                 )
@@ -120,7 +120,7 @@ def register_rag_routes(app_context):
                 zip(
                     *itemgetter(1, -1)(
                         extract_text_from_highlights(
-                            app_context.active_rag.vectorstore.get_chunks(
+                            app_context.rag.active.vectorstore.get_chunks(
                                 question,
                                 filter_by=(
                                     {"doc_id": doc_ids} if len(doc_ids) > 0 else None
@@ -133,11 +133,11 @@ def register_rag_routes(app_context):
                     )
                 )
             )
-            success, answer = app_context.active_rag.rag.with_documents(
+            success, answer = app_context.rag.active.rag.with_documents(
                 documents, concat_by="doc_id"
             ).build_and_invoke(question)
             reference = {
-                k: v.metadata for k, v in app_context.active_rag.rag.documents.items()
+                k: v.metadata for k, v in app_context.rag.active.rag.documents.items()
             }
             if success:
                 return jsonify(

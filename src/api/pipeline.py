@@ -135,9 +135,7 @@ def _parse_json_pipeline_request(
     )
 
 
-def _parse_multipart_pipeline_request(
-    app_context, query_params: pipeline_query_params
-):
+def _parse_multipart_pipeline_request(app_context, query_params: pipeline_query_params):
     """Build pipeline request data from multipart form fields and uploaded files."""
     data = request.files.get("data", False)
     document_server_config = request.files.get("document_server_config", False)
@@ -162,12 +160,12 @@ def _parse_multipart_pipeline_request(
         )
 
     if data and not document_server_config:
-        data = _temporary_upload_path(app_context.file_storage_dir, data)
+        data = _temporary_upload_path(app_context.storage.file_storage_dir, data)
         data_upload = True
 
     labels = request.files.get("labels", None)
     if labels is not None:
-        labels = _temporary_upload_path(app_context.file_storage_dir, labels)
+        labels = _temporary_upload_path(app_context.storage.file_storage_dir, labels)
 
     return (
         PipelineRequestData(
@@ -287,14 +285,12 @@ def _pipeline_process_definitions(vector_store_config: Optional[dict], request_d
 
 def _load_skipped_step(app_context, query_params, step_name: str, vector_store_config):
     """Load a serialized step result into the active object cache."""
-    active_objects = app_context.current_active_pipeline_objects[
-        query_params.process_name
-    ]
+    active_objects = app_context.pipeline.active_objects[query_params.process_name]
     active_objects[step_name] = FactoryLoader.load(
         step=step_name,
         path=str(
             pathlib.Path(
-                app_context.file_storage_dir,
+                app_context.storage.file_storage_dir,
                 query_params.process_name,
             ).resolve()
         ),
@@ -366,7 +362,7 @@ def _prepare_pipeline_processes(
 ) -> PreparedPipeline:
     """Create and configure pipeline processors that still need to run."""
     processes_threading = []
-    app_context.current_active_pipeline_objects[query_params.process_name] = {
+    app_context.pipeline.active_objects[query_params.process_name] = {
         key: None for key in StepsName.ALL
     }
     previous_step_present = True
@@ -378,13 +374,13 @@ def _prepare_pipeline_processes(
         vector_store_config, request_data
     ):
         process_obj: BaseUtil = processor_cls(
-            app=app_context.app, file_storage=app_context.file_storage_dir
+            app=app_context.app, file_storage=app_context.storage.file_storage_dir
         )
         add_status_to_running_process(
             query_params.process_name,
             step_name,
             ProcessStatus.STARTED,
-            app_context.running_processes,
+            app_context.processes.running,
         )
 
         if process_obj.has_process(query_params.process_name):
@@ -432,7 +428,7 @@ def _mark_step_skipped(app_context, query_params, step_name: str) -> None:
         query_params.process_name,
         step_name,
         ProcessStatus.FINISHED,
-        app_context.running_processes,
+        app_context.processes.running,
     )
 
 
@@ -445,21 +441,21 @@ def _start_pipeline_thread(
             app_context.app,
             prepared_pipeline.processes_threading,
             query_params.process_name,
-            app_context.running_processes,
-            app_context.pipeline_threads_store,
-            app_context.current_active_pipeline_objects,
+            app_context.processes.running,
+            app_context.processes.threads,
+            app_context.pipeline.active_objects,
             prepared_pipeline.last_step,
         ),
         group=None,
         target=start_processes,
         name=None,
     )
-    app_context.pipeline_threads_store[query_params.process_name] = pipeline_thread
+    app_context.processes.threads[query_params.process_name] = pipeline_thread
     start_thread(
         app_context.app,
         query_params.process_name,
         pipeline_thread,
-        app_context.pipeline_threads_store,
+        app_context.processes.threads,
     )
     return pipeline_thread
 
@@ -471,7 +467,7 @@ def _pipeline_response(app_context, query_params, pipeline_thread: StoppableThre
         graph_stats = graph_get_statistics(
             app=app_context.app,
             data=query_params.process_name,
-            path=app_context.file_storage_dir,
+            path=app_context.storage.file_storage_dir,
         )
         return (
             jsonify(name=query_params.process_name, **graph_stats),
@@ -485,7 +481,7 @@ def _pipeline_response(app_context, query_params, pipeline_thread: StoppableThre
     return (
         jsonify(
             name=query_params.process_name,
-            status=app_context.running_processes.get(
+            status=app_context.processes.running.get(
                 query_params.process_name, {"status": []}
             ).get("status"),
         ),
@@ -505,7 +501,7 @@ def run_complete_pipeline(app_context):
         query_params = get_pipeline_query_params(
             app_context.app,
             request,
-            app_context.running_processes,
+            app_context.processes.running,
             config_object_json,
         )
         if isinstance(query_params, tuple) and isinstance(

@@ -640,13 +640,13 @@ def fill_chunk_vectorstore(process: str, app_context: AppContext, **kwargs) -> b
         ).items()
         if k in getfullargspec(_splitter_class).args
     }
-    _rag = app_context.active_rag
+    _rag = app_context.rag.active
     if not _rag.initializing:
         _rag.initializing = True
         data_obj = FactoryLoader.with_active_objects(
-            str(pathlib.Path(app_context.file_storage_dir, process).resolve()),
+            str(pathlib.Path(app_context.storage.file_storage_dir, process).resolve()),
             process,
-            app_context.current_active_pipeline_objects,
+            app_context.pipeline.active_objects,
             StepsName.DATA,
         )
         if data_obj is None:

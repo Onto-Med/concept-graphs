@@ -31,16 +31,16 @@ def register_graph_document_routes(app_context):
             )
 
         if method == "POST" and path_arg is not None and path_arg.lower() == "add":
-            data_proc = app_context.current_active_pipeline_objects.get(
-                process, {}
-            ).get(StepsName.DATA, None)
-            emb_proc = app_context.current_active_pipeline_objects.get(
-                process, {}
-            ).get(StepsName.EMBEDDING, None)
-            graph_proc = app_context.current_active_pipeline_objects.get(
-                process, {}
-            ).get(StepsName.GRAPH, None)
-            path_base = app_context.file_storage_dir / process
+            data_proc = app_context.pipeline.active_objects.get(process, {}).get(
+                StepsName.DATA, None
+            )
+            emb_proc = app_context.pipeline.active_objects.get(process, {}).get(
+                StepsName.EMBEDDING, None
+            )
+            graph_proc = app_context.pipeline.active_objects.get(process, {}).get(
+                StepsName.GRAPH, None
+            )
+            path_base = app_context.storage.file_storage_dir / process
             document_adding_thread = StoppableThread(
                 target_args=(content_json,),
                 target_kwargs={
@@ -54,7 +54,7 @@ def register_graph_document_routes(app_context):
                 target=add_documents_to_concept_graphs,
                 name=None,
             )
-            app_context.pipeline_threads_store[f"document_addition_{process}"] = (
+            app_context.processes.threads[f"document_addition_{process}"] = (
                 document_adding_thread
             )
             start_thread(
@@ -85,16 +85,14 @@ def register_graph_document_routes(app_context):
     def graph_document_status():
         process = string_conformity(request.args.get("process", "default"))
         thread_id = f"document_addition_{process}"
-        if thread_id not in app_context.pipeline_threads_store:
+        if thread_id not in app_context.processes.threads:
             return (
                 jsonify(
                     error=f"No document addition thread (running or completed) for '{process}' found."
                 ),
                 HTTPResponses.NOT_FOUND,
             )
-        if return_value := app_context.pipeline_threads_store.get(
-            thread_id
-        ).return_value:
+        if return_value := app_context.processes.threads.get(thread_id).return_value:
             return jsonify(return_value[0]), return_value[1]
         return (
             jsonify(
