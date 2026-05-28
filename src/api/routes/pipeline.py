@@ -6,7 +6,7 @@ import pathlib
 
 from flask import Blueprint, jsonify, request
 
-from main_methods import load_configs
+from src.api.services.configuration import load_configs
 from main_utils import (
     HTTPResponses,
     PipelineLanguage,

@@ -19,17 +19,16 @@ from src.pipeline.steps.embedding_util import PhraseEmbeddingUtil
 from src.pipeline.steps.graph_creation_util import GraphCreationUtil
 from src.pipeline.steps.integration_util import ConceptGraphIntegrationUtil
 from src.pipeline.load_utils import FactoryLoader
-from main_methods import (
+from src.api.request_parsing import parse_pipeline_config_json, pipeline_json_config
+from src.api.services.artifact_responses import graph_get_statistics
+from src.api.services.configuration import read_config
+from src.api.services.document_server import (
     check_data_server,
     get_data_server_config,
     get_documents_from_es_server,
-    get_pipeline_query_params,
-    graph_get_statistics,
-    parse_pipeline_config_json,
-    read_config,
-    start_processes,
-    start_thread,
 )
+from src.api.services.pipeline_params import get_pipeline_query_params
+from src.pipeline.processes import start_processes, start_thread
 from main_utils import (
     BaseUtil,
     HTTPResponses,
@@ -47,7 +46,6 @@ from src.core import (
     integration_functions,
 )
 from src.storage import marqo_external_utils
-from src.api.request_parsing import pipeline_json_config
 
 
 DEFAULT_VECTOR_STORE = {"url": "http://localhost", "port": 8882}

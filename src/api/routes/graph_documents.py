@@ -2,11 +2,9 @@
 
 from flask import Blueprint, jsonify, request
 
-from main_methods import (
-    add_documents_to_concept_graphs,
-    parse_document_adding_json,
-    start_thread,
-)
+from src.api.request_parsing import parse_document_adding_json
+from src.pipeline.document_addition import add_documents_to_concept_graphs
+from src.pipeline.processes import start_thread
 from main_utils import HTTPResponses, StepsName, StoppableThread, string_conformity
 
 

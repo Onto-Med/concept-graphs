@@ -5,7 +5,7 @@ import pathlib
 from flask import Blueprint, Response, jsonify, request
 
 from src.pipeline.load_utils import FactoryLoader
-from main_methods import (
+from src.api.services.artifact_responses import (
     clustering_get_concepts,
     data_get_statistics,
     embedding_get_statistics,
