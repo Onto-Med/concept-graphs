@@ -8,9 +8,9 @@ import umap
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import KMeans
 
-from src.data_functions import DataProcessingFactory
-from src.marqo_external_utils import MarqoEmbeddingStore
-from src.util_functions import (
+from src.core.data_functions import DataProcessingFactory
+from src.storage.marqo_external_utils import MarqoEmbeddingStore
+from src.common.util_functions import (
     NoneDownScaleObj,
     load_pickle,
     save_pickle,

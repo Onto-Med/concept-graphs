@@ -21,7 +21,7 @@ from tqdm.autonotebook import tqdm
 from main_utils import load_spacy_model, get_default_spacy_model
 from src.negspacy.negation import Negex
 from src.negspacy.utils import FeaturesOfInterest
-from src.util_functions import (
+from src.common.util_functions import (
     load_pickle,
     save_pickle,
     add_offset_to_documents_dicts_by_id,
@@ -637,9 +637,9 @@ class DataProcessingFactory:
                     )
                     _offset = _chunk_dict["offset"]
                     if (not (_negated_chunk and omit_negated_chunks)) and data is None:
-                        self._document_chunk_matrix[ch["doc_index"]] += (
-                            f"{self._chunk_boundary}{_text}"
-                        )
+                        self._document_chunk_matrix[
+                            ch["doc_index"]
+                        ] += f"{self._chunk_boundary}{_text}"
 
                     if _csdt.get(_text, False) and not (
                         _negated_chunk and omit_negated_chunks

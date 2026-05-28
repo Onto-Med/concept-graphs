@@ -38,7 +38,7 @@ from main_utils import (
 )
 from src.rag.TextSplitters import PreprocessedSpacyTextSplitter
 from src.rag.embedding_stores.AbstractEmbeddingStore import ChunkEmbeddingStore
-from src import data_functions, cluster_functions, embedding_functions
+from src.core import data_functions, cluster_functions, embedding_functions
 
 
 from src.api.request_parsing import (

@@ -3,7 +3,7 @@ from itertools import tee
 
 import networkx as nx
 
-from src.util_functions import EmbeddingStore, save_pickle
+from src.common.util_functions import EmbeddingStore, save_pickle
 
 
 class ConceptGraphIntegrationFactory:

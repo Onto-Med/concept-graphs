@@ -5,10 +5,15 @@ from sklearn.cluster import KMeans
 
 from load_utils import FactoryLoader
 from main_utils import StepsName
-from src.cluster_functions import WordEmbeddingClustering
+from src.core.cluster_functions import WordEmbeddingClustering
 
-# from src.cluster_functions import WordEmbeddingClustering
-from src import data_functions, embedding_functions, cluster_functions, graph_functions
+# from src.core.cluster_functions import WordEmbeddingClustering
+from src.core import (
+    data_functions,
+    embedding_functions,
+    cluster_functions,
+    graph_functions,
+)
 
 
 class TestDocumentClusteringOnCorpus(unittest.TestCase):

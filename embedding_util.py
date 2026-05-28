@@ -4,9 +4,9 @@ import flask
 from werkzeug.datastructures import FileStorage
 
 from main_utils import StepsName, BaseUtil
-from src.marqo_external_utils import MarqoEmbeddingStore
-from src.embedding_functions import SentenceEmbeddingsFactory
-from src.util_functions import load_pickle
+from src.storage.marqo_external_utils import MarqoEmbeddingStore
+from src.core.embedding_functions import SentenceEmbeddingsFactory
+from src.common.util_functions import load_pickle
 from load_utils import FactoryLoader
 
 

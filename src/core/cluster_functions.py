@@ -35,9 +35,9 @@ from sklearn.utils._random import sample_without_replacement
 from tqdm.autonotebook import tqdm
 from yellowbrick.cluster import kelbow_visualizer
 
-from src.data_functions import DataProcessingFactory, clean_span, get_actual_str
-from src.embedding_functions import SentenceEmbeddingsFactory, top_k_cosine
-from src.graph_functions import (
+from src.core.data_functions import DataProcessingFactory, clean_span, get_actual_str
+from src.core.embedding_functions import SentenceEmbeddingsFactory, top_k_cosine
+from src.core.graph_functions import (
     GraphCreator,
     unroll_graph,
     simplify_graph_naive,
@@ -45,8 +45,8 @@ from src.graph_functions import (
 )
 from src.pruning import unimodal
 
-# from src.util_functions import CVAEMantle
-from src.util_functions import (
+# from src.common.util_functions import CVAEMantle
+from src.common.util_functions import (
     load_pickle,
     save_pickle,
     NoneDownScaleObj,
@@ -637,7 +637,9 @@ class WordEmbeddingClustering:
                         return_predecessors=True,
                         directed=False,
                     )
-                except NegativeCycleError:  # ToDo: don't know if this is appropriate: it would skip th whole concept graph
+                except (
+                    NegativeCycleError
+                ):  # ToDo: don't know if this is appropriate: it would skip th whole concept graph
                     continue
                 bool_cut = (distance <= cutoff) & (distance > 0)
                 absolute_distance = construct_dist_matrix(
@@ -651,11 +653,10 @@ class WordEmbeddingClustering:
                     _gc_id = graph_cluster[i]
                     _idx = np.where(bool_cut[i, :])
                     _scores = (
-                        (
-                            distance_real[i, :][_idx]
-                            / np.exp(absolute_distance[i, :][_idx])
-                        )
-                        * (graph_cluster[_idx] == _gc_id)
+                        distance_real[i, :][_idx]
+                        / np.exp(absolute_distance[i, :][_idx])
+                    ) * (
+                        graph_cluster[_idx] == _gc_id
                     )  # product: only count score if both nodes are in same sub cluster: graph_cluster
                     self._document_concept_matrix[
                         list(set(_d for d in documents[_idx] for _d in d)), j

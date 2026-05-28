@@ -78,19 +78,13 @@ default-groups = [
 
 [tool.hatch.build.targets.sdist]
 include = [
-    "negspacy",
-    "pruning",
-    "rag",
     "./*.py",
-    "./src/*.py",
+    "./src/**/*.py",
 ]
 
 [tool.hatch.build.targets.wheel]
 include = [
-    "negspacy",
-    "pruning",
-    "rag",
     "./*.py",
-    "./src/*.py",
+    "./src/**/*.py",
 ]
 #Changelog = ""

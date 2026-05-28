@@ -8,7 +8,7 @@ import marqo
 import numpy as np
 from marqo.errors import MarqoWebError
 
-from src.util_functions import (
+from src.common.util_functions import (
     EmbeddingStore,
     DocumentStore,
     Document,

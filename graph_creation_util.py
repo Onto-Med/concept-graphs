@@ -8,8 +8,8 @@ from werkzeug.datastructures import FileStorage
 
 from load_utils import FactoryLoader
 from main_utils import StepsName, BaseUtil
-from src.cluster_functions import WordEmbeddingClustering
-from src.util_functions import save_pickle
+from src.core.cluster_functions import WordEmbeddingClustering
+from src.common.util_functions import save_pickle
 
 
 class GraphCreationUtil(BaseUtil):

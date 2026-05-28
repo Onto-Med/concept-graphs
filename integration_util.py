@@ -7,8 +7,8 @@ from flask import Response, Flask
 from werkzeug.datastructures import FileStorage
 
 from main_utils import BaseUtil, StepsName
-from src.integration_functions import ConceptGraphIntegrationFactory
-from src.util_functions import load_pickle, EmbeddingStore
+from src.core.integration_functions import ConceptGraphIntegrationFactory
+from src.common.util_functions import load_pickle, EmbeddingStore
 
 
 class ConceptGraphIntegrationUtil(BaseUtil):
@@ -16,7 +16,7 @@ class ConceptGraphIntegrationUtil(BaseUtil):
         self,
         app: Flask,
         file_storage: str,
-        embedding_store_cls: str = "src.marqo_external_utils.MarqoEmbeddingStore",
+        embedding_store_cls: str = "src.storage.marqo_external_utils.MarqoEmbeddingStore",
     ):
         super().__init__(app, file_storage, StepsName.INTEGRATION)
         self._embedding_store_cls = embedding_store_cls

@@ -16,7 +16,7 @@ from main_utils import (
     get_default_spacy_model,
     BaseUtil,
 )
-from src.data_functions import DataProcessingFactory
+from src.core.data_functions import DataProcessingFactory
 from src.negspacy.utils import FeaturesOfInterest
 
 

@@ -12,10 +12,10 @@ import numpy as np
 
 from load_utils import FactoryLoader
 from main_utils import HTTPResponses, StepsName, transform_document_addition_results
-from src import data_functions, embedding_functions
+from src.core import data_functions, embedding_functions
 from src.api.request_parsing import document_adding_json
-from src.graph_functions import GraphIncorp
-from src.util_functions import DocumentStore, EmbeddingStore, save_pickle
+from src.core.graph_functions import GraphIncorp
+from src.common.util_functions import DocumentStore, EmbeddingStore, save_pickle
 
 
 def add_documents_to_concept_graphs(
@@ -34,9 +34,9 @@ def add_documents_to_concept_graphs(
     storage_path: Optional[Union[str, pathlib.Path]] = None,
     process_name: str = "default",
     store_permanently: bool = True,
-    document_store_cls: str = "src.marqo_external_utils.MarqoDocumentStore",
-    embedding_store_cls: str = "src.marqo_external_utils.MarqoEmbeddingStore",
-    document_cls: str = "src.marqo_external_utils.MarqoDocument",
+    document_store_cls: str = "src.storage.marqo_external_utils.MarqoDocumentStore",
+    embedding_store_cls: str = "src.storage.marqo_external_utils.MarqoEmbeddingStore",
+    document_cls: str = "src.storage.marqo_external_utils.MarqoDocument",
 ):
     try:
         document_store = locate(document_store_cls)

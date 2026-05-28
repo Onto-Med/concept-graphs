@@ -13,8 +13,8 @@ import pandas as pd
 import spacy
 from sklearn.datasets import fetch_20newsgroups
 
-from src import cluster_functions, data_functions, embedding_functions
-from src.util_functions import load_pickle
+from src.core import cluster_functions, data_functions, embedding_functions
+from src.common.util_functions import load_pickle
 
 logging.basicConfig()
 logging.root.setLevel(logging.INFO)

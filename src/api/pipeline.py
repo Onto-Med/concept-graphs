@@ -40,13 +40,13 @@ from main_utils import (
     pipeline_query_params,
 )
 from preprocessing_util import PreprocessingUtil
-from src import (
+from src.core import (
     cluster_functions,
     data_functions,
     embedding_functions,
     integration_functions,
 )
-from src import marqo_external_utils
+from src.storage import marqo_external_utils
 from src.api.request_parsing import pipeline_json_config
 
 

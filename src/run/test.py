@@ -8,7 +8,7 @@ from typing import Union, Iterable, Tuple
 import dill as pickle
 from sklearn.cluster import AgglomerativeClustering, KMeans
 
-from src import cluster_functions, embedding_functions
+from src.core import cluster_functions, embedding_functions
 
 logging.basicConfig()
 logging.root.setLevel(logging.INFO)

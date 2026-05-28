@@ -13,7 +13,7 @@ from main_methods import (
     graph_get_statistics,
 )
 from main_utils import HTTPResponses, StepsName, get_bool_expression, string_conformity
-from src import embedding_functions
+from src.core import embedding_functions
 from src.api.routes.common import path_arg_error, unspecified_server_error
 
 

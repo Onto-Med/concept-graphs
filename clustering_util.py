@@ -5,7 +5,7 @@ from werkzeug.datastructures import FileStorage
 
 from load_utils import FactoryLoader
 from main_utils import StepsName, BaseUtil
-from src.cluster_functions import PhraseClusterFactory
+from src.core.cluster_functions import PhraseClusterFactory
 
 
 class ClusteringUtil(BaseUtil):

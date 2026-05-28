@@ -188,9 +188,9 @@ def stop_thread(
                         "status"
                     ] = ProcessStatus.STOPPED
                 continue
-            process_tracker[process_name]["status"][_step.get("rank") - 1]["status"] = (
-                ProcessStatus.ABORTED
-            )
+            process_tracker[process_name]["status"][_step.get("rank") - 1][
+                "status"
+            ] = ProcessStatus.ABORTED
     except Exception:
         pass
 
