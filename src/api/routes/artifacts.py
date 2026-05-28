@@ -17,10 +17,10 @@ from src.core import embedding_functions
 from src.api.routes.common import path_arg_error, unspecified_server_error
 
 
-def register_artifact_routes(main_objects):
+def register_artifact_routes(app_context):
     """Register preprocessing, embedding, clustering, and graph routes."""
 
-    @main_objects.app.route("/preprocessing/<path_arg>", methods=["GET"])
+    @app_context.app.route("/preprocessing/<path_arg>", methods=["GET"])
     def data_preprocessing_with_arg(path_arg):
         process = string_conformity(request.args.get("process", "default"))
         path_arg = path_arg.lower()
@@ -28,9 +28,9 @@ def register_artifact_routes(main_objects):
         path_args = ["statistics", "noun_chunks"]
         if path_arg in path_args:
             data_obj = FactoryLoader.with_active_objects(
-                str(pathlib.Path(main_objects.file_storage_dir, process).resolve()),
+                str(pathlib.Path(app_context.file_storage_dir, process).resolve()),
                 process,
-                main_objects.current_active_pipeline_objects,
+                app_context.current_active_pipeline_objects,
                 StepsName.DATA,
             )
             if data_obj is None:
@@ -41,7 +41,7 @@ def register_artifact_routes(main_objects):
                 return jsonify(noun_chunks=data_obj.data_chunk_sets), HTTPResponses.OK
         return path_arg_error("preprocessing", path_arg, path_args)
 
-    @main_objects.app.route("/embedding/<path_arg>", methods=["GET"])
+    @app_context.app.route("/embedding/<path_arg>", methods=["GET"])
     def phrase_embedding_with_arg(path_arg):
         process = string_conformity(request.args.get("process", "default"))
         path_arg = path_arg.lower()
@@ -49,9 +49,9 @@ def register_artifact_routes(main_objects):
         path_args = ["statistics"]
         if path_arg in path_args:
             emb_obj = FactoryLoader.with_active_objects(
-                str(pathlib.Path(main_objects.file_storage_dir, process).resolve()),
+                str(pathlib.Path(app_context.file_storage_dir, process).resolve()),
                 process,
-                main_objects.current_active_pipeline_objects,
+                app_context.current_active_pipeline_objects,
                 StepsName.EMBEDDING,
             )
             if emb_obj is None:
@@ -60,7 +60,7 @@ def register_artifact_routes(main_objects):
                 return embedding_get_statistics(emb_obj)
         return path_arg_error("embedding", path_arg, path_args)
 
-    @main_objects.app.route("/clustering/<path_arg>", methods=["GET"])
+    @app_context.app.route("/clustering/<path_arg>", methods=["GET"])
     def clustering_with_arg(path_arg):
         process = string_conformity(request.args.get("process", "default"))
         top_k = int(request.args.get("top_k", 15))
@@ -70,18 +70,18 @@ def register_artifact_routes(main_objects):
         path_args = ["concepts"]
         if path_arg in path_args:
             cluster_obj = FactoryLoader.with_active_objects(
-                str(pathlib.Path(main_objects.file_storage_dir, process).resolve()),
+                str(pathlib.Path(app_context.file_storage_dir, process).resolve()),
                 process,
-                main_objects.current_active_pipeline_objects,
+                app_context.current_active_pipeline_objects,
                 StepsName.CLUSTERING,
             )
             if cluster_obj is None:
                 return unspecified_server_error()
             if path_arg == "concepts":
                 emb_obj = FactoryLoader.with_active_objects(
-                    str(pathlib.Path(main_objects.file_storage_dir, process).resolve()),
+                    str(pathlib.Path(app_context.file_storage_dir, process).resolve()),
                     process,
-                    main_objects.current_active_pipeline_objects,
+                    app_context.current_active_pipeline_objects,
                     StepsName.EMBEDDING,
                 )
                 cluster_gen = embedding_functions.show_top_k_for_concepts(
@@ -94,15 +94,15 @@ def register_artifact_routes(main_objects):
                 return clustering_get_concepts(cluster_gen)
         return path_arg_error("clustering", path_arg, path_args)
 
-    @main_objects.app.route("/graph/<path_arg>", methods=["POST", "GET"])
+    @app_context.app.route("/graph/<path_arg>", methods=["POST", "GET"])
     def graph_with_arg(path_arg):
         process = string_conformity(request.args.get("process", "default"))
         draw = get_bool_expression(request.args.get("draw", False))
         path_arg = path_arg.lower()
         graph_list = FactoryLoader.with_active_objects(
-            str(pathlib.Path(main_objects.file_storage_dir, process).resolve()),
+            str(pathlib.Path(app_context.file_storage_dir, process).resolve()),
             process,
-            main_objects.current_active_pipeline_objects,
+            app_context.current_active_pipeline_objects,
             StepsName.GRAPH,
         )
 
@@ -113,7 +113,7 @@ def register_artifact_routes(main_objects):
             try:
                 if path_arg == "statistics":
                     result = graph_get_statistics(
-                        main_objects.app, graph_list, main_objects.file_storage_dir
+                        app_context.app, graph_list, app_context.file_storage_dir
                     )
                     http_response = HTTPResponses.OK
                     if "error" in result:
@@ -127,6 +127,6 @@ def register_artifact_routes(main_objects):
         elif path_arg.isdigit():
             graph_nr = int(path_arg)
             return graph_get_specific(
-                graph_list, graph_nr, path=main_objects.file_storage_dir, draw=draw
+                graph_list, graph_nr, path=app_context.file_storage_dir, draw=draw
             )
         return path_arg_error("graph", path_arg, path_args + ["#ANY_INTEGER"])

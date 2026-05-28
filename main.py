@@ -34,7 +34,7 @@ def setup(
         root_logger.handlers.clear()
     root_logger.addHandler(flask.logging.default_handler)
 
-    persistent_objects = PersistentObjects(
+    app_context = PersistentObjects(
         app=app,
         running_processes={},
         pipeline_threads_store={},
@@ -42,18 +42,18 @@ def setup(
         file_storage_dir=pathlib.Path(file_storage_dir),
         active_rag=None,
     )
-    persistent_objects.file_storage_dir.mkdir(exist_ok=True)
+    app_context.file_storage_dir.mkdir(exist_ok=True)
     populate_running_processes(
-        persistent_objects.app,
-        persistent_objects.file_storage_dir,
-        persistent_objects.running_processes,
+        app_context.app,
+        app_context.file_storage_dir,
+        app_context.running_processes,
     )
-    return persistent_objects
+    return app_context
 
 
-main_objects = setup(static_folder="api", static_url_path="", file_storage_dir="tmp")
-register_routes(main_objects)
+app_context = setup(static_folder="api", static_url_path="", file_storage_dir="tmp")
+register_routes(app_context)
 
 
 if __name__ in ["__main__"]:
-    main_objects.app.run(host="0.0.0.0", port=9010)
+    app_context.app.run(host="0.0.0.0", port=9010)

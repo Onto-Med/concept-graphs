@@ -9,12 +9,12 @@ from src.api.routes.static import register_static_routes
 from src.api.routes.status import register_status_routes
 
 
-def register_routes(main_objects):
+def register_routes(app_context):
     """Register all API routes on the configured Flask app."""
-    register_static_routes(main_objects)
-    register_artifact_routes(main_objects)
-    register_graph_document_routes(main_objects)
-    register_pipeline_routes(main_objects)
-    register_process_routes(main_objects)
-    register_rag_routes(main_objects)
-    register_status_routes(main_objects)
+    register_static_routes(app_context)
+    register_artifact_routes(app_context)
+    register_graph_document_routes(app_context)
+    register_pipeline_routes(app_context)
+    register_process_routes(app_context)
+    register_rag_routes(app_context)
+    register_status_routes(app_context)

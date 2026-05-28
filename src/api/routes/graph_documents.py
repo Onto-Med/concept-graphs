@@ -10,10 +10,10 @@ from main_methods import (
 from main_utils import HTTPResponses, StepsName, StoppableThread, string_conformity
 
 
-def register_graph_document_routes(main_objects):
+def register_graph_document_routes(app_context):
     """Register document addition routes for concept graphs."""
 
-    @main_objects.app.route("/graph/document/<path_arg>", methods=["POST", "DELETE"])
+    @app_context.app.route("/graph/document/<path_arg>", methods=["POST", "DELETE"])
     def graph_document(path_arg=None):
         process = string_conformity(request.args.get("process", "default"))
         method = request.method
@@ -31,16 +31,16 @@ def register_graph_document_routes(main_objects):
             )
 
         if method == "POST" and path_arg is not None and path_arg.lower() == "add":
-            data_proc = main_objects.current_active_pipeline_objects.get(
+            data_proc = app_context.current_active_pipeline_objects.get(
                 process, {}
             ).get(StepsName.DATA, None)
-            emb_proc = main_objects.current_active_pipeline_objects.get(
+            emb_proc = app_context.current_active_pipeline_objects.get(
                 process, {}
             ).get(StepsName.EMBEDDING, None)
-            graph_proc = main_objects.current_active_pipeline_objects.get(
+            graph_proc = app_context.current_active_pipeline_objects.get(
                 process, {}
             ).get(StepsName.GRAPH, None)
-            path_base = main_objects.file_storage_dir / process
+            path_base = app_context.file_storage_dir / process
             document_adding_thread = StoppableThread(
                 target_args=(content_json,),
                 target_kwargs={
@@ -54,11 +54,11 @@ def register_graph_document_routes(main_objects):
                 target=add_documents_to_concept_graphs,
                 name=None,
             )
-            main_objects.pipeline_threads_store[f"document_addition_{process}"] = (
+            app_context.pipeline_threads_store[f"document_addition_{process}"] = (
                 document_adding_thread
             )
             start_thread(
-                main_objects.app,
+                app_context.app,
                 f"document_addition_{process}",
                 document_adding_thread,
                 None,
@@ -81,18 +81,18 @@ def register_graph_document_routes(main_objects):
                 err_msg = "Please use 'add' as path argument for 'POST' method."
         return jsonify(error=err_msg), HTTPResponses.BAD_REQUEST
 
-    @main_objects.app.route("/graph/document/add/status", methods=["GET"])
+    @app_context.app.route("/graph/document/add/status", methods=["GET"])
     def graph_document_status():
         process = string_conformity(request.args.get("process", "default"))
         thread_id = f"document_addition_{process}"
-        if thread_id not in main_objects.pipeline_threads_store:
+        if thread_id not in app_context.pipeline_threads_store:
             return (
                 jsonify(
                     error=f"No document addition thread (running or completed) for '{process}' found."
                 ),
                 HTTPResponses.NOT_FOUND,
             )
-        if return_value := main_objects.pipeline_threads_store.get(
+        if return_value := app_context.pipeline_threads_store.get(
             thread_id
         ).return_value:
             return jsonify(return_value[0]), return_value[1]

@@ -6,10 +6,10 @@ from main_methods import check_data_server, get_data_server_config
 from main_utils import HTTPResponses, string_conformity
 
 
-def register_status_routes(main_objects):
+def register_status_routes(app_context):
     """Register document-server and RAG status routes."""
 
-    @main_objects.app.route("/status/document-server", methods=["POST", "GET"])
+    @app_context.app.route("/status/document-server", methods=["POST", "GET"])
     def get_data_server():
         if request.method == "POST":
             if request.headers.get("Content-Type") == "application/json":
@@ -24,7 +24,7 @@ def register_status_routes(main_objects):
                     status="No document server config file provided",
                 ), int(HTTPResponses.BAD_REQUEST)
             base_config = get_data_server_config(
-                document_server_config, main_objects.app
+                document_server_config, app_context.app
             )
             if not check_data_server(base_config):
                 return (
@@ -43,20 +43,20 @@ def register_status_routes(main_objects):
             return jsonify("Method 'GET' not yet implemented.")
         return jsonify(f"Method not supported: '{request.method}'.")
 
-    @main_objects.app.route("/status/rag", methods=["GET"])
+    @app_context.app.route("/status/rag", methods=["GET"])
     def get_rag_status():
         process = string_conformity(request.args.get("process", "default"))
-        has_rag = main_objects.active_rag is not None
+        has_rag = app_context.active_rag is not None
         if (
             process is not None
             and has_rag
-            and main_objects.active_rag.process == process
+            and app_context.active_rag.process == process
         ):
             return jsonify(
-                active=main_objects.active_rag.ready, name=process, error=None
+                active=app_context.active_rag.ready, name=process, error=None
             ), int(HTTPResponses.OK)
         err_string = (
-            f"RAG is active but it seems for the process: '{main_objects.active_rag.process}'"
+            f"RAG is active but it seems for the process: '{app_context.active_rag.process}'"
             if has_rag
             else "The RAG component is not initialized."
         )

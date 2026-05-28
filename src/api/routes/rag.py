@@ -24,10 +24,10 @@ from src.rag.marqo_rag_utils import extract_text_from_highlights
 from src.rag.rag import RAG
 
 
-def register_rag_routes(main_objects):
+def register_rag_routes(app_context):
     """Register RAG initialization, question, and answer routes."""
 
-    @main_objects.app.route("/rag/init", methods=["POST"])
+    @app_context.app.route("/rag/init", methods=["POST"])
     def init_rag():
         if request.method == "POST":
             if request.headers.get("Content-Type") == "application/json":
@@ -46,7 +46,7 @@ def register_rag_routes(main_objects):
                 chatter = config.chatter.pop(
                     "chatter", "src.rag.chatters.BlabladorChatter.BlabladorChatter"
                 )
-                main_objects.active_rag = ActiveRAG(
+                app_context.active_rag = ActiveRAG(
                     rag=RAG.with_chatter(
                         api_key=config.api_key,
                         chatter=chatter,
@@ -58,25 +58,25 @@ def register_rag_routes(main_objects):
                 )
                 if (not vector_store.is_filled()) or force_init:
                     rag_init_thread = StoppableThread(
-                        target_args=(process, main_objects),
+                        target_args=(process, app_context),
                         group=None,
                         target=fill_chunk_vectorstore,
                         name=None,
                     )
                     rag_init_thread.start()
                     sleep(1.0)
-                    main_objects.pipeline_threads_store[rag_thread_id] = rag_init_thread
+                    app_context.pipeline_threads_store[rag_thread_id] = rag_init_thread
                     return jsonify("Starting initializing RAG component."), int(
                         HTTPResponses.OK
                     )
-                if init_thread := main_objects.pipeline_threads_store.get(
+                if init_thread := app_context.pipeline_threads_store.get(
                     rag_thread_id, None
                 ):
                     if not init_thread.return_value:
                         return jsonify(
                             f"There already seems to be an initialization thread running for process {process}. Please wait for it to finish."
                         ), int(HTTPResponses.ACCEPTED)
-                main_objects.active_rag.switch_readiness()
+                app_context.active_rag.switch_readiness()
                 return jsonify("Initialized RAG component."), int(HTTPResponses.OK)
             return jsonify(
                 f"Wrong content type '{request.headers.get('Content-Type')}'; need 'application/json'"
@@ -85,7 +85,7 @@ def register_rag_routes(main_objects):
             HTTPResponses.BAD_REQUEST
         )
 
-    @main_objects.app.route("/rag/question", methods=["GET", "POST"])
+    @app_context.app.route("/rag/question", methods=["GET", "POST"])
     def rag_question():
         doc_ids = []
         doc_part_limit = 15
@@ -97,21 +97,21 @@ def register_rag_routes(main_objects):
             doc_ids = get_doc_ids(request.json)
             doc_part_limit = request.json.get("limit", 15)
         if request.method in ["GET", "POST"]:
-            if main_objects.active_rag is None or not main_objects.active_rag.ready:
+            if app_context.active_rag is None or not app_context.active_rag.ready:
                 return jsonify(
                     "No active and ready rag component found."
                     " You need to initialize it first and wait for it to be ready."
                 ), int(HTTPResponses.NOT_FOUND)
             question = request.args.get("q", request.args.get("question", False))
             process = string_conformity(request.args.get("process", "default"))
-            language = main_objects.active_rag.rag.language
+            language = app_context.active_rag.rag.language
             if not question:
                 return jsonify("No question supplied."), int(HTTPResponses.BAD_REQUEST)
-            if main_objects.active_rag.process != process:
+            if app_context.active_rag.process != process:
                 return (
                     jsonify(
                         f"There is no ready and active RAG component for '{process}'."
-                        f" Currently active is : '{main_objects.active_rag.process}'; use the 'init' endpoint."
+                        f" Currently active is : '{app_context.active_rag.process}'; use the 'init' endpoint."
                     ),
                     int(HTTPResponses.BAD_REQUEST),
                 )
@@ -120,7 +120,7 @@ def register_rag_routes(main_objects):
                 zip(
                     *itemgetter(1, -1)(
                         extract_text_from_highlights(
-                            main_objects.active_rag.vectorstore.get_chunks(
+                            app_context.active_rag.vectorstore.get_chunks(
                                 question,
                                 filter_by=(
                                     {"doc_id": doc_ids} if len(doc_ids) > 0 else None
@@ -133,11 +133,11 @@ def register_rag_routes(main_objects):
                     )
                 )
             )
-            success, answer = main_objects.active_rag.rag.with_documents(
+            success, answer = app_context.active_rag.rag.with_documents(
                 documents, concat_by="doc_id"
             ).build_and_invoke(question)
             reference = {
-                k: v.metadata for k, v in main_objects.active_rag.rag.documents.items()
+                k: v.metadata for k, v in app_context.active_rag.rag.documents.items()
             }
             if success:
                 return jsonify(

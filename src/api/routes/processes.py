@@ -8,23 +8,23 @@ from main_methods import delete_pipeline, stop_thread
 from main_utils import HTTPResponses, ProcessStatus, StoppableThread, string_conformity
 
 
-def register_process_routes(main_objects):
+def register_process_routes(app_context):
     """Register process listing, status, deletion, and stop routes."""
 
-    @main_objects.app.route("/processes", methods=["GET"])
+    @app_context.app.route("/processes", methods=["GET"])
     def get_all_processes_api():
-        if len(main_objects.running_processes) > 0:
+        if len(app_context.running_processes) > 0:
             return jsonify(
-                processes=[p for p in main_objects.running_processes.values()]
+                processes=[p for p in app_context.running_processes.values()]
             )
         return jsonify("No saved processes."), int(HTTPResponses.NOT_FOUND)
 
-    @main_objects.app.route("/processes/<process_id>/delete", methods=["DELETE"])
+    @app_context.app.route("/processes/<process_id>/delete", methods=["DELETE"])
     def delete_process(process_id):
         hard_stop = request.args.get("hard_stop", False)
         process_id = string_conformity(process_id)
-        if process_id not in set(main_objects.running_processes.keys()).union(
-            main_objects.current_active_pipeline_objects.keys()
+        if process_id not in set(app_context.running_processes.keys()).union(
+            app_context.current_active_pipeline_objects.keys()
         ):
             return Response(
                 f"There is no such process '{process_id}'.\n",
@@ -34,27 +34,27 @@ def register_process_routes(main_objects):
         if any(
             [
                 step.get("status") in [ProcessStatus.RUNNING, ProcessStatus.STARTED]
-                for step in main_objects.running_processes.get(process_id).get(
+                for step in app_context.running_processes.get(process_id).get(
                     "status", []
                 )
             ]
         ):
             to_stop: Optional[StoppableThread]
-            if to_stop := main_objects.pipeline_threads_store.get(process_id, None):
+            if to_stop := app_context.pipeline_threads_store.get(process_id, None):
                 stop_thread(
-                    app=main_objects.app,
+                    app=app_context.app,
                     process_name=process_id,
-                    threading_store=main_objects.pipeline_threads_store,
-                    process_tracker=main_objects.running_processes,
+                    threading_store=app_context.pipeline_threads_store,
+                    process_tracker=app_context.running_processes,
                     hard_stop=hard_stop,
                 )
         delete_thread = StoppableThread(
             target_args=(
-                main_objects.app,
-                main_objects.file_storage_dir,
+                app_context.app,
+                app_context.file_storage_dir,
                 process_id,
-                main_objects.running_processes,
-                main_objects.current_active_pipeline_objects,
+                app_context.running_processes,
+                app_context.current_active_pipeline_objects,
                 to_stop,
             ),
             group=None,
@@ -66,25 +66,25 @@ def register_process_routes(main_objects):
             f"Process '{process_id}' set to be deleted.", status=HTTPResponses.OK
         )
 
-    @main_objects.app.route("/processes/<process_id>/stop", methods=["GET"])
+    @app_context.app.route("/processes/<process_id>/stop", methods=["GET"])
     def stop_pipeline(process_id):
         if request.method == "GET":
             hard_stop = request.args.get("hard_stop", False)
             process_id = string_conformity(process_id)
             return stop_thread(
-                app=main_objects.app,
+                app=app_context.app,
                 process_name=process_id,
-                threading_store=main_objects.pipeline_threads_store,
-                process_tracker=main_objects.running_processes,
+                threading_store=app_context.pipeline_threads_store,
+                process_tracker=app_context.running_processes,
                 hard_stop=hard_stop,
             )
         return jsonify(f"Method not supported: {request.method}")
 
-    @main_objects.app.route("/status", methods=["GET"])
+    @app_context.app.route("/status", methods=["GET"])
     def get_status_of():
         process = string_conformity(request.args.get("process", "default"))
         if process is not None:
-            response = main_objects.running_processes.get(process, None)
+            response = app_context.running_processes.get(process, None)
             if response is not None:
                 return jsonify(response), int(HTTPResponses.OK)
         return jsonify(

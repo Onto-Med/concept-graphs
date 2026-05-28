@@ -16,14 +16,14 @@ from main_utils import (
 from src.api.pipeline import run_complete_pipeline
 
 
-def register_pipeline_routes(main_objects):
+def register_pipeline_routes(app_context):
     """Register pipeline execution and configuration routes."""
 
-    @main_objects.app.route("/pipeline", methods=["POST"])
+    @app_context.app.route("/pipeline", methods=["POST"])
     def complete_pipeline():
-        return run_complete_pipeline(main_objects)
+        return run_complete_pipeline(app_context)
 
-    @main_objects.app.route("/pipeline/configuration", methods=["GET"])
+    @app_context.app.route("/pipeline/configuration", methods=["GET"])
     def get_pipeline_default_configuration():
         if request.method != "GET":
             return HTTPResponses.BAD_REQUEST
@@ -49,9 +49,9 @@ def register_pipeline_routes(main_objects):
         logging.info("Returning configuration for '%s' pipeline.", process)
         try:
             config = load_configs(
-                app=main_objects.app,
+                app=app_context.app,
                 process_name=process,
-                path_to_configs=main_objects.file_storage_dir,
+                path_to_configs=app_context.file_storage_dir,
             )
             return (
                 jsonify(

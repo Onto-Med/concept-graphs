@@ -617,12 +617,12 @@ def initialize_chunk_vectorstore(
 
 
 def fill_chunk_vectorstore(
-    process: str, persistent_objects: PersistentObjects, **kwargs
+    process: str, app_context: PersistentObjects, **kwargs
 ) -> bool:
     """
 
     :param process:
-    :param persistent_objects:
+    :param app_context:
     :param kwargs: e.g. splitter=splitter-config-dict
     :return:
     """
@@ -642,13 +642,13 @@ def fill_chunk_vectorstore(
         ).items()
         if k in getfullargspec(_splitter_class).args
     }
-    _rag = persistent_objects.active_rag
+    _rag = app_context.active_rag
     if not _rag.initializing:
         _rag.initializing = True
         data_obj = FactoryLoader.with_active_objects(
-            str(pathlib.Path(persistent_objects.file_storage_dir, process).resolve()),
+            str(pathlib.Path(app_context.file_storage_dir, process).resolve()),
             process,
-            persistent_objects.current_active_pipeline_objects,
+            app_context.current_active_pipeline_objects,
             StepsName.DATA,
         )
         if data_obj is None:
