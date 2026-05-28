@@ -13,4 +13,4 @@ RUN uv sync --frozen --no-group test && uv cache clean
 
 # Dependencies are installed at build time. --no-sync prevents uv from
 # resolving/downloading packages again when the container starts.
-ENTRYPOINT [ "uv", "run", "--no-sync", "waitress-serve", "--port=9007", "main:app_context.app" ]
+ENTRYPOINT [ "uv", "run", "--no-sync", "waitress-serve", "--call", "--port=9007", "main:create_app" ]

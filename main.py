@@ -15,22 +15,14 @@ from src.api.routes import register_routes
 from src.pipeline.processes import populate_running_processes
 
 
-def setup(
-    static_folder: str = "api",
-    static_url_path: str = "",
-    file_storage_dir: str = "tmp",
-    logging_setup_tuples: Optional[list[tuple]] = None,
-) -> AppContext:
-    """Create the Flask app and initialize shared runtime state."""
+def configure_logging(logging_setup_tuples: Optional[list[tuple]] = None) -> None:
+    """Configure application logging defaults."""
     if logging_setup_tuples is None:
         logging_setup_tuples = [
             ("werkzeug", logging.WARN),
             ("marqo", logging.WARN),
         ]
 
-    app = flask.Flask(
-        __name__, static_folder=static_folder, static_url_path=static_url_path
-    )
     for logger_name, level in logging_setup_tuples:
         logging.getLogger(logger_name).setLevel(level)
 
@@ -40,6 +32,12 @@ def setup(
         root_logger.handlers.clear()
     root_logger.addHandler(flask.logging.default_handler)
 
+
+def create_app_context(
+    app: flask.Flask,
+    file_storage_dir: str = "tmp",
+) -> AppContext:
+    """Create shared application runtime state for a Flask app."""
     app_context = AppContext(
         app=app,
         processes=ProcessContext(running={}, threads={}),
@@ -56,9 +54,22 @@ def setup(
     return app_context
 
 
-app_context = setup(static_folder="api", static_url_path="", file_storage_dir="tmp")
-register_routes(app_context)
+def create_app(
+    static_folder: str = "api",
+    static_url_path: str = "",
+    file_storage_dir: str = "tmp",
+    logging_setup_tuples: Optional[list[tuple]] = None,
+) -> flask.Flask:
+    """Create and configure the Flask application."""
+    configure_logging(logging_setup_tuples)
+    app = flask.Flask(
+        __name__, static_folder=static_folder, static_url_path=static_url_path
+    )
+    app_context = create_app_context(app=app, file_storage_dir=file_storage_dir)
+    register_routes(app_context)
+    app.extensions["concept_graphs_context"] = app_context
+    return app
 
 
-if __name__ in ["__main__"]:
-    app_context.app.run(host="0.0.0.0", port=9010)
+if __name__ == "__main__":
+    create_app().run(host="0.0.0.0", port=9010)
