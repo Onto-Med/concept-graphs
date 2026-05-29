@@ -9,7 +9,10 @@ authors = [
 requires-python = ">=3.11, <3.12"
 readme = "README.md"
 license = "MIT"
-maintainers = [{ name = "Franz Matthies", email = "franz.matthies@imise.uni-leipzig.de" }]
+maintainers = [
+    { name = "Franz Matthies", email = "franz.matthies@imise.uni-leipzig.de" },
+    { email = "franz.matthies@gmail.com" },
+]
 keywords = []
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -67,7 +70,6 @@ rag = [
 ]
 test = [
     "black>=25.9.0",
-    "igraph>=1.0.0",
 ]
 
 [tool.uv]

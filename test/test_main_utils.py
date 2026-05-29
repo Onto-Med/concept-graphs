@@ -6,7 +6,7 @@ from src.pipeline.status import StepsName
 
 
 class TestLoadFactory(unittest.TestCase):
-    test_path = pathlib.Path("./tmp/grascco")
+    test_path = pathlib.Path("test/data/results/grascco")
 
     def test_load_data(self):
         _ = FactoryLoader.load_data(str(self.test_path.resolve()), "grascco")

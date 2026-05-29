@@ -17,8 +17,8 @@ from src.core import (
 
 
 class TestDocumentClusteringOnCorpus(unittest.TestCase):
-    process_name = "grascco_stem"
-    test_path = pathlib.Path(f"./tmp/{process_name}")
+    process_name = "grascco"
+    test_path = pathlib.Path("test/data/results/grascco")
 
     def test_clustering(self):
         data = FactoryLoader.load(
