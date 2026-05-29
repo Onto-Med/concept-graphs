@@ -647,12 +647,13 @@ class MarqoDocumentStore(DocumentStore):
 
 if __name__ == "__main__":
     mqs = MarqoEmbeddingStore("http://localhost:8882", "grascco_lokal_test")
-    print(mqs.store_size)
-    print(
+    logging.info("%s", mqs.store_size)
+    logging.info(
+        "%s",
         list(
             mqs.best_hits_for_field(
                 ("handchirurgen", mqs.get_embedding("238")), force_delete_after=True
             )
-        )
+        ),
     )
-    print(mqs.store_size)
+    logging.info("%s", mqs.store_size)

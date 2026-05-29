@@ -378,7 +378,7 @@ def show_top_k_for_concepts(
     :param distance: distance threshold; only cosine values from the centre that are higher will be regarded
     :param yield_concepts: whether concepts and phrases will be yielded or printed
 
-    :returns: Either None and prints the words encompassed by a concept or yields a tuple(concept_id, phrase_id, phrase)
+    :returns: Either None and logs the words encompassed by a concept or yields a tuple(concept_id, phrase_id, phrase)
     """
     sent_embeddings = embedding_object.sentence_embeddings
     for _c_id, _center in enumerate(cluster_obj.cluster_centers_):
@@ -389,11 +389,12 @@ def show_top_k_for_concepts(
             vector_dim=sent_embeddings.shape[1],
         )
         if not yield_concepts:
-            print(f"==Center {_c_id}==\n")
+            logging.info("==Center %s==", _c_id)
         for i in _indices[:top_k]:
             if not yield_concepts:
-                print(
-                    f"\t{embedding_object.data_processing_obj.data_chunk_sets[i]['text']}"
+                logging.info(
+                    "\t%s",
+                    embedding_object.data_processing_obj.data_chunk_sets[i]["text"],
                 )
             else:
                 yield (
@@ -402,4 +403,4 @@ def show_top_k_for_concepts(
                     embedding_object.data_processing_obj.data_chunk_sets[i]["text"],
                 )
         if not yield_concepts:
-            print("\n")
+            logging.info("")

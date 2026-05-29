@@ -1,4 +1,8 @@
+import logging
+
 import spacy
+
+logger = logging.getLogger(__name__)
 
 
 def build_docs():
@@ -62,7 +66,9 @@ def dep(documents, spacy_language):
     for d in documents:
         doc = spacy_language(d[0])
         for i, nc in enumerate(doc.noun_chunks):
-            print(nc.text, nc._.negex, f"--> should be {d[1].get(nc.text, False)}")
+            logger.info(
+                "%s %s --> should be %s", nc.text, nc._.negex, d[1].get(nc.text, False)
+            )
             assert nc._.negex == d[1].get(nc.text, False)
 
 
@@ -80,5 +86,5 @@ if __name__ == "__main__":
     nlp.add_pipe("negex", last=True, config={"scope": 1})
     docs = nlp("She does not like Steve Jobs but likes Apple products.")
     for ent in docs.ents:
-        print(ent.text, ent._.negex)
+        logger.info("%s %s", ent.text, ent._.negex)
     # dep(docs[-1:], nlp)

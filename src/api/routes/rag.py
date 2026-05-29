@@ -44,7 +44,7 @@ def create_rag_blueprint(rag, processes, storage, pipeline):
                     process, config.vectorstore_server, force_init=force_init
                 )
                 chatter = config.chatter.pop(
-                    "chatter", "src.rag.chatters.BlabladorChatter.BlabladorChatter"
+                    "chatter", "src.rag.chatters.blablador.BlabladorChatter"
                 )
                 rag.active = ActiveRAG(
                     rag=RAG.with_chatter(

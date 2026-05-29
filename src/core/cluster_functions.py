@@ -2,7 +2,6 @@ import inspect
 import itertools
 import logging
 import pathlib
-import pickle
 import re
 import statistics
 from collections import defaultdict, Counter
@@ -702,7 +701,6 @@ class WordEmbeddingClustering:
             _scaler = MinMaxScaler()
             _tfidf_filter_vec_norm = _scaler.fit_transform(_tfidf_filter_vec)
 
-            _dump_list = []
             for j, concept_graph in tqdm(
                 enumerate(concept_graphs), total=len(concept_graphs)
             ):
@@ -735,9 +733,6 @@ class WordEmbeddingClustering:
                 if normalize:
                     _doc_eigen_array *= 1.0 / _doc_eigen_array.max()
                 self._document_concept_matrix[_doc_array, j] += _doc_eigen_array
-
-                _dump_list.append(_graph)
-            pickle.dump(_dump_list, pathlib.Path("graph_dump.pickle").open("wb"))
 
         def _build_doc_id_index_dict(self, concept_graphs: List[nx.Graph]):
             _dict_1 = dict()

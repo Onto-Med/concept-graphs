@@ -1,6 +1,6 @@
 """Pipeline step names, process status values, and status tracking helpers."""
 
-from collections import namedtuple
+from dataclasses import dataclass, field
 from enum import Enum
 
 
@@ -22,16 +22,18 @@ class StepsName:
     ALL = [DATA, EMBEDDING, CLUSTERING, GRAPH, INTEGRATION]
 
 
-pipeline_query_params = namedtuple(
-    "PipelineQueryParams",
-    [
-        "process_name",
-        "language",
-        "skip_present",
-        "omitted_pipeline_steps",
-        "return_statistics",
-    ],
-)
+@dataclass
+class PipelineQueryParams:
+    process_name: str
+    language: str
+    skip_present: bool
+    omitted_pipeline_steps: list[str] = field(default_factory=list)
+    return_statistics: bool = False
+
+
+# Backwards-compatible name for existing imports. New code should use
+# PipelineQueryParams.
+pipeline_query_params = PipelineQueryParams
 
 steps_relation_dict = {
     StepsName.DATA: 1,

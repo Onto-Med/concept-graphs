@@ -409,7 +409,7 @@ curl -X POST "http://localhost:9010/rag/init?process=my_corpus&force=false" \
       "port": 8882
     },
     "chatter": {
-      "chatter": "src.rag.chatters.BlabladorChatter.BlabladorChatter"
+      "chatter": "src.rag.chatters.blablador.BlabladorChatter"
     },
     "prompt_template": {
       "templates": {

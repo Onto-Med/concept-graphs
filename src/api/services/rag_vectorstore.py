@@ -8,14 +8,14 @@ from typing import Optional, cast
 
 from src.pipeline.status import StepsName
 from src.pipeline.load_utils import FactoryLoader
-from src.rag.TextSplitters import PreprocessedSpacyTextSplitter
-from src.rag.embedding_stores.AbstractEmbeddingStore import ChunkEmbeddingStore
+from src.rag.text_splitters import PreprocessedSpacyTextSplitter
+from src.rag.embedding_stores.base import ChunkEmbeddingStore
 
 
 def initialize_chunk_vectorstore(
     process_name: str,
     config: Optional[dict],
-    chunk_store: str = "src.rag.embedding_stores.MarqoChunkEmbeddingStore.MarqoChunkEmbeddingStore",
+    chunk_store: str = "src.rag.embedding_stores.marqo.MarqoChunkEmbeddingStore",
     force_init: bool = False,
 ):
     if config is None:

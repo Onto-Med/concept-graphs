@@ -2,7 +2,7 @@ from typing import Any, Optional
 
 from marqo import Client
 
-from src.rag.embedding_stores.AbstractEmbeddingStore import ChunkEmbeddingStore
+from src.rag.embedding_stores.base import ChunkEmbeddingStore
 from src.rag.marqo_rag_utils import ResultsFields
 
 

@@ -6,6 +6,8 @@ import pathlib
 import pickle
 from typing import Any, Callable, Optional, Union
 
+logger = logging.getLogger(__name__)
+
 
 def load_pickle(
     file_path: Union[pathlib.Path, str, io.IOBase], logger: logging.Logger = None
@@ -41,7 +43,7 @@ def save_pickle(dump_obj: Any, file_path: pathlib.Path):
         file_path = pathlib.Path(f"{file_path}.pickle")
     with file_path.open("wb") as f:
         pickle.dump(dump_obj, f)
-        print(f"Saved under: {file_path.resolve()}")
+        logger.info("Saved pickle under: %s", file_path.resolve())
 
 
 def unpickle_or_run(
@@ -57,21 +59,24 @@ def unpickle_or_run(
     _path = pathlib.Path(base_path / f"{filename}.pickle")
     if overwrite or (not _path.exists()):
         if run is None:
-            print("No Callable given for 'run' argument.")
+            logger.warning("No Callable given for 'run' argument.")
             return None
         if not _path.exists():
-            print(
-                f"'{_path}' does not exist; executing function '{run}' with given args & kwargs."
+            logger.info(
+                "'%s' does not exist; executing function '%s' with given args & kwargs.",
+                _path,
+                run,
             )
         else:
-            print(
-                f"Choose to overwrite; executing function '{run}' with given args & kwargs."
+            logger.info(
+                "Chose to overwrite; executing function '%s' with given args & kwargs.",
+                run,
             )
         _result = run(*args, **kwargs)
         with _path.open("wb") as f:
             pickle.dump(_result, f)
     else:
-        print(f"Unpickling '{_path}' ...")
+        logger.info("Unpickling '%s' ...", _path)
         with _path.open("rb") as f:
             _result = pickle.load(f)
     return _result

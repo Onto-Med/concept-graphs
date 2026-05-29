@@ -108,7 +108,7 @@ if __name__ == "__main__":
         _key_string = "+".join(
             [f"{str(i)}:{str(j)}" for i, j in zip(_params_name, _params)]
         )
-        print(f"({i}/{total_iter}) Calculating scores for:\n{_key_string}\n")
+        logging.info("(%s/%s) Calculating scores for:\n%s", i, total_iter, _key_string)
 
         if not _params_kwargs["use_exclusion_ids"]:
             _params_kwargs["cluster_exclusion_ids"] = []

@@ -1,7 +1,7 @@
 """Request parsing helpers for API endpoints."""
 
 import logging
-from collections import namedtuple
+from dataclasses import dataclass, field
 from typing import Optional
 
 from munch import Munch
@@ -9,30 +9,33 @@ from munch import Munch
 from src.common.parsing import string_conformity
 
 
-pipeline_json_config = namedtuple(
-    "pipeline_json_config",
-    [
-        "name",
-        "language",
-        "document_server",
-        "vectorstore_server",
-        "data",
-        "embedding",
-        "clustering",
-        "graph",
-    ],
-)
-
-document_adding_json = namedtuple(
-    "document_adding_json",
-    ["language", "documents", "document_server", "vectorstore_server"],
-)
+@dataclass
+class pipeline_json_config:
+    name: Optional[str]
+    language: Optional[str]
+    document_server: Optional[dict]
+    vectorstore_server: Optional[dict]
+    data: object = field(default_factory=Munch)
+    embedding: object = field(default_factory=Munch)
+    clustering: object = field(default_factory=Munch)
+    graph: object = field(default_factory=Munch)
 
 
-rag_config_json = namedtuple(
-    "rag_config_json",
-    ["chatter", "api_key", "language", "prompt_template", "vectorstore_server"],
-)
+@dataclass
+class document_adding_json:
+    language: Optional[str]
+    documents: list = field(default_factory=list)
+    document_server: Optional[dict] = None
+    vectorstore_server: Optional[dict] = None
+
+
+@dataclass
+class rag_config_json:
+    chatter: Optional[str]
+    api_key: Optional[str]
+    language: Optional[str]
+    prompt_template: Optional[dict]
+    vectorstore_server: Optional[dict]
 
 
 def parse_pipeline_config_json(response_json) -> pipeline_json_config:

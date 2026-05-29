@@ -1,11 +1,14 @@
 """Metric and scoring helpers used by core algorithms."""
 
+import logging
 from collections import Counter, defaultdict
 from typing import Iterable, Union
 
 import numpy as np
 import pandas as pd
 from sklearn.cluster import AgglomerativeClustering, KMeans
+
+logger = logging.getLogger(__name__)
 
 
 def cluster_purity(
@@ -22,7 +25,7 @@ def cluster_purity(
     df = pd.DataFrame.from_records([counter[i] for i in range(len(counter))])
     df.fillna(0, inplace=True)
     if print_df:
-        print(df)
+        logger.info("%s", df)
     return df.max(axis=1).to_numpy().sum() / df.to_numpy().sum()
 
 

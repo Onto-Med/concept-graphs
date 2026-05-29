@@ -4,6 +4,8 @@ from typing import Iterable, Any, Generator, Union, Optional
 from langchain_text_splitters import TextSplitter
 from spacy.tokens import Doc
 
+logger = logging.getLogger(__name__)
+
 
 class PreprocessedSpacyTextSplitter(TextSplitter):
     """Splitting text from preprocessed Spacy data.
@@ -103,4 +105,4 @@ if __name__ == "__main__":
             _data.processed_docs, "doc_id", keep_metadata=["doc_id", "doc_name"]
         )
     )
-    print(_splits)
+    logger.info("%s", _splits)

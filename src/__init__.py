@@ -17,6 +17,12 @@ _LEGACY_MODULE_TARGETS = {
     "src.graph_functions": "src.core.graph_functions",
     "src.integration_functions": "src.core.integration_functions",
     "src.marqo_external_utils": "src.storage.marqo_external_utils",
+    "src.rag.TextSplitters": "src.rag.text_splitters",
+    "src.rag.chatters.AbstractChatter": "src.rag.chatters.base",
+    "src.rag.chatters.BlabladorChatter": "src.rag.chatters.blablador",
+    "src.rag.chatters.OllamaChatter": "src.rag.chatters.ollama",
+    "src.rag.embedding_stores.AbstractEmbeddingStore": "src.rag.embedding_stores.base",
+    "src.rag.embedding_stores.MarqoChunkEmbeddingStore": "src.rag.embedding_stores.marqo",
 }
 
 

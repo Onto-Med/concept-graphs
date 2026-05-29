@@ -6,7 +6,7 @@ from typing import Optional
 
 import flask
 
-from src.rag.embedding_stores.AbstractEmbeddingStore import ChunkEmbeddingStore
+from src.rag.embedding_stores.base import ChunkEmbeddingStore
 from src.rag.rag import RAG
 
 

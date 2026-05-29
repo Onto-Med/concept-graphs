@@ -3,7 +3,7 @@ from typing import Optional
 from langchain_core.language_models import BaseLLM
 from langchain_ollama import OllamaLLM
 
-from src.rag.chatters.AbstractChatter import Chatter
+from src.rag.chatters.base import Chatter
 
 
 class OllamaChatter(Chatter):

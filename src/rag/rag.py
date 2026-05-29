@@ -8,8 +8,8 @@ from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import Runnable
 
-from src.rag.chatters.AbstractChatter import Chatter
-from src.rag.embedding_stores.MarqoChunkEmbeddingStore import MarqoChunkEmbeddingStore
+from src.rag.chatters.base import Chatter
+from src.rag.embedding_stores.marqo import MarqoChunkEmbeddingStore
 from src.rag.marqo_rag_utils import extract_text_from_highlights
 
 
@@ -34,7 +34,7 @@ class RAG:
         cls,
         chatter: Optional[
             Union[Chatter, str]
-        ] = "src.rag.chatters.BlabladorChatter.BlabladorChatter",
+        ] = "src.rag.chatters.blablador.BlabladorChatter",
         **kwargs,
     ) -> "RAG":
         if chatter is None:
@@ -44,7 +44,7 @@ class RAG:
         chatter = (
             chatter
             if chatter is not None
-            else "src.rag.chatters.BlabladorChatter.BlabladorChatter"
+            else "src.rag.chatters.blablador.BlabladorChatter"
         )
         _rag = cls(chatter, language=kwargs.pop("language", None))
         if len(kwargs) > 0:
@@ -191,7 +191,7 @@ if __name__ == "__main__":
     import sys
     import pathlib
     from src.pipeline.load_utils import FactoryLoader
-    from TextSplitters import PreprocessedSpacyTextSplitter
+    from src.rag.text_splitters import PreprocessedSpacyTextSplitter
 
     _args = {a.split("=")[0]: a.split("=")[1] for a in sys.argv[1:]}
     _api_key = _args.pop("api_key")
@@ -272,4 +272,4 @@ if __name__ == "__main__":
         )
         .build_and_invoke(question_rag)
     )
-    print(result)
+    logging.info("%s", result)

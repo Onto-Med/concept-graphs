@@ -2,7 +2,7 @@ from langchain_core.language_models import BaseLLM
 from langchain_openai import OpenAI
 from pydantic import SecretStr
 
-from src.rag.chatters.AbstractChatter import Chatter
+from src.rag.chatters.base import Chatter
 
 
 class BlabladorChatter(Chatter):

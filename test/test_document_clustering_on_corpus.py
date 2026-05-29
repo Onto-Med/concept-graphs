@@ -1,5 +1,8 @@
+import logging
 import pathlib
 import unittest
+
+logger = logging.getLogger(__name__)
 
 from sklearn.cluster import KMeans
 
@@ -48,7 +51,7 @@ class TestDocumentClusteringOnCorpus(unittest.TestCase):
         _ari = word_embedding_clustering.ari_score(
             embeddings_cluster_obj=cg_clustering, clustering_obj=KMeans
         )
-        print(_ari)
+        logger.info("ARI score: %s", _ari)
 
 
 if __name__ == "__main__":
