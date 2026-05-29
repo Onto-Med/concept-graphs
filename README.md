@@ -651,3 +651,5 @@ curl "http://localhost:9010/rag/question?process=my_corpus&q=Summarize%20the%20m
 **[2]** NetworkX: https://networkx.org/
 
 **[3]** Dianati, N. *Unwinding the hairball graph: Pruning algorithms for weighted complex networks.* Physical Review E. 2016;93(1). Available from: https://link.aps.org/doi/10.1103/PhysRevE.93.012304
+
+**[4]** Chapman, Bridewell, Hanbury, Cooper, Buchanan. *NegEx - A Simple Algorithm for Identifying Negated Findings and Diseases in Discharge Summaries.* https://doi.org/10.1006/jbin.2001.1029
