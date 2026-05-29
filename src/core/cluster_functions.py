@@ -45,13 +45,9 @@ from src.core.graph_functions import (
 )
 from src.pruning import unimodal
 
-# from src.common.util_functions import CVAEMantle
-from src.common.util_functions import (
-    load_pickle,
-    save_pickle,
-    NoneDownScaleObj,
-    ClusterNumberDetection,
-)
+from src.common.io import load_pickle, save_pickle
+from src.core.clustering_config import ClusterNumberDetection
+from src.core.reduction import NoneDownScaleObj
 
 import sknetwork as skn
 

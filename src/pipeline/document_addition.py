@@ -17,7 +17,8 @@ from src.pipeline.status import StepsName
 from src.core import data_functions, embedding_functions
 from src.api.request_parsing import document_adding_json
 from src.core.graph_functions import GraphIncorp
-from src.common.util_functions import DocumentStore, EmbeddingStore, save_pickle
+from src.common.io import save_pickle
+from src.storage.interfaces import DocumentStore, EmbeddingStore
 
 
 def add_documents_to_concept_graphs(

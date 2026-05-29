@@ -1,0 +1,48 @@
+"""Metric and scoring helpers used by core algorithms."""
+
+from collections import Counter, defaultdict
+from typing import Iterable, Union
+
+import numpy as np
+import pandas as pd
+from sklearn.cluster import AgglomerativeClustering, KMeans
+
+
+def cluster_purity(
+    cluster_obj: Union[KMeans, AgglomerativeClustering],
+    targets: np.ndarray,
+    print_df: bool = False,
+) -> float:
+    counter = {}
+    for c in range(cluster_obj.n_clusters):
+        counter[c] = Counter()
+        for i in targets[np.where(cluster_obj.labels_ == c)]:
+            counter[c].update({i: 1})
+
+    df = pd.DataFrame.from_records([counter[i] for i in range(len(counter))])
+    df.fillna(0, inplace=True)
+    if print_df:
+        print(df)
+    return df.max(axis=1).to_numpy().sum() / df.to_numpy().sum()
+
+
+def harmonic_mean(scores: Iterable[tuple[str, float]]) -> list[tuple[str, float]]:
+    _avg = lambda x: sum(x) / len(x)
+    scores_by_class = defaultdict(list)
+    for cls, score in scores:
+        scores_by_class[cls].append(score)
+    return sorted(
+        [
+            (
+                cls,
+                (
+                    2 * _avg(l) * len(l) / (_avg(l) + len(l))
+                    if (_avg(l) + len(l)) != 0
+                    else 0
+                ),
+            )
+            for cls, l in scores_by_class.items()
+        ],
+        key=lambda x: x[1],
+        reverse=True,
+    )

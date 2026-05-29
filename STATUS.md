@@ -13,9 +13,12 @@ Major completed work includes:
 - Flask app factory pattern
 - split of `main_methods.py`
 - split of `main_utils.py`
+- split/removal of `src/common/util_functions.py`
+- relocation of tests out of `src/`
+- relocation of experiment/evaluation scripts out of `src/`
 - Docker entrypoint and compose cleanup
 
-At this point, the remaining cleanup work is mostly around tests, large core modules, utility-module decomposition, linting, and smaller Pythonic improvements.
+At this point, the remaining cleanup work is mostly around test fixtures, large core modules, linting, and smaller Pythonic improvements.
 
 ## Current Top-Level Layout
 
@@ -59,7 +62,7 @@ src/embedding_functions.py       -> src/core/embedding_functions.py
 src/cluster_functions.py         -> src/core/cluster_functions.py
 src/graph_functions.py           -> src/core/graph_functions.py
 src/integration_functions.py     -> src/core/integration_functions.py
-src/util_functions.py            -> src/common/util_functions.py
+src/util_functions.py            -> split across focused common/core/storage modules
 src/marqo_external_utils.py      -> src/storage/marqo_external_utils.py
 ```
 
@@ -80,7 +83,7 @@ Other import cleanup:
 - removed `sys.path.insert(...)` usage
 - removed wildcard imports from app code
 - updated package build config to include nested `src/**/*.py`
-- added a compatibility import redirector in `src/__init__.py` for old pickle/module paths
+- added a compatibility import redirector in `src/__init__.py` for old pickle/module paths where target modules still exist
 
 ### Flask app factory
 
@@ -223,6 +226,48 @@ src/pipeline/document_results.py
 src/pipeline/status.py
 ```
 
+### `src/common/util_functions.py` split
+
+Completed.
+
+The former mixed utility module was split and removed. New focused modules include:
+
+```text
+src/common/config_loading.py
+src/common/io.py
+src/common/iterables.py
+src/common/meta.py
+src/common/spacy_extensions.py
+src/common/colors.py
+src/core/clustering_config.py
+src/core/documents.py
+src/core/metrics.py
+src/core/reduction.py
+src/storage/interfaces.py
+```
+
+### Test and experiment relocation
+
+Completed.
+
+Tests were moved out of production package code:
+
+```text
+src/tests/test_data_functions.py      -> test/test_data_functions.py
+src/tests/test_graph_functions.py     -> test/test_graph_functions.py
+src/pruning/test_unimodal.py          -> test/test_pruning_unimodal.py
+```
+
+Experiment/evaluation scripts were moved out of `src/`:
+
+```text
+src/run/run.py    -> experiments/run.py
+src/run/test.py   -> experiments/evaluation.py
+src/run/cross.py  -> experiments/cross.py
+```
+
+The old `src/tests/` and `src/run/` packages were removed.
+
 ### Docker cleanup
 
 Completed.
@@ -241,7 +286,7 @@ Improvements:
 Recent successful checks:
 
 ```bash
-uv run python -m compileall -q main.py src test
+uv run python -m compileall -q main.py src test experiments
 ```
 
 Flask smoke checks have passed for representative endpoints, including:
@@ -257,19 +302,24 @@ GET /rag/question?q=test                              -> 404 when RAG is not ini
 
 ## Known Test Status
 
-The full test suite still fails for pre-existing reasons unrelated to the structural refactors:
+The full test suite now collects successfully. Current status is:
 
 ```text
-src/pruning/test_unimodal.py
-  NameError: name 'ig' is not defined
+1 passed, 1 skipped, 7 failed
+```
 
-src/tests/test_graph_functions.py
+Remaining failures are pre-existing fixture/data issues:
+
+```text
+test/test_graph_functions.py
   incomplete TestGraphCreator fixture setup
 
 test/test_main_utils.py
 test/test_document_clustering_on_corpus.py
   missing pickle fixtures under tmp/
 ```
+
+The pruning tests are skipped cleanly when optional `igraph` is unavailable.
 
 Fixing or quarantining these tests is now one of the highest-value next steps.
 
@@ -281,7 +331,6 @@ Priority: high.
 
 Suggested actions:
 
-- handle optional `igraph` dependency properly
 - skip fixture-dependent tests when pickle fixtures are missing
 - repair incomplete graph test setup
 - add small smoke/unit tests for app factory and route registration
@@ -298,27 +347,7 @@ Ruff would help detect:
 - import ordering issues
 - simple modernization opportunities
 
-### 3. Split `src/common/util_functions.py`
-
-Still mixed. It contains concerns such as:
-
-- pickle I/O
-- color helpers
-- store abstractions
-- spaCy extension helpers
-- miscellaneous utilities
-
-Suggested target split:
-
-```text
-src/common/io.py
-src/common/colors.py
-src/common/spacy_extensions.py
-src/common/stores.py
-src/common/iterables.py
-```
-
-### 4. Replace namedtuples/config containers with dataclasses
+### 3. Replace namedtuples/config containers with dataclasses
 
 Some request/query/config objects still use namedtuple-style structures.
 
@@ -330,15 +359,15 @@ class PipelineQueryParams:
     ...
 ```
 
-### 5. Replace remaining `print(...)` calls with logging
+### 4. Replace remaining `print(...)` calls with logging
 
 Several library/runtime modules still contain `print(...)` calls. These should use module loggers instead.
 
-### 6. Replace remaining broad `except Exception` blocks where practical
+### 5. Replace remaining broad `except Exception` blocks where practical
 
 Broad exception handling still exists in multiple places. Some may be acceptable at route boundaries, but internal logic should become more specific where possible.
 
-### 7. Continue splitting large domain modules
+### 6. Continue splitting large domain modules
 
 The biggest remaining modules are still in the domain layer:
 
@@ -347,7 +376,6 @@ src/core/cluster_functions.py
 src/core/data_functions.py
 src/core/graph_functions.py
 src/storage/marqo_external_utils.py
-src/common/util_functions.py
 ```
 
 Possible future structure:

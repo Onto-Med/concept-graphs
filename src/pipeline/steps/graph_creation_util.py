@@ -10,7 +10,7 @@ from src.pipeline.load_utils import FactoryLoader
 from src.pipeline.base import BaseUtil
 from src.pipeline.status import StepsName
 from src.core.cluster_functions import WordEmbeddingClustering
-from src.common.util_functions import save_pickle
+from src.common.io import save_pickle
 
 
 class GraphCreationUtil(BaseUtil):

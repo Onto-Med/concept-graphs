@@ -15,7 +15,8 @@ src/tests/
 **/test_*.py
 **/*_test.py
 
-# Jupyter notebooks are not needed in runtime images
+# Experiments/notebooks are not needed in runtime images
+experiments/
 jupyter-notebooks/
 *.ipynb
 

@@ -8,13 +8,9 @@ import marqo
 import numpy as np
 from marqo.errors import MarqoWebError
 
-from src.common.util_functions import (
-    EmbeddingStore,
-    DocumentStore,
-    Document,
-    harmonic_mean,
-    ConfigLoadMethods,
-)
+from src.common.config_loading import ConfigLoadMethods
+from src.core.metrics import harmonic_mean
+from src.storage.interfaces import Document, DocumentStore, EmbeddingStore
 
 CLIENT_BATCH_SIZE = 128
 

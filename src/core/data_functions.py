@@ -24,12 +24,9 @@ from src.common.spacy_utils import (
 )
 from src.negspacy.negation import Negex
 from src.negspacy.utils import FeaturesOfInterest
-from src.common.util_functions import (
-    load_pickle,
-    save_pickle,
-    add_offset_to_documents_dicts_by_id,
-    set_spacy_extensions,
-)
+from src.common.io import load_pickle, save_pickle
+from src.common.spacy_extensions import set_spacy_extensions
+from src.core.documents import add_offset_to_documents_dicts_by_id
 
 
 def _populate_chunk_set_dict_with_doc(

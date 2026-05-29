@@ -9,7 +9,8 @@ from werkzeug.datastructures import FileStorage
 from src.pipeline.base import BaseUtil
 from src.pipeline.status import StepsName
 from src.core.integration_functions import ConceptGraphIntegrationFactory
-from src.common.util_functions import load_pickle, EmbeddingStore
+from src.common.io import load_pickle
+from src.storage.interfaces import EmbeddingStore
 
 
 class ConceptGraphIntegrationUtil(BaseUtil):

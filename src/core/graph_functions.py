@@ -14,7 +14,7 @@ from scipy.sparse.csgraph import connected_components
 from sklearn.cluster import AffinityPropagation
 
 from src.core.embedding_functions import cosine
-from src.common.util_functions import add_offset_to_documents_dicts_by_id
+from src.core.documents import add_offset_to_documents_dicts_by_id
 
 
 class GraphCreator:

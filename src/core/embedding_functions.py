@@ -10,12 +10,9 @@ from sklearn.cluster import KMeans
 
 from src.core.data_functions import DataProcessingFactory
 from src.storage.marqo_external_utils import MarqoEmbeddingStore
-from src.common.util_functions import (
-    NoneDownScaleObj,
-    load_pickle,
-    save_pickle,
-    set_spacy_extensions,
-)
+from src.common.io import load_pickle, save_pickle
+from src.common.spacy_extensions import set_spacy_extensions
+from src.core.reduction import NoneDownScaleObj
 
 
 class SentenceEmbeddingsFactory:

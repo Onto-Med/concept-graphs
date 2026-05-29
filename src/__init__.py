@@ -17,7 +17,6 @@ _LEGACY_MODULE_TARGETS = {
     "src.graph_functions": "src.core.graph_functions",
     "src.integration_functions": "src.core.integration_functions",
     "src.marqo_external_utils": "src.storage.marqo_external_utils",
-    "src.util_functions": "src.common.util_functions",
 }
 
 

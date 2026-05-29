@@ -8,7 +8,7 @@ from src.pipeline.status import StepsName
 from src.core.cluster_functions import PhraseClusterFactory
 from src.core.data_functions import DataProcessingFactory
 from src.core.embedding_functions import SentenceEmbeddingsFactory
-from src.common.util_functions import load_pickle
+from src.common.io import load_pickle
 
 
 class FactoryLoader:
