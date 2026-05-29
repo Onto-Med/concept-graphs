@@ -25,8 +25,8 @@ from src.common.spacy_utils import (
     load_spacy_model,
 )
 from src.core.documents import add_offset_to_documents_dicts_by_id
-from src.negspacy.negation import Negex
-from src.negspacy.utils import FeaturesOfInterest
+from src.nlp.negation.negation import Negex
+from src.nlp.negation.utils import FeaturesOfInterest
 
 
 def _populate_chunk_set_dict_with_doc(

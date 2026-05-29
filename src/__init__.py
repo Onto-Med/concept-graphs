@@ -23,6 +23,10 @@ _LEGACY_MODULE_TARGETS = {
     "src.rag.chatters.OllamaChatter": "src.rag.chatters.ollama",
     "src.rag.embedding_stores.AbstractEmbeddingStore": "src.rag.embedding_stores.base",
     "src.rag.embedding_stores.MarqoChunkEmbeddingStore": "src.rag.embedding_stores.marqo",
+    "src.negspacy.context": "src.nlp.negation.context",
+    "src.negspacy.negation": "src.nlp.negation.negation",
+    "src.negspacy.termsets": "src.nlp.negation.termsets",
+    "src.negspacy.utils": "src.nlp.negation.utils",
 }
 
 
