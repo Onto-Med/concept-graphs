@@ -29,7 +29,9 @@ def read_config(
     language: Optional[str] = None,
     mode: str = "yaml",
 ):
-    _language = config.get("language", language) if config is not None else language
+    _language = (
+        config.get("language", language) if isinstance(config, dict) else language
+    )
     app.logger.info(f"Reading config ({process_type}) ...")
     processor.read_config(
         config=config if config is not None else request.files.get("config", None),

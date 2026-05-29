@@ -164,3 +164,4 @@ cython_debug/
 /tmp
 .idea
 /AGENTS.md
+/test/data/results/

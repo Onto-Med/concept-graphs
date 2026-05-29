@@ -87,14 +87,13 @@ class FactoryLoader:
                     "The provided data_obj seems not to be a DataProcessing object. Trying to load it instead."
                 )
                 data_obj = None
-        if isinstance(sent_emb, dict) or vector_store is not None:
-            _vec = {} if vector_store is None else vector_store
+        if isinstance(sent_emb, dict):
             sent_emb = SentenceEmbeddingsFactory.load(
                 embeddings_obj_path=Path(Path(path) / f"{process}_embedding.pickle"),
                 data_obj=cls.load_data(path, process) if data_obj is None else data_obj,
                 storage_method=(
                     "vector_store",
-                    _vec,
+                    sent_emb if vector_store is None else {**sent_emb, **vector_store},
                 ),
             )
         else:

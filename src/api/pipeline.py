@@ -309,9 +309,14 @@ def _load_skipped_step(app_context, query_params, step_name: str, vector_store_c
     )
 
 
+def _is_omitted_step(query_params, step_name: str) -> bool:
+    """Return whether a step was explicitly omitted by the request."""
+    return step_name in query_params.omitted_pipeline_steps
+
+
 def _should_skip_present_step(query_params, step_name: str) -> bool:
     """Return whether an existing step should be reused instead of recomputed."""
-    return step_name in query_params.omitted_pipeline_steps or query_params.skip_present
+    return query_params.skip_present
 
 
 def _configure_process_step(
@@ -390,6 +395,19 @@ def _prepare_pipeline_processes(
             ProcessStatus.STARTED,
             app_context.processes.running,
         )
+
+        if _is_omitted_step(query_params, step_name):
+            _mark_step_skipped(app_context, query_params, step_name)
+            if (
+                process_obj.has_process(query_params.process_name)
+                and previous_step_present
+            ):
+                _load_skipped_step(
+                    app_context, query_params, step_name, vector_store_config
+                )
+            else:
+                previous_step_present = False
+            continue
 
         if process_obj.has_process(query_params.process_name):
             if _should_skip_present_step(query_params, step_name):
