@@ -1,12 +1,12 @@
-from typing import Optional, Union, Callable
+from typing import Callable, Optional, Union
 
 import flask
 from werkzeug.datastructures import FileStorage
 
-from src.pipeline.load_utils import FactoryLoader
-from src.pipeline.base import BaseUtil
-from src.pipeline.status import StepsName
 from src.core.cluster_functions import PhraseClusterFactory
+from src.pipeline.base import BaseUtil
+from src.pipeline.load_utils import FactoryLoader
+from src.pipeline.status import StepsName
 
 
 class ClusteringUtil(BaseUtil):

@@ -1,7 +1,7 @@
 import logging
 import pathlib
 from itertools import islice
-from typing import Union, Optional
+from typing import Optional, Union
 
 from spacy.language import Language
 from spacy.matcher import PhraseMatcher

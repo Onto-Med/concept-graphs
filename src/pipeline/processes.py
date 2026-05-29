@@ -14,9 +14,9 @@ from src.common.threads import StoppableThread
 from src.pipeline.base import BaseUtil
 from src.pipeline.status import (
     ProcessStatus,
+    StepsName,
     add_status_to_running_process,
     steps_relation_dict,
-    StepsName,
 )
 
 
@@ -152,7 +152,7 @@ def stop_thread(
     # ToDo: maybe allow for hard stop? -> terminate the thread even if a step is not yet finished
     app.logger.info(f"Trying to stop thread for '{process_name}'.")
     if hard_stop:
-        app.logger.warning(f"Hard stopping a thread is not implemented.")
+        app.logger.warning("Hard stopping a thread is not implemented.")
         hard_stop = False
     _thread = threading_store.get(process_name, None)
     _process = process_tracker.get(process_name, None)
@@ -188,9 +188,9 @@ def stop_thread(
                         "status"
                     ] = ProcessStatus.STOPPED
                 continue
-            process_tracker[process_name]["status"][_step.get("rank") - 1][
-                "status"
-            ] = ProcessStatus.ABORTED
+            process_tracker[process_name]["status"][_step.get("rank") - 1]["status"] = (
+                ProcessStatus.ABORTED
+            )
     except Exception:
         pass
 

@@ -30,7 +30,9 @@ def cluster_purity(
 
 
 def harmonic_mean(scores: Iterable[tuple[str, float]]) -> list[tuple[str, float]]:
-    _avg = lambda x: sum(x) / len(x)
+    def _avg(values):
+        return sum(values) / len(values)
+
     scores_by_class = defaultdict(list)
     for cls, score in scores:
         scores_by_class[cls].append(score)
@@ -39,12 +41,15 @@ def harmonic_mean(scores: Iterable[tuple[str, float]]) -> list[tuple[str, float]
             (
                 cls,
                 (
-                    2 * _avg(l) * len(l) / (_avg(l) + len(l))
-                    if (_avg(l) + len(l)) != 0
+                    2
+                    * _avg(class_scores)
+                    * len(class_scores)
+                    / (_avg(class_scores) + len(class_scores))
+                    if (_avg(class_scores) + len(class_scores)) != 0
                     else 0
                 ),
             )
-            for cls, l in scores_by_class.items()
+            for cls, class_scores in scores_by_class.items()
         ],
         key=lambda x: x[1],
         reverse=True,

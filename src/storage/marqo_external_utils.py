@@ -2,7 +2,7 @@ import itertools
 import logging
 import pathlib
 from copy import copy
-from typing import Iterable, Union, Optional, Tuple
+from typing import Iterable, Optional, Tuple, Union
 
 import marqo
 import numpy as np
@@ -70,7 +70,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
             try:
                 self._settings = self.marqo_index.get_settings()
                 self._vector_dim = self._settings["modelProperties"]["dimensions"]
-            except MarqoWebError as e:
+            except MarqoWebError:
                 logging.error(
                     f" Either there couldn't be a connection established or"
                     f" there seems to be no index '{self._index_name}'"
@@ -113,7 +113,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
             _client = marqo.Client(url=f"{config['client_url']}")
             _ = _client.get_indexes()
             return True
-        except Exception as e:
+        except Exception:
             logging.error(
                 f"There couldn't be a connection established for {config['client_url']}."
             )
@@ -162,7 +162,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
                 index_name=index_name,
                 settings_dict=self.index_settings,
             )
-        except MarqoWebError as e:
+        except MarqoWebError:
             self.client.delete_index(index_name)
             self.client.create_index(
                 index_name=index_name,
@@ -174,16 +174,12 @@ class MarqoEmbeddingStore(EmbeddingStore):
         self, check_id: Union[str, Iterable[str]]
     ) -> dict[str, list]:
         _field = "graph_cluster"
-        _check_id_iter = lambda x: (
-            enumerate(check_id)
-            if isinstance(check_id, Iterable)
-            else [
-                (
-                    0,
-                    check_id,
-                )
-            ]
-        )
+
+        def _check_id_iter(_):
+            if isinstance(check_id, Iterable):
+                return enumerate(check_id)
+            return [(0, check_id)]
+
         _additions = []
         _retained = []
         _docs_to_add = []
@@ -299,7 +295,10 @@ class MarqoEmbeddingStore(EmbeddingStore):
         """
         _vector_name = vector_name if vector_name is not None else self._vector_name
         _offset = self.store_size
-        _new_id = lambda x: str(_offset + x)
+
+        def _new_id(value):
+            return str(_offset + value)
+
         _embeddings = []
         try:
             list(embeddings)[0]
@@ -422,7 +421,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
     def delete_embedding(self, embedding_id: str) -> bool:
         try:
             self.marqo_index.get_document(embedding_id)
-        except MarqoWebError as e:
+        except MarqoWebError:
             logging.warning(f"Id doesn't exist '{embedding_id}'.")
             return False
         self.marqo_index.delete_documents([embedding_id])
@@ -432,7 +431,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
         _ids = sorted(embedding_ids)
         try:
             self.marqo_index.get_document(_ids[0])
-        except MarqoWebError as e:
+        except MarqoWebError:
             logging.warning(f"Already first id doesn't exist '{_ids[0]}'.")
             return False
         self.marqo_index.delete_documents(_ids)
@@ -482,7 +481,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
                                 if x[1] >= _true_doc_score * score_frac
                             ]
                         )
-            except MarqoWebError as e:
+            except MarqoWebError:
                 logging.error(
                     f"Document/Embedding with id '{embedding}' is not present in the index."
                 )
@@ -551,10 +550,13 @@ class MarqoDocumentStore(DocumentStore):
                     {k: v[_id_tuple[2]] for k, v in document[1].items()},
                 )
             _updated_docs.append(_to_append)
-        read_tuple_lambda = lambda x, y: [(d[y] if as_tuple else d) for d in x]
+
+        def read_tuple_value(values, index):
+            return [(d[index] if as_tuple else d) for d in values]
+
         if _updated_docs:
             self._embedding_store.marqo_index.update_documents(
-                read_tuple_lambda(_updated_docs, 0), client_batch_size=CLIENT_BATCH_SIZE
+                read_tuple_value(_updated_docs, 0), client_batch_size=CLIENT_BATCH_SIZE
             )
 
         _x = [
@@ -577,10 +579,10 @@ class MarqoDocumentStore(DocumentStore):
         ]
         return_dict = {
             "with_graph": {
-                "added": {"phrases": read_tuple_lambda(_updated_docs, 0)},
+                "added": {"phrases": read_tuple_value(_updated_docs, 0)},
                 "incorporated": {
                     "phrases": [
-                        x for x in read_tuple_lambda(_x, 0) if x.get(_field) is not None
+                        x for x in read_tuple_value(_x, 0) if x.get(_field) is not None
                     ]
                 },
             },
@@ -589,7 +591,7 @@ class MarqoDocumentStore(DocumentStore):
                     i
                     for i in _stored.get("added", [])
                     if i
-                    not in set([x["_id"] for x in read_tuple_lambda(_updated_docs, 0)])
+                    not in set([x["_id"] for x in read_tuple_value(_updated_docs, 0)])
                 ],
                 "incorporated": [
                     i
@@ -598,7 +600,7 @@ class MarqoDocumentStore(DocumentStore):
                     not in set(
                         [
                             x["_id"]
-                            for x in read_tuple_lambda(_x, 0)
+                            for x in read_tuple_value(_x, 0)
                             if x.get(_field) is not None
                         ]
                     )
@@ -606,12 +608,12 @@ class MarqoDocumentStore(DocumentStore):
             },
         }
         if as_tuple:
-            return_dict["with_graph"]["added"]["additional_info"] = read_tuple_lambda(
+            return_dict["with_graph"]["added"]["additional_info"] = read_tuple_value(
                 _updated_docs, 1
             )
             return_dict["with_graph"]["incorporated"]["additional_info"] = [
                 x
-                for x, y in zip(read_tuple_lambda(_x, 1), read_tuple_lambda(_x, 0))
+                for x, y in zip(read_tuple_value(_x, 1), read_tuple_value(_x, 0))
                 if y.get(_field) is not None
             ]
         return return_dict

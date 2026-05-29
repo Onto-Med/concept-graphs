@@ -6,10 +6,10 @@ from inspect import getfullargspec
 from pydoc import locate
 from typing import Optional, cast
 
-from src.pipeline.status import StepsName
 from src.pipeline.load_utils import FactoryLoader
-from src.rag.text_splitters import PreprocessedSpacyTextSplitter
+from src.pipeline.status import StepsName
 from src.rag.embedding_stores.base import ChunkEmbeddingStore
+from src.rag.text_splitters import PreprocessedSpacyTextSplitter
 
 
 def initialize_chunk_vectorstore(
@@ -122,5 +122,5 @@ def fill_chunk_vectorstore(process: str, rag, storage, pipeline, **kwargs) -> bo
         _rag.switch_readiness()
         return True
     else:
-        logging.warning(f"[fill_chunk_vectorstore] Already initializing")
+        logging.warning("[fill_chunk_vectorstore] Already initializing")
         return False

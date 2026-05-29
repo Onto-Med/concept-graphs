@@ -2,8 +2,8 @@
 
 from flask import Blueprint, jsonify, request
 
-from src.api.services.document_server import check_data_server, get_data_server_config
 from src.api.responses import HTTPResponses
+from src.api.services.document_server import check_data_server, get_data_server_config
 from src.common.parsing import string_conformity
 
 

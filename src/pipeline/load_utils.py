@@ -4,11 +4,11 @@ from typing import Optional, Union
 
 import networkx as nx
 
-from src.pipeline.status import StepsName
+from src.common.io import load_pickle
 from src.core.cluster_functions import PhraseClusterFactory
 from src.core.data_functions import DataProcessingFactory
 from src.core.embedding_functions import SentenceEmbeddingsFactory
-from src.common.io import load_pickle
+from src.pipeline.status import StepsName
 
 
 class FactoryLoader:

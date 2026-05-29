@@ -8,7 +8,7 @@ import re
 from collections import defaultdict
 from functools import lru_cache
 from random import sample
-from typing import Optional, Generator, Union, Iterable, Dict, List, Set, Callable
+from typing import Callable, Dict, Generator, Iterable, List, Optional, Set, Union
 
 import numpy as np
 import spacy
@@ -18,15 +18,15 @@ from spacy.tokens import DocBin
 from spacy.tokens.doc import Doc
 from tqdm.autonotebook import tqdm
 
-from src.common.spacy_utils import (
-    load_spacy_model,
-    get_default_spacy_model,
-)
-from src.negspacy.negation import Negex
-from src.negspacy.utils import FeaturesOfInterest
 from src.common.io import load_pickle, save_pickle
 from src.common.spacy_extensions import set_spacy_extensions
+from src.common.spacy_utils import (
+    get_default_spacy_model,
+    load_spacy_model,
+)
 from src.core.documents import add_offset_to_documents_dicts_by_id
+from src.negspacy.negation import Negex
+from src.negspacy.utils import FeaturesOfInterest
 
 
 def _populate_chunk_set_dict_with_doc(
@@ -311,7 +311,9 @@ class DataProcessingFactory:
                 return self._true_labels
             else:
                 return [
-                    l for l in self._true_labels if l.lower() in self._view["labels"]
+                    label
+                    for label in self._true_labels
+                    if label.lower() in self._view["labels"]
                 ]
 
         @property
@@ -319,7 +321,7 @@ class DataProcessingFactory:
             if self._view is None:
                 return set(self._true_labels)
             else:
-                return set([l.lower() for l in self._true_labels]).intersection(
+                return {label.lower() for label in self._true_labels}.intersection(
                     self._view["labels"]
                 )
 
@@ -517,7 +519,7 @@ class DataProcessingFactory:
             for _obj in self._cache_obj:
                 _obj.cache_clear()
             if labels is not None:
-                labels = [l.lower() for l in labels]
+                labels = [label.lower() for label in labels]
                 self._view = {
                     "ids": np.where(np.isin(self._true_labels, np.asarray(labels)))[0],
                     "labels": labels,
@@ -637,9 +639,9 @@ class DataProcessingFactory:
                     )
                     _offset = _chunk_dict["offset"]
                     if (not (_negated_chunk and omit_negated_chunks)) and data is None:
-                        self._document_chunk_matrix[
-                            ch["doc_index"]
-                        ] += f"{self._chunk_boundary}{_text}"
+                        self._document_chunk_matrix[ch["doc_index"]] += (
+                            f"{self._chunk_boundary}{_text}"
+                        )
 
                     if _csdt.get(_text, False) and not (
                         _negated_chunk and omit_negated_chunks

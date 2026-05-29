@@ -4,51 +4,49 @@ import logging
 import pathlib
 import re
 import statistics
-from collections import defaultdict, Counter
+from collections import Counter, defaultdict
 from concurrent.futures import ProcessPoolExecutor
 from functools import cache
 from itertools import repeat
-from typing import Iterable, Optional, Union, Any, List, Tuple
+from typing import Any, Iterable, List, Optional, Tuple, Union
 
 import networkx as nx
 import numpy as np
 import pandas as pd
+import sknetwork as skn
 import umap
 from numpy import ndarray
 from scipy.sparse.csgraph import (
-    shortest_path,
-    construct_dist_matrix,
     NegativeCycleError,
-)
-from sklearn.cluster import (
-    KMeans,
-    AgglomerativeClustering,
-    MiniBatchKMeans,
-    AffinityPropagation,
+    construct_dist_matrix,
+    shortest_path,
 )
 from sklearn import metrics
+from sklearn.cluster import (
+    AffinityPropagation,
+    AgglomerativeClustering,
+    KMeans,
+    MiniBatchKMeans,
+)
 from sklearn.feature_extraction.text import TfidfVectorizer as tfidfVec
 from sklearn.linear_model import LinearRegression
-from sklearn.preprocessing import normalize, MinMaxScaler, PolynomialFeatures
+from sklearn.preprocessing import MinMaxScaler, PolynomialFeatures, normalize
 from sklearn.utils._random import sample_without_replacement
 from tqdm.autonotebook import tqdm
 from yellowbrick.cluster import kelbow_visualizer
 
+from src.common.io import load_pickle, save_pickle
+from src.core.clustering_config import ClusterNumberDetection
 from src.core.data_functions import DataProcessingFactory, clean_span, get_actual_str
 from src.core.embedding_functions import SentenceEmbeddingsFactory, top_k_cosine
 from src.core.graph_functions import (
     GraphCreator,
-    unroll_graph,
     simplify_graph_naive,
     sub_clustering,
+    unroll_graph,
 )
-from src.pruning import unimodal
-
-from src.common.io import load_pickle, save_pickle
-from src.core.clustering_config import ClusterNumberDetection
 from src.core.reduction import NoneDownScaleObj
-
-import sknetwork as skn
+from src.pruning import unimodal
 
 logging.basicConfig()
 logging.root.setLevel(logging.INFO)
@@ -582,7 +580,7 @@ class WordEmbeddingClustering:
                                         )
                                     )
                                 ]
-                            except KeyError as err:
+                            except KeyError:
                                 logging.warning(
                                     f"(node)   \t{concept_graph.nodes(data=True)[node]}\n"
                                     f"(target) \t{concept_graph.nodes(data=True)[target]}"
@@ -615,14 +613,6 @@ class WordEmbeddingClustering:
                 )
                 concept_graph_matrix = nx.to_numpy_array(concept_graph)
                 graph_cluster = louvain.fit_transform(concept_graph_matrix)
-                # min_max = MinMaxScaler()
-                # ToDo: only works if significance was calculated
-                # ToDo: think about this again
-                concept_graph_matrix_significance = nx.to_numpy_array(
-                    concept_graph, weight="significance"
-                ) * (
-                    1.0 / nx.to_numpy_array(concept_graph, weight="significance").max()
-                )
                 concept_graph_matrix_rev = (
                     concept_graph_matrix > 0
                 ) - concept_graph_matrix
@@ -632,9 +622,7 @@ class WordEmbeddingClustering:
                         return_predecessors=True,
                         directed=False,
                     )
-                except (
-                    NegativeCycleError
-                ):  # ToDo: don't know if this is appropriate: it would skip th whole concept graph
+                except NegativeCycleError:  # ToDo: don't know if this is appropriate: it would skip th whole concept graph
                     continue
                 bool_cut = (distance <= cutoff) & (distance > 0)
                 absolute_distance = construct_dist_matrix(
@@ -648,10 +636,11 @@ class WordEmbeddingClustering:
                     _gc_id = graph_cluster[i]
                     _idx = np.where(bool_cut[i, :])
                     _scores = (
-                        distance_real[i, :][_idx]
-                        / np.exp(absolute_distance[i, :][_idx])
-                    ) * (
-                        graph_cluster[_idx] == _gc_id
+                        (
+                            distance_real[i, :][_idx]
+                            / np.exp(absolute_distance[i, :][_idx])
+                        )
+                        * (graph_cluster[_idx] == _gc_id)
                     )  # product: only count score if both nodes are in same sub cluster: graph_cluster
                     self._document_concept_matrix[
                         list(set(_d for d in documents[_idx] for _d in d)), j
@@ -837,12 +826,6 @@ class WordEmbeddingClustering:
             self._document_concept_matrix = np.zeros(
                 (self._data_proc.documents_n, len(_concept_graphs))
             )
-            sub_cluster_reward = (
-                graph_sub_clustering
-                if isinstance(graph_sub_clustering, float)
-                else (1.75 if graph_sub_clustering is True else 1.0)
-            )
-
             # ToDo: best approach to evaluate the connection between documents via their concepts needs to be found
             logging.info("Calculating connections...")
             if not graph_unroll:
@@ -1081,7 +1064,7 @@ class PhraseClusterFactory:
             return {
                 f"scaling ({self._down_scale_alg})": self._down_scale_alg_kwargs,
                 f"cluster ({self._cluster_alg})": self._cluster_alg_kwargs,
-                f"deduction": self._kelbow_alg_kwargs,
+                "deduction": self._kelbow_alg_kwargs,
             }
 
         def _build_concept_cluster(self, cluster_by_down_scale: bool = True):

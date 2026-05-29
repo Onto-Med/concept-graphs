@@ -10,9 +10,9 @@ import flask
 import networkx as nx
 from flask import jsonify, render_template_string, request
 
-from src.pipeline.status import StepsName
 from src.api.services.configuration import read_config, read_exclusion_ids
 from src.core import cluster_functions
+from src.pipeline.status import StepsName
 from src.pipeline.steps.graph_creation_util import GraphCreationUtil, visualize_graph
 
 

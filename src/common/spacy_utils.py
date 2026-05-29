@@ -28,7 +28,10 @@ def load_spacy_model(spacy_model: str, logger: logging.Logger, default_model: st
 
     def wait_for_download(model: str, time_out: int = 30):
         spacy.cli.download(model)
-        wait_pred = lambda: model in spacy.util.get_installed_models()
+
+        def wait_pred():
+            return model in spacy.util.get_installed_models()
+
         try:
             wait(wait_pred, timeout_seconds=time_out)
         except TimeoutExpired:

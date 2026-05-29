@@ -2,21 +2,14 @@ import logging
 import pathlib
 import unittest
 
-logger = logging.getLogger(__name__)
-
 from sklearn.cluster import KMeans
 
+from src.core import cluster_functions
+from src.core.cluster_functions import WordEmbeddingClustering
 from src.pipeline.load_utils import FactoryLoader
 from src.pipeline.status import StepsName
-from src.core.cluster_functions import WordEmbeddingClustering
 
-# from src.core.cluster_functions import WordEmbeddingClustering
-from src.core import (
-    data_functions,
-    embedding_functions,
-    cluster_functions,
-    graph_functions,
-)
+logger = logging.getLogger(__name__)
 
 
 class TestDocumentClusteringOnCorpus(unittest.TestCase):

@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, Any, Generator, Union, Optional
+from typing import Any, Generator, Iterable, Optional, Union
 
 from langchain_text_splitters import TextSplitter
 from spacy.tokens import Doc
@@ -94,6 +94,7 @@ class PreprocessedSpacyTextSplitter(TextSplitter):
 
 if __name__ == "__main__":
     import pathlib
+
     from src.pipeline.load_utils import FactoryLoader
 
     _data = FactoryLoader.load_data(

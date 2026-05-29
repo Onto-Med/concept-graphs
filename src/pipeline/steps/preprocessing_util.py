@@ -1,7 +1,7 @@
 import zipfile
 from pathlib import Path
 from types import GeneratorType
-from typing import List, Dict, Union, Generator, Optional, Callable
+from typing import Callable, Dict, Generator, List, Optional, Union
 
 import flask.app
 import yaml
@@ -11,13 +11,13 @@ from werkzeug.datastructures import FileStorage
 from src.common.parsing import get_bool_expression
 from src.common.spacy_utils import (
     NegspacyConfig,
-    load_spacy_model,
     get_default_spacy_model,
+    load_spacy_model,
 )
-from src.pipeline.base import BaseUtil
-from src.pipeline.status import StepsName
 from src.core.data_functions import DataProcessingFactory
 from src.negspacy.utils import FeaturesOfInterest
+from src.pipeline.base import BaseUtil
+from src.pipeline.status import StepsName
 
 
 class PreprocessingUtil(BaseUtil):

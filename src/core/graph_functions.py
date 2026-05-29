@@ -4,7 +4,7 @@ import statistics
 import warnings
 from functools import lru_cache
 from inspect import getfullargspec
-from typing import Union, List, Dict, Iterable, Optional, Tuple, Any
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Union
 
 import networkx as nx
 import numpy as np
@@ -13,8 +13,8 @@ from numpy import ndarray
 from scipy.sparse.csgraph import connected_components
 from sklearn.cluster import AffinityPropagation
 
-from src.core.embedding_functions import cosine
 from src.core.documents import add_offset_to_documents_dicts_by_id
+from src.core.embedding_functions import cosine
 
 
 class GraphCreator:

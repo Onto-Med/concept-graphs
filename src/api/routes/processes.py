@@ -4,11 +4,11 @@ from typing import Optional
 
 from flask import Blueprint, Response, jsonify, request
 
-from src.api.services.process_management import delete_pipeline
-from src.pipeline.processes import stop_thread
 from src.api.responses import HTTPResponses
+from src.api.services.process_management import delete_pipeline
 from src.common.parsing import string_conformity
 from src.common.threads import StoppableThread
+from src.pipeline.processes import stop_thread
 from src.pipeline.status import ProcessStatus
 
 

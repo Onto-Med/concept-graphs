@@ -1,6 +1,6 @@
 import logging
 import pathlib
-from typing import Optional, Union, List, Iterable, Tuple
+from typing import Iterable, List, Optional, Tuple, Union
 
 import numpy as np
 import torch
@@ -8,11 +8,11 @@ import umap
 from sentence_transformers import SentenceTransformer
 from sklearn.cluster import KMeans
 
-from src.core.data_functions import DataProcessingFactory
-from src.storage.marqo_external_utils import MarqoEmbeddingStore
 from src.common.io import load_pickle, save_pickle
 from src.common.spacy_extensions import set_spacy_extensions
+from src.core.data_functions import DataProcessingFactory
 from src.core.reduction import NoneDownScaleObj
+from src.storage.marqo_external_utils import MarqoEmbeddingStore
 
 
 class SentenceEmbeddingsFactory:

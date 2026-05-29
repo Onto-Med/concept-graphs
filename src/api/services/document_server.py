@@ -8,8 +8,8 @@ import yaml
 from munch import Munch
 from werkzeug.datastructures import FileStorage
 
-from src.common.parsing import get_bool_expression
 from src.api.services.pipeline_params import get_dict_expression
+from src.common.parsing import get_bool_expression
 
 
 def get_data_server_config(
@@ -59,7 +59,7 @@ def check_data_server(
         final_url = f"{_url.rstrip('/')}:{config.get('port', '9008')}/{config.get('index', 'documents').lstrip('/').rstrip('/')}/_count"
         try:
             _response = requests.get(final_url)
-        except requests.exceptions.RequestException as e:
+        except requests.exceptions.RequestException:
             continue
         if _count := _response.json().get("count", False):
             if int(_count) > 0:

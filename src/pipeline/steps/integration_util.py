@@ -1,15 +1,15 @@
 import logging
 from pathlib import Path
 from pydoc import locate
-from typing import Union, Optional, Callable
+from typing import Callable, Optional, Union
 
-from flask import Response, Flask
+from flask import Flask, Response
 from werkzeug.datastructures import FileStorage
 
+from src.common.io import load_pickle
+from src.core.integration_functions import ConceptGraphIntegrationFactory
 from src.pipeline.base import BaseUtil
 from src.pipeline.status import StepsName
-from src.core.integration_functions import ConceptGraphIntegrationFactory
-from src.common.io import load_pickle
 from src.storage.interfaces import EmbeddingStore
 
 

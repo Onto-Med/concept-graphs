@@ -6,14 +6,14 @@ import pathlib
 
 from flask import Blueprint, jsonify, request
 
-from src.api.services.configuration import load_configs
+from src.api.pipeline import run_complete_pipeline
 from src.api.responses import HTTPResponses
+from src.api.services.configuration import load_configs
 from src.common.parsing import (
     get_bool_expression,
     string_conformity,
 )
 from src.pipeline.status import PipelineLanguage
-from src.api.pipeline import run_complete_pipeline
 
 
 def create_pipeline_blueprint(app, processes, pipeline, storage):

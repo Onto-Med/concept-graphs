@@ -7,13 +7,13 @@ from time import sleep
 
 from flask import Blueprint, jsonify, request
 
+from src.api.context import ActiveRAG
 from src.api.request_parsing import get_doc_ids, parse_rag_config_json
+from src.api.responses import HTTPResponses
 from src.api.services.rag_vectorstore import (
     fill_chunk_vectorstore,
     initialize_chunk_vectorstore,
 )
-from src.api.context import ActiveRAG
-from src.api.responses import HTTPResponses
 from src.common.parsing import (
     get_bool_expression,
     string_conformity,

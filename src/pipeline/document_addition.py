@@ -10,14 +10,14 @@ from typing import Optional, Union
 import networkx as nx
 import numpy as np
 
-from src.pipeline.load_utils import FactoryLoader
-from src.api.responses import HTTPResponses
-from src.pipeline.document_results import transform_document_addition_results
-from src.pipeline.status import StepsName
-from src.core import data_functions, embedding_functions
 from src.api.request_parsing import document_adding_json
-from src.core.graph_functions import GraphIncorp
+from src.api.responses import HTTPResponses
 from src.common.io import save_pickle
+from src.core import data_functions, embedding_functions
+from src.core.graph_functions import GraphIncorp
+from src.pipeline.document_results import transform_document_addition_results
+from src.pipeline.load_utils import FactoryLoader
+from src.pipeline.status import StepsName
 from src.storage.interfaces import DocumentStore, EmbeddingStore
 
 
@@ -70,22 +70,20 @@ def add_documents_to_concept_graphs(
                 if embedding_processing is None
                 else embedding_processing
             )
-        except FileNotFoundError as e:
+        except FileNotFoundError:
             _missing = "data" if data_processing is None else "embedding"
             return {
                 "error": f"The serialized object for '{_missing}' doesn't seem to be present. Please finish the complete pipeline for the process '{process_name}' first."
             }, HTTPResponses.NOT_FOUND
-        has_graph = True
         try:
             graph_processing = (
                 FactoryLoader.load_graph(str(storage_path.resolve()), process_name)
                 if graph_processing is None
                 else graph_processing
             )
-        except FileNotFoundError as e:
-            has_graph = False
+        except FileNotFoundError:
             logging.warning(
-                f"The serialized object for 'graph' doesn't seem to be present. Storing the document into the vector store will still be performed."
+                "The serialized object for 'graph' doesn't seem to be present. Storing the document into the vector store will still be performed."
             )
         if (
             content_json.vectorstore_server is None
@@ -125,7 +123,9 @@ def add_documents_to_concept_graphs(
         )
         _index_key = _index_key[0] if len(_index_key) > 0 else None
 
-        doc_content = lambda x: x if isinstance(x, dict) else {"content": x}
+        def doc_content(value):
+            return value if isinstance(value, dict) else {"content": value}
+
         _chunk_result = data_processing.process_external_docs(
             content=[
                 {

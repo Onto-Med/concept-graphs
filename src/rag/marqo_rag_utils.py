@@ -66,7 +66,7 @@ def truncate_text(text, token_limit, highlight=None, lang: str = "en"):
         inds = find_highlight_index_in_text(text, highlight)
         if inds is None:
             logging.warning(
-                f"Could not find highlight index in text; using text value. Might exceed token limit."
+                "Could not find highlight index in text; using text value. Might exceed token limit."
             )
             return text
         # get the center of the highlight in chars

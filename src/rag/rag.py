@@ -2,7 +2,7 @@ import logging
 from collections import defaultdict
 from operator import itemgetter
 from pydoc import locate
-from typing import Union, Optional, Any
+from typing import Any, Optional, Union
 
 from langchain_core.documents import Document
 from langchain_core.prompts import PromptTemplate
@@ -26,7 +26,7 @@ class RAG:
             self._chatter = chatter
         else:
             raise TypeError(
-                f"'chatter' must be an implementation of the Chatter class, or a string denoting the location of said class."
+                "'chatter' must be an implementation of the Chatter class, or a string denoting the location of said class."
             )
 
     @classmethod
@@ -39,7 +39,7 @@ class RAG:
     ) -> "RAG":
         if chatter is None:
             raise TypeError(
-                f"'chatter' seems to be 'None' but must be an implementation of the Chatter class, or a string denoting the location of said class."
+                "'chatter' seems to be 'None' but must be an implementation of the Chatter class, or a string denoting the location of said class."
             )
         chatter = (
             chatter
@@ -88,7 +88,7 @@ class RAG:
         ]
 
     def with_chatter_options(self, api_key: str, **kwargs) -> "RAG":
-        if not "api_key" in kwargs:
+        if "api_key" not in kwargs:
             kwargs["api_key"] = api_key
         self._initialized_chatter = self._chatter.with_kwargs(**kwargs)
         if self._initialized_chatter is None:
@@ -188,8 +188,9 @@ class RAG:
 
 
 if __name__ == "__main__":
-    import sys
     import pathlib
+    import sys
+
     from src.pipeline.load_utils import FactoryLoader
     from src.rag.text_splitters import PreprocessedSpacyTextSplitter
 

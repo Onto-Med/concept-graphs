@@ -5,6 +5,7 @@ from typing import Union
 import flask
 from flask import jsonify
 
+from src.api.request_parsing import pipeline_json_config
 from src.api.responses import HTTPResponses
 from src.common.parsing import (
     get_bool_expression,
@@ -15,7 +16,6 @@ from src.pipeline.status import (
     ProcessStatus,
     pipeline_query_params,
 )
-from src.api.request_parsing import pipeline_json_config
 
 
 def get_pipeline_query_params(

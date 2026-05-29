@@ -3,11 +3,11 @@
 from flask import Blueprint, jsonify, request
 
 from src.api.request_parsing import parse_document_adding_json
-from src.pipeline.document_addition import add_documents_to_concept_graphs
-from src.pipeline.processes import start_thread
 from src.api.responses import HTTPResponses
 from src.common.parsing import string_conformity
 from src.common.threads import StoppableThread
+from src.pipeline.document_addition import add_documents_to_concept_graphs
+from src.pipeline.processes import start_thread
 from src.pipeline.status import StepsName
 
 
