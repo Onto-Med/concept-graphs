@@ -14,7 +14,7 @@ from src.common.spacy_utils import (
     get_default_spacy_model,
     load_spacy_model,
 )
-from src.core.data_functions import DataProcessingFactory
+from src.core.data import DataProcessingFactory
 from src.nlp.negation.utils import FeaturesOfInterest
 from src.pipeline.base import BaseUtil
 from src.pipeline.status import StepsName

@@ -7,7 +7,7 @@ from pyvis import network as net
 from werkzeug.datastructures import FileStorage
 
 from src.common.io import save_pickle
-from src.core.cluster_functions import WordEmbeddingClustering
+from src.core.clustering import WordEmbeddingClustering
 from src.pipeline.base import BaseUtil
 from src.pipeline.load_utils import FactoryLoader
 from src.pipeline.status import StepsName

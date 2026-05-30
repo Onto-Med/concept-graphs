@@ -26,6 +26,7 @@ Major completed work includes:
 - print-to-logging cleanup
 - negation/negspacy package reorganization
 - broad exception cleanup phases 1–6
+- split of large core modules into `src/core/data`, `src/core/clustering`, and `src/core/graph`
 - NetworkX-only pruning support
 - `binom_test` replacement with `binomtest`
 
@@ -442,40 +443,35 @@ All checks passed!
 
 Known warnings remain from dependencies and third-party libraries, including Click/spaCy/Pydantic/Transformers/SciPy-related deprecations.
 
+### Core module split
+
+Completed first structural split.
+
+Compatibility modules now re-export from focused packages:
+
+```text
+src/core/data_functions.py       -> src/core/data/
+src/core/cluster_functions.py    -> src/core/clustering/
+src/core/graph_functions.py      -> src/core/graph/
+```
+
+New package layout:
+
+```text
+src/core/data/factory.py
+src/core/data/text.py
+src/core/clustering/word_embedding.py
+src/core/clustering/phrase.py
+src/core/graph/creation.py
+src/core/graph/incorporation.py
+src/core/graph/algorithms.py
+```
+
+Some new modules are still sizeable and can be decomposed further in later domain-focused passes.
+
 ## Remaining Issues / Recommended Next Steps
 
-### 1. Split large core modules
-
-Priority: high.
-
-Biggest remaining domain modules:
-
-```text
-src/core/cluster_functions.py
-src/core/data_functions.py
-src/core/graph_functions.py
-```
-
-Possible future structure:
-
-```text
-src/core/data/
-  factory.py
-  processing.py
-  cleaning.py
-
-src/core/clustering/
-  phrase_cluster.py
-  word_embedding.py
-  metrics.py
-
-src/core/graph/
-  creation.py
-  incorporation.py
-  visualization.py
-```
-
-### 2. Split `src/storage/marqo_external_utils.py`
+### 1. Split `src/storage/marqo_external_utils.py`
 Priority: high.
 
 Suggested structure:
@@ -488,7 +484,7 @@ src/storage/marqo/
   document_store.py
 ```
 
-### 3. Expand Ruff gradually
+### 2. Expand Ruff gradually
 Priority: medium.
 
 Current Ruff config is intentionally conservative. Future additions could include selected rules for:
@@ -498,7 +494,7 @@ Current Ruff config is intentionally conservative. Future additions could includ
 - logging format issues (`G`)
 - simplifications (`SIM`)
 
-### 4. Improve docs around runtime/config behavior
+### 3. Improve docs around runtime/config behavior
 Priority: medium.
 
 Recommended docs:
@@ -508,7 +504,7 @@ Recommended docs:
 - fixture-generation workflow
 - vector-store vs pickle storage behavior
 
-### 5. Optional cleanup
+### 4. Optional cleanup
 Priority: low.
 
 - Remove generated cache directories such as `src/negspacy/__pycache__/`.
@@ -530,4 +526,4 @@ The major application-structure refactors are complete. The project now has a mu
 - Ruff as project formatter/linter
 - passing test suite
 
-The next best investments are gradual decomposition of the remaining large modules, especially `src/core/*_functions.py` and `src/storage/marqo_external_utils.py`.
+The next best investments are splitting `src/storage/marqo_external_utils.py`, then optionally continuing deeper decomposition of still-sizeable domain modules such as `src/core/clustering/word_embedding.py` and `src/core/data/factory.py`.

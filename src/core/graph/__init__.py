@@ -1,16 +1,13 @@
-"""Compatibility exports for graph helpers.
+"""Graph construction and manipulation helpers."""
 
-New code should import from ``src.core.graph`` or its focused submodules.
-"""
-
-from src.core.graph import (
-    GraphCreator,
-    GraphIncorp,
+from src.core.graph.algorithms import (
     rank_nodes,
     simplify_graph_naive,
     sub_clustering,
     unroll_graph,
 )
+from src.core.graph.creation import GraphCreator
+from src.core.graph.incorporation import GraphIncorp
 
 __all__ = [
     "GraphCreator",

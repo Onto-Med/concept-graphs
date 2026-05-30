@@ -3,7 +3,7 @@ from typing import Callable, Optional, Union
 import flask
 from werkzeug.datastructures import FileStorage
 
-from src.core.cluster_functions import PhraseClusterFactory
+from src.core.clustering import PhraseClusterFactory
 from src.pipeline.base import BaseUtil
 from src.pipeline.load_utils import FactoryLoader
 from src.pipeline.status import StepsName

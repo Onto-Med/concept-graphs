@@ -14,7 +14,7 @@ from src.api.request_parsing import document_adding_json
 from src.api.responses import HTTPResponses
 from src.common.io import save_pickle
 from src.core import data_functions, embedding_functions
-from src.core.graph_functions import GraphIncorp
+from src.core.graph import GraphIncorp
 from src.pipeline.document_results import transform_document_addition_results
 from src.pipeline.load_utils import FactoryLoader
 from src.pipeline.status import StepsName

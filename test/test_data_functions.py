@@ -1,6 +1,6 @@
 from unittest import TestCase
 
-from src.core.data_functions import DataProcessingFactory
+from src.core.data import DataProcessingFactory
 
 
 class TestDataProcessing(TestCase):

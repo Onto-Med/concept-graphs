@@ -2,7 +2,7 @@ import pathlib
 import random
 from unittest import TestCase
 
-from src.core.graph_functions import GraphCreator
+from src.core.graph import GraphCreator
 from src.pipeline.load_utils import FactoryLoader
 
 
