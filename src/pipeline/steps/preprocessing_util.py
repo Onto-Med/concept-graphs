@@ -220,16 +220,12 @@ class PreprocessingUtil(BaseUtil):
         spacy_language = load_spacy_model(
             _model, self._app.logger, get_default_spacy_model()
         )
-        _process = None
-        try:
-            _process = process_factory.create(
-                pipeline=spacy_language,
-                base_data=self.data,
-                cache_name=f"{self.process_name}_{self.process_step}",
-                cache_path=self._file_storage,
-                save_to_file=True,
-                **kwargs,
-            )
-        except Exception as e:
-            return False, e
+        _process = process_factory.create(
+            pipeline=spacy_language,
+            base_data=self.data,
+            cache_name=f"{self.process_name}_{self.process_step}",
+            cache_path=self._file_storage,
+            save_to_file=True,
+            **kwargs,
+        )
         return True, _process

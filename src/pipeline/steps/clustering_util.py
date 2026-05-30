@@ -89,17 +89,13 @@ class ClusteringUtil(BaseUtil):
         algorithm = kwargs.pop("algorithm", "kmeans")
         downscale = kwargs.pop("downscale", "umap")
 
-        cluster_obj = None
-        try:
-            cluster_obj = process_factory.create(
-                sentence_embeddings=sent_emb,
-                cache_path=self._file_storage,
-                cache_name=f"{self.process_name}_{self.process_step}",
-                cluster_algorithm=algorithm,
-                down_scale_algorithm=downscale,
-                cluster_by_down_scale=True,  # ToDo: is this feasible to toggle via config?
-                **kwargs,
-            )
-        except Exception as e:
-            return False, e
+        cluster_obj = process_factory.create(
+            sentence_embeddings=sent_emb,
+            cache_path=self._file_storage,
+            cache_name=f"{self.process_name}_{self.process_step}",
+            cluster_algorithm=algorithm,
+            down_scale_algorithm=downscale,
+            cluster_by_down_scale=True,  # ToDo: is this feasible to toggle via config?
+            **kwargs,
+        )
         return True, cluster_obj

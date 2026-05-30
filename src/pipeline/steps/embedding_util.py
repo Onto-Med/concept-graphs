@@ -142,16 +142,12 @@ class PhraseEmbeddingUtil(BaseUtil):
 
     def _start_process(self, process_factory, *args, **kwargs):
         (data_obj,) = args
-        emb_obj = None
-        try:
-            emb_obj = process_factory.create(
-                data_obj=data_obj,
-                cache_path=self._file_storage,
-                cache_name=f"{self.process_name}_{self.process_step}",
-                model_name=kwargs.pop("model", self.default_model),
-                # storage_method=self.storage_method,
-                **kwargs,
-            )
-        except Exception as e:
-            return False, e
+        emb_obj = process_factory.create(
+            data_obj=data_obj,
+            cache_path=self._file_storage,
+            cache_name=f"{self.process_name}_{self.process_step}",
+            model_name=kwargs.pop("model", self.default_model),
+            # storage_method=self.storage_method,
+            **kwargs,
+        )
         return True, emb_obj

@@ -97,23 +97,17 @@ class GraphCreationUtil(BaseUtil):
         return sent_emb, cluster_obj
 
     def _start_process(self, process_factory, *args, **kwargs):
-        concept_graphs = []
         sent_emb, cluster_obj = args
-        try:
-            concept_graph_clustering = process_factory(
-                sentence_embedding_obj=sent_emb,
-                cluster_obj=cluster_obj,
-                cluster_exclusion_ids=kwargs.pop("exclusion_ids", []),
-            ).create_concept_graph_clustering()
-            concept_graphs = concept_graph_clustering.build_concept_graphs(**kwargs)
-            save_pickle(
-                concept_graphs,
-                Path(
-                    self.file_storage_path / f"{self.process_name}_{self.process_step}"
-                ),
-            )
-        except Exception as e:
-            return False, e
+        concept_graph_clustering = process_factory(
+            sentence_embedding_obj=sent_emb,
+            cluster_obj=cluster_obj,
+            cluster_exclusion_ids=kwargs.pop("exclusion_ids", []),
+        ).create_concept_graph_clustering()
+        concept_graphs = concept_graph_clustering.build_concept_graphs(**kwargs)
+        save_pickle(
+            concept_graphs,
+            Path(self.file_storage_path / f"{self.process_name}_{self.process_step}"),
+        )
         return True, concept_graphs
 
 

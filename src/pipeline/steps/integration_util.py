@@ -104,14 +104,11 @@ class ConceptGraphIntegrationUtil(BaseUtil):
                 False,
                 "No prerequisite components seem to have been loaded; see the logs, where an error might have occurred.",
             )
-        try:
-            int_obj = process_factory.create(
-                embedding_store=emb_store,
-                graphs=graphs,
-                cache_path=self._file_storage,
-                cache_name=f"{self.process_name}_{self.process_step}",
-                **kwargs,
-            )
-        except Exception as e:
-            return False, e
+        int_obj = process_factory.create(
+            embedding_store=emb_store,
+            graphs=graphs,
+            cache_path=self._file_storage,
+            cache_name=f"{self.process_name}_{self.process_step}",
+            **kwargs,
+        )
         return True, int_obj

@@ -323,10 +323,14 @@ class BaseUtil(ABC):
                 )
             if return_result_obj:
                 return _process_status[1] if len(_process_status) > 1 else None
-        except Exception as e:
+        except Exception:
             for _step in BaseUtil.abort_chain(self.process_step):
                 add_status_to_running_process(
                     self.process_name, _step, ProcessStatus.ABORTED, process_tracker
                 )
-            self._app.logger.error(e)
+            self._app.logger.exception(
+                "Unhandled error while executing '%s' step for process '%s'.",
+                self.process_step,
+                self.process_name,
+            )
         return None
