@@ -6,6 +6,8 @@ from inspect import getfullargspec
 from pydoc import locate
 from typing import Optional, cast
 
+from marqo.errors import MarqoError
+
 from src.pipeline.load_utils import FactoryLoader
 from src.pipeline.status import StepsName
 from src.rag.embedding_stores.base import ChunkEmbeddingStore
@@ -99,8 +101,10 @@ def fill_chunk_vectorstore(process: str, rag, storage, pipeline, **kwargs) -> bo
 
         try:
             _rag.vectorstore.reset_index()
-        except Exception as e:
-            logging.warning(f"[fill_chunk_vectorstore] {e}")
+        except (MarqoError, RuntimeError, ValueError, TypeError) as e:
+            logging.warning(
+                "[fill_chunk_vectorstore] Could not reset vectorstore: %s", e
+            )
 
         _documents = splitter.split_preprocessed_sentences(
             data_obj.processed_docs, **_split_options

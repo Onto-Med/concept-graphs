@@ -43,8 +43,15 @@ class FactoryLoader:
                         active_objects.get(StepsName.EMBEDDING, {}), "source", None
                     ),
                 )
-            except Exception as e:
-                logging.error(f"Failed to load object of '{_step}': {e}")
+            except (
+                FileNotFoundError,
+                EOFError,
+                AttributeError,
+                TypeError,
+                ValueError,
+                NotImplementedError,
+            ) as e:
+                logging.error("Failed to load object of '%s': %s", _step, e)
                 return None
 
         if specific_step is None:

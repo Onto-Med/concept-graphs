@@ -5,6 +5,7 @@ from pydoc import locate
 from typing import Any, Optional, Union
 
 from langchain_core.documents import Document
+from langchain_core.exceptions import LangChainException
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import Runnable
 
@@ -183,7 +184,8 @@ class RAG:
                 {"summaries": self.documents.values(), "question": question},
                 return_only_outputs=True,
             )
-        except Exception as e:
+        except (LangChainException, RuntimeError, ValueError, TypeError) as e:
+            logging.warning("RAG invocation failed: %s", e)
             return False, e
 
 

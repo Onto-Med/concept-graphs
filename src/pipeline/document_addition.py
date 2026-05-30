@@ -45,6 +45,20 @@ def add_documents_to_concept_graphs(
         document_store = locate(document_store_cls)
         embedding_store = locate(embedding_store_cls)
         document = locate(document_cls)
+        missing_classes = [
+            class_path
+            for class_path, located_class in (
+                (document_store_cls, document_store),
+                (embedding_store_cls, embedding_store),
+                (document_cls, document),
+            )
+            if located_class is None
+        ]
+        if missing_classes:
+            raise TypeError(
+                "Could not locate configured document/vector-store classes: "
+                + ", ".join(missing_classes)
+            )
 
         if content_json.documents is None:
             return {"error": "No content provided."}, HTTPResponses.BAD_REQUEST
@@ -211,6 +225,9 @@ def add_documents_to_concept_graphs(
                 graph_storage_path,
             )
     except Exception as e:
+        logging.exception(
+            "Unhandled error while adding documents to process '%s'.", process_name
+        )
         return {
             "error": str(e) + "\n--- please consult the logs!"
         }, HTTPResponses.INTERNAL_SERVER_ERROR

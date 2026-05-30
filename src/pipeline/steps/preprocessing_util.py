@@ -118,8 +118,8 @@ class PreprocessingUtil(BaseUtil):
                 return
             with zipfile.ZipFile(archive_path, mode="r") as archive:
                 self.data = self._read_zip_content(archive, self.labels)
-        except Exception as e:
-            self._app.logger.error(f"Something went wrong with data file reading: {e}")
+        except (OSError, zipfile.BadZipFile, UnicodeDecodeError, KeyError) as e:
+            self._app.logger.error("Something went wrong with data file reading: %s", e)
 
     def read_labels(self, labels):
         base_labels = {}
@@ -135,8 +135,8 @@ class PreprocessingUtil(BaseUtil):
                 return
             try:
                 base_labels = yaml.safe_load(labels.stream)
-            except Exception as e:
-                self._app.logger.error(f"Couldn't read labels file: {e}")
+            except (yaml.YAMLError, AttributeError, TypeError, UnicodeDecodeError) as e:
+                self._app.logger.error("Couldn't read labels file: %s", e)
         self.labels = base_labels
 
     def read_config(

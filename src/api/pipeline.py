@@ -561,6 +561,9 @@ def run_complete_pipeline(app, processes, pipeline, storage):
         )
         return _pipeline_response(app_context, query_params, pipeline_thread)
     except Exception as e:
+        app_context.app.logger.exception(
+            "Unhandled error while starting pipeline '%s'.", query_params.process_name
+        )
         return (
             jsonify(
                 name=query_params.process_name,

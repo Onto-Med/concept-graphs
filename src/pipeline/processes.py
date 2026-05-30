@@ -191,8 +191,10 @@ def stop_thread(
             process_tracker[process_name]["status"][_step.get("rank") - 1]["status"] = (
                 ProcessStatus.ABORTED
             )
-    except Exception:
-        pass
+    except (KeyError, TypeError, AttributeError, IndexError) as e:
+        app.logger.warning(
+            "Couldn't update remaining process statuses for '%s': %s", process_name, e
+        )
 
     app.logger.info(
         f"Thread for '{process_name}' will be stopped after the present step ('{_current_step.get('name', None)}') is completed."

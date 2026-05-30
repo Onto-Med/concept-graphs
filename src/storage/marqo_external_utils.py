@@ -6,7 +6,7 @@ from typing import Iterable, Optional, Tuple, Union
 
 import marqo
 import numpy as np
-from marqo.errors import MarqoWebError
+from marqo.errors import MarqoError, MarqoWebError
 
 from src.common.config_loading import ConfigLoadMethods
 from src.core.metrics import harmonic_mean
@@ -113,9 +113,11 @@ class MarqoEmbeddingStore(EmbeddingStore):
             _client = marqo.Client(url=f"{config['client_url']}")
             _ = _client.get_indexes()
             return True
-        except Exception:
+        except (KeyError, MarqoError, OSError) as e:
             logging.error(
-                f"There couldn't be a connection established for {config['client_url']}."
+                "There couldn't be a connection established for %s: %s",
+                config.get("client_url", "<missing client_url>"),
+                e,
             )
             return False
 

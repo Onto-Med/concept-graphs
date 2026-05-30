@@ -159,8 +159,8 @@ class BaseUtil(ABC):
             try:
                 base_config = yaml.safe_load(config.stream)
                 is_default_config = False
-            except Exception as e:
-                self._app.logger.error(f"Couldn't read config file: {e}")
+            except (yaml.YAMLError, AttributeError, TypeError, UnicodeDecodeError) as e:
+                self._app.logger.error("Couldn't read config file: %s", e)
                 return jsonify("Encountered error. See log.")
         else:
             is_default_config = True

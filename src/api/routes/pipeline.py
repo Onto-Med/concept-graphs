@@ -41,8 +41,12 @@ def create_pipeline_blueprint(app, processes, pipeline, storage):
                     return jsonify(**json.load(default_conf.open("rb"))), int(
                         HTTPResponses.OK
                     )
-                except Exception as e:
-                    logging.error(e)
+                except (OSError, json.JSONDecodeError, TypeError) as e:
+                    logging.warning(
+                        "Couldn't read default pipeline configuration '%s': %s",
+                        default_conf,
+                        e,
+                    )
             return jsonify(message="Couldn't find/read default configuration."), int(
                 HTTPResponses.NOT_FOUND
             )
@@ -62,8 +66,8 @@ def create_pipeline_blueprint(app, processes, pipeline, storage):
                 ),
                 int(HTTPResponses.OK),
             )
-        except Exception as e:
-            logging.error(e)
+        except (OSError, KeyError, TypeError, AttributeError) as e:
+            logging.warning("Couldn't read configuration for '%s': %s", process, e)
         return jsonify(
             message=f"Couldn't find/read configuration for '{process}'."
         ), int(HTTPResponses.NOT_FOUND)

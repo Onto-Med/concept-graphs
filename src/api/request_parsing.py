@@ -83,8 +83,8 @@ def parse_document_adding_json(response_json) -> Optional[document_adding_json]:
             config.get("document_server", None),
             config.get("vectorstore_server", None),
         )
-    except Exception as e:
-        logging.error(f"Content json parsing error: '{e}'")
+    except (AttributeError, TypeError, ValueError) as e:
+        logging.error("Content json parsing error: '%s'", e)
         return None
 
 
@@ -106,8 +106,8 @@ def parse_rag_config_json(response_json) -> Optional[rag_config_json]:
             None if (_prompt is not None and len(_prompt) == 0) else _prompt,
             _vs,
         )
-    except Exception as e:
-        logging.error(f"Content json parsing error: '{e}'")
+    except (AttributeError, TypeError, ValueError) as e:
+        logging.error("Content json parsing error: '%s'", e)
         return None
 
 
@@ -117,6 +117,6 @@ def get_doc_ids(response_json: dict):
             k for k in response_json.keys()
         ):
             return response_json.get(list(intersection)[0])
-    except Exception as e:
-        logging.warning(f"Couldn't get document ids from request json: '{e}'")
+    except (AttributeError, TypeError) as e:
+        logging.warning("Couldn't get document ids from request json: '%s'", e)
     return []

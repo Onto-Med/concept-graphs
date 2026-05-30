@@ -29,7 +29,7 @@ def get_data_server_config(
         elif isinstance(document_server_config, dict):
             _config = document_server_config.copy()
         else:
-            raise Exception(
+            raise TypeError(
                 "Document server config is not of type 'FileStorage' or 'dict'!"
             )
         for k, v in base_config.items():
@@ -42,9 +42,11 @@ def get_data_server_config(
         base_config["replace_keys"] = get_dict_expression(
             _config.pop("replace_keys", {"text": "content"})
         )
-    except Exception as e:
+    except (yaml.YAMLError, AttributeError, TypeError, ValueError) as e:
         app.logger.error(
-            f"Couldn't read config file: {e}\n Using default values '{base_config}'."
+            "Couldn't read document server config: %s\nUsing default values '%s'.",
+            e,
+            base_config,
         )
     return base_config
 

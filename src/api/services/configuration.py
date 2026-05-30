@@ -1,6 +1,7 @@
 """Configuration service helpers."""
 
 import collections
+import logging
 import pathlib
 from typing import Optional, Union
 
@@ -118,8 +119,11 @@ def read_exclusion_ids(exclusion: Union[str, FileStorage]):
         if exclusion.startswith("[") and exclusion.endswith("]"):
             try:
                 return [int(i.strip()) for i in exclusion[1:-1].split(",")]
-            except Exception:
-                pass
+            except ValueError as e:
+                logging.warning("Couldn't parse exclusion ids '%s': %s", exclusion, e)
     elif isinstance(exclusion, FileStorage):
-        read_exclusion_ids(f"[{exclusion.stream.read().decode()}]")
+        try:
+            return read_exclusion_ids(f"[{exclusion.stream.read().decode()}]")
+        except (OSError, UnicodeDecodeError) as e:
+            logging.warning("Couldn't read exclusion ids file: %s", e)
     return []
