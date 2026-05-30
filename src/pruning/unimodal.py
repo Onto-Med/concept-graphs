@@ -140,18 +140,17 @@ class MLF:
                 d["significance"] = min(
                     MAX_NEG_LOG, MAX_NEG_LOG if p <= 0 else -np.log(p)
                 )
-            except ValueError as error:
-                logger.warning("warning: ValueError {}".format(str(error)))
+            except (ValueError, TypeError, ArithmeticError) as error:
+                logger.warning("Could not compute edge significance: %s", error)
                 logger.debug(
-                    "ValueError weight: {} ks[i0]:{} ks[i1]:{} total_degree:{} p:{}".format(
-                        d["weight"], ks[i0], ks[i1], total_degree, p
-                    )
+                    "Significance inputs weight=%s ks[i0]=%s ks[i1]=%s total_degree=%s p=%s",
+                    d["weight"],
+                    ks[i0],
+                    ks[i1],
+                    total_degree,
+                    p,
                 )
                 d["significance"] = None
-            except Exception as error:
-                logger.warning("warning: Exception {}".format(str(error)))
-                d["significance"] = None
-                # print "error computing significance", p
 
         try:
             max_sig = max(
