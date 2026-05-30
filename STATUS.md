@@ -2,7 +2,7 @@
 
 ## Summary
 
-The project has been substantially reorganized from a script-heavy/prototype layout into a more package-oriented Flask application.
+The project has been substantially reorganized from a script-heavy/prototype layout into a package-oriented Flask application.
 
 Major completed work includes:
 
@@ -11,14 +11,30 @@ Major completed work includes:
 - Flask Blueprint route structure
 - narrower route dependencies
 - Flask app factory pattern
-- split of `main_methods.py`
-- split of `main_utils.py`
+- grouped app runtime context
+- split/removal of `main_methods.py`
+- split/removal of `main_utils.py`
 - split/removal of `src/common/util_functions.py`
 - relocation of tests out of `src/`
 - relocation of experiment/evaluation scripts out of `src/`
 - Docker entrypoint and compose cleanup
+- fixture-generation helper for pipeline test data
+- test suite stabilization
+- Ruff adoption in place of Black
+- RAG module rename to lowercase Pythonic modules
+- `namedtuple` replacement with dataclasses
+- print-to-logging cleanup
+- negation/negspacy package reorganization
+- broad exception cleanup phases 1–6
+- NetworkX-only pruning support
+- `binom_test` replacement with `binomtest`
 
-At this point, the remaining cleanup work is mostly around test fixtures, large core modules, linting, and smaller Pythonic improvements.
+Current validation status:
+
+```text
+ruff: all checks passed
+pytest: 12 passed
+```
 
 ## Current Top-Level Layout
 
@@ -28,7 +44,7 @@ Only one Python file remains in the repository root:
 main.py
 ```
 
-`main.py` now exposes a Flask app factory:
+`main.py` exposes the Flask app factory API:
 
 ```python
 create_app()
@@ -42,8 +58,6 @@ The application no longer creates a global app/context at import time.
 
 ### Package and import cleanup
 
-Completed.
-
 Former top-level implementation modules were moved into focused packages:
 
 ```text
@@ -52,6 +66,7 @@ src/common/
 src/storage/
 src/pipeline/
 src/api/
+src/nlp/
 ```
 
 Examples:
@@ -80,16 +95,16 @@ download_models.py         -> src/scripts/download_models.py
 
 Other import cleanup:
 
-- removed `sys.path.insert(...)` usage
+- removed `sys.path.insert(...)` usage from app code
 - removed wildcard imports from app code
 - updated package build config to include nested `src/**/*.py`
-- added a compatibility import redirector in `src/__init__.py` for old pickle/module paths where target modules still exist
+- added compatibility import redirects in `src/__init__.py` for old pickle/module paths where useful
 
 ### Flask app factory
 
 Completed.
 
-`main.py` now uses the standard Flask app factory pattern:
+`main.py` now uses the Flask app factory pattern:
 
 ```python
 def create_app(...) -> flask.Flask:
@@ -102,7 +117,7 @@ The app context is attached to:
 app.extensions["concept_graphs_context"]
 ```
 
-Docker/Waitress now starts the app with factory-call mode:
+Docker/Waitress starts the app with factory-call mode:
 
 ```text
 waitress-serve --call main:create_app
@@ -112,7 +127,7 @@ waitress-serve --call main:create_app
 
 Completed.
 
-The former broad `main_objects`/`PersistentObjects` style was replaced with grouped runtime context objects:
+Runtime state is grouped in:
 
 ```text
 src/api/context.py
@@ -143,9 +158,7 @@ app_context.rag.active
 
 Completed.
 
-All route modules under `src/api/routes/` now use Blueprint factories.
-
-Current route modules:
+Route modules under `src/api/routes/` use Blueprint factories:
 
 ```text
 src/api/routes/artifacts.py
@@ -173,30 +186,40 @@ create_rag_blueprint(rag, processes, storage, pipeline)
 
 Completed.
 
-The `/pipeline` route orchestration was moved into:
+The `/pipeline` route orchestration was moved into a compact public module:
 
 ```text
 src/api/pipeline.py
 ```
 
-The module now separates concerns such as:
+Focused helpers now live under:
 
-- request parsing
-- temporary upload handling
-- vector-store config normalization
-- document-server loading
-- process preparation
-- skipped step handling
-- background thread startup
-- response creation
+```text
+src/api/pipeline_support/
+```
 
-### `main_methods.py` split
+Modules:
+
+```text
+src/api/pipeline_support/models.py
+src/api/pipeline_support/request_data.py
+src/api/pipeline_support/vectorstore.py
+src/api/pipeline_support/document_server.py
+src/api/pipeline_support/steps.py
+src/api/pipeline_support/execution.py
+```
+
+`src/api/pipeline.py` remains the stable import location for:
+
+```python
+run_complete_pipeline(...)
+```
+
+### Service and utility splits
 
 Completed.
 
-`main_methods.py` was split into focused service modules and removed.
-
-New modules:
+`main_methods.py` was split into focused service modules and removed:
 
 ```text
 src/api/services/pipeline_params.py
@@ -207,13 +230,7 @@ src/api/services/process_management.py
 src/api/services/rag_vectorstore.py
 ```
 
-### `main_utils.py` split
-
-Completed.
-
-`main_utils.py` was split into focused modules and removed.
-
-New modules:
+`main_utils.py` was split into focused modules and removed:
 
 ```text
 src/api/context.py
@@ -226,11 +243,7 @@ src/pipeline/document_results.py
 src/pipeline/status.py
 ```
 
-### `src/common/util_functions.py` split
-
-Completed.
-
-The former mixed utility module was split and removed. New focused modules include:
+`src/common/util_functions.py` was split and removed:
 
 ```text
 src/common/config_loading.py
@@ -246,7 +259,7 @@ src/core/reduction.py
 src/storage/interfaces.py
 ```
 
-### Test and experiment relocation
+### Test and experiment relocation/stabilization
 
 Completed.
 
@@ -268,114 +281,179 @@ src/run/cross.py  -> experiments/cross.py
 
 The old `src/tests/` and `src/run/` packages were removed.
 
+The fixture-dependent tests now use fixtures under:
+
+```text
+test/data/results/grascco
+```
+
+Current test status:
+
+```text
+12 passed
+```
+
+### Pipeline fixture helper
+
+Completed.
+
+Added:
+
+```text
+test/data/scripts/run_pipeline_on_folder.py
+```
+
+The helper can:
+
+- zip a document folder in memory
+- call `main.create_app(...)`
+- POST to `/pipeline`
+- consume complete JSON config files such as `conf/pipeline-config_de.json`
+- skip already-present pipeline artifacts by default
+- force recomputation with `--no-skip-present`
+- skip selected steps such as integration
+
 ### Docker cleanup
 
 Completed.
 
 Improvements:
 
-- `.dockerignore` excludes tests, notebooks, virtual environments, caches, and dev artifacts
-- Docker entrypoint updated for the app factory
+- `.dockerignore` excludes tests, notebooks, virtual environments, caches, experiments, and dev artifacts
+- Docker entrypoints updated for the app factory
 - `uv run --no-sync` added to avoid dependency sync at container startup
 - `docker-compose-network.yml` no longer bind-mounts the project over `/rest_api`
 - `docker-compose.yml` image tag updated to `0.9.6`
 - added `docker-compose-es.yml` for Elasticsearch
+
+### Ruff adoption
+
+Completed.
+
+Black was replaced by Ruff in the test/dev dependency group.
+
+Configured in:
+
+```text
+pyproject.toml
+```
+
+Current standard commands:
+
+```bash
+uv run --group test ruff format .
+uv run --group test ruff check .
+```
+
+Enabled initial rule families:
+
+```text
+E  pycodestyle errors
+F  pyflakes
+I  import sorting
+```
+
+### Pythonic cleanup
+
+Completed.
+
+- Replaced remaining `namedtuple` usage with dataclasses.
+- Replaced runtime/library/test/experiment `print(...)` calls with logging, except intentional CLI output in `test/data/scripts/run_pipeline_on_folder.py`.
+- Renamed RAG modules to lowercase Pythonic names:
+
+```text
+src/rag/TextSplitters.py                         -> src/rag/text_splitters.py
+src/rag/chatters/AbstractChatter.py             -> src/rag/chatters/base.py
+src/rag/chatters/BlabladorChatter.py            -> src/rag/chatters/blablador.py
+src/rag/chatters/OllamaChatter.py               -> src/rag/chatters/ollama.py
+src/rag/embedding_stores/AbstractEmbeddingStore.py      -> src/rag/embedding_stores/base.py
+src/rag/embedding_stores/MarqoChunkEmbeddingStore.py    -> src/rag/embedding_stores/marqo.py
+```
+
+Legacy redirects were added for old RAG import paths.
+
+### Negation package cleanup
+
+Completed.
+
+Moved custom/project-owned negation code from the misleading top-level package:
+
+```text
+src/negspacy/
+```
+
+to:
+
+```text
+src/nlp/negation/
+```
+
+Moved files:
+
+```text
+src/negspacy/context.py   -> src/nlp/negation/context.py
+src/negspacy/negation.py  -> src/nlp/negation/negation.py
+src/negspacy/termsets.py  -> src/nlp/negation/termsets.py
+src/negspacy/utils.py     -> src/nlp/negation/utils.py
+```
+
+Kept a lightweight compatibility package at `src/negspacy/__init__.py` and legacy redirects in `src/__init__.py`.
+
+### Pruning cleanup
+
+Completed.
+
+- `src/pruning/unimodal.py` now explicitly supports NetworkX simple graphs only.
+- Multigraphs, self-loops, missing weights, and non-numeric weights are rejected clearly.
+- `scipy.stats.binom_test` was replaced by `scipy.stats.binomtest`.
+- Broad numerical fallback was narrowed to specific numerical/data exceptions.
+
+### Broad exception cleanup
+
+Completed through phases 1–6.
+
+Most broad `except Exception` blocks were replaced with specific exception handling or consolidated at appropriate boundaries.
+
+Remaining broad catches are intentional safety nets:
+
+```text
+src/api/pipeline.py                  # route safety net with traceback logging
+src/pipeline/document_addition.py    # workflow safety net with traceback logging
+src/pipeline/base.py                 # process execution boundary with traceback logging
+```
 
 ## Current Validation Status
 
 Recent successful checks:
 
 ```bash
-uv run python -m compileall -q main.py src test experiments
+uv run --group test ruff format .
+uv run --group test ruff check .
+uv run --no-sync python -m compileall -q main.py src test
+uv run --no-sync pytest -q
 ```
 
-Flask smoke checks have passed for representative endpoints, including:
+Result:
 
 ```text
-GET /                                                 -> 200
-GET /openapi                                          -> 200
-GET /status/rag                                       -> 404 when RAG is not initialized
-GET /processes                                        -> 404 when no processes exist
-GET /pipeline/configuration?default=true&language=en  -> 200
-GET /rag/question?q=test                              -> 404 when RAG is not initialized
+All checks passed!
+12 passed
 ```
 
-## Known Test Status
-
-The full test suite now collects successfully. Current status is:
-
-```text
-1 passed, 1 skipped, 7 failed
-```
-
-Remaining failures are pre-existing fixture/data issues:
-
-```text
-test/test_graph_functions.py
-  incomplete TestGraphCreator fixture setup
-
-test/test_main_utils.py
-test/test_document_clustering_on_corpus.py
-  missing pickle fixtures under tmp/
-```
-
-The pruning tests are skipped cleanly when optional `igraph` is unavailable.
-
-Fixing or quarantining these tests is now one of the highest-value next steps.
+Known warnings remain from dependencies and third-party libraries, including Click/spaCy/Pydantic/Transformers/SciPy-related deprecations.
 
 ## Remaining Issues / Recommended Next Steps
 
-### 1. Fix or quarantine broken tests
+### 1. Split large core modules
 
 Priority: high.
 
-Suggested actions:
-
-- skip fixture-dependent tests when pickle fixtures are missing
-- repair incomplete graph test setup
-- add small smoke/unit tests for app factory and route registration
-
-### 2. Add Ruff
-
-Priority: high.
-
-Ruff would help detect:
-
-- unused imports
-- broad exceptions
-- undefined names
-- import ordering issues
-- simple modernization opportunities
-
-### 3. Replace namedtuples/config containers with dataclasses
-
-Some request/query/config objects still use namedtuple-style structures.
-
-Suggested target:
-
-```python
-@dataclass(frozen=True)
-class PipelineQueryParams:
-    ...
-```
-
-### 4. Replace remaining `print(...)` calls with logging
-
-Several library/runtime modules still contain `print(...)` calls. These should use module loggers instead.
-
-### 5. Replace remaining broad `except Exception` blocks where practical
-
-Broad exception handling still exists in multiple places. Some may be acceptable at route boundaries, but internal logic should become more specific where possible.
-
-### 6. Continue splitting large domain modules
-
-The biggest remaining modules are still in the domain layer:
+Biggest remaining domain modules:
 
 ```text
 src/core/cluster_functions.py
 src/core/data_functions.py
 src/core/graph_functions.py
-src/storage/marqo_external_utils.py
 ```
 
 Possible future structure:
@@ -395,12 +473,47 @@ src/core/graph/
   creation.py
   incorporation.py
   visualization.py
-
-src/storage/marqo/
-  client.py
-  documents.py
-  embeddings.py
 ```
+
+### 2. Split `src/storage/marqo_external_utils.py`
+Priority: high.
+
+Suggested structure:
+
+```text
+src/storage/marqo/
+  config.py
+  documents.py
+  embedding_store.py
+  document_store.py
+```
+
+### 3. Expand Ruff gradually
+Priority: medium.
+
+Current Ruff config is intentionally conservative. Future additions could include selected rules for:
+
+- modernization (`UP`)
+- bugbear-style checks (`B`)
+- logging format issues (`G`)
+- simplifications (`SIM`)
+
+### 4. Improve docs around runtime/config behavior
+Priority: medium.
+
+Recommended docs:
+
+- app factory / deployment entrypoint
+- pipeline config schema expectations
+- fixture-generation workflow
+- vector-store vs pickle storage behavior
+
+### 5. Optional cleanup
+Priority: low.
+
+- Remove generated cache directories such as `src/negspacy/__pycache__/`.
+- Remove any obsolete local generated artifacts such as root-level `graph_dump.pickle` if still present and unneeded.
+- Review old commented-out historical code in `src/pruning/unimodal.py`.
 
 ## Overall Status
 
@@ -412,5 +525,9 @@ The major application-structure refactors are complete. The project now has a mu
 - service modules
 - only `main.py` at root
 - domain packages under `src/`
+- tests outside production package code
+- Docker entrypoints aligned with app factory
+- Ruff as project formatter/linter
+- passing test suite
 
-The next best investments are test stabilization, linting, and gradual decomposition of large core/domain modules.
+The next best investments are gradual decomposition of the remaining large modules, especially `src/core/*_functions.py` and `src/storage/marqo_external_utils.py`.
