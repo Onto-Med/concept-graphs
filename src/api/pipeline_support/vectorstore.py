@@ -3,7 +3,7 @@
 import logging
 from typing import Optional
 
-from src.storage import marqo_external_utils
+from src.storage.marqo import MarqoEmbeddingStore
 
 
 def normalize_vector_store_config(
@@ -18,9 +18,7 @@ def normalize_vector_store_config(
     port = str(vector_store_config.pop("port", 8882))
     vector_store_config["client_url"] = f"{url}:{port}"
 
-    if marqo_external_utils.MarqoEmbeddingStore.is_accessible(
-        vector_store_config.copy()
-    ):
+    if MarqoEmbeddingStore.is_accessible(vector_store_config.copy()):
         return vector_store_config
 
     logging.warning(

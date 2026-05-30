@@ -27,6 +27,7 @@ Major completed work includes:
 - negation/negspacy package reorganization
 - broad exception cleanup phases 1–6
 - split of large core modules into `src/core/data`, `src/core/clustering`, and `src/core/graph`
+- split of Marqo storage helpers into `src/storage/marqo`
 - NetworkX-only pruning support
 - `binom_test` replacement with `binomtest`
 
@@ -469,22 +470,29 @@ src/core/graph/algorithms.py
 
 Some new modules are still sizeable and can be decomposed further in later domain-focused passes.
 
-## Remaining Issues / Recommended Next Steps
+### Marqo storage split
 
-### 1. Split `src/storage/marqo_external_utils.py`
-Priority: high.
+Completed first structural split.
 
-Suggested structure:
+Compatibility module now re-exports from the focused package:
 
 ```text
-src/storage/marqo/
-  config.py
-  documents.py
-  embedding_store.py
-  document_store.py
+src/storage/marqo_external_utils.py -> src/storage/marqo/
 ```
 
-### 2. Expand Ruff gradually
+New package layout:
+
+```text
+src/storage/marqo/documents.py
+src/storage/marqo/embedding_store.py
+src/storage/marqo/document_store.py
+```
+
+Project imports and dynamic class paths now prefer `src.storage.marqo`.
+
+## Remaining Issues / Recommended Next Steps
+
+### 1. Expand Ruff gradually
 Priority: medium.
 
 Current Ruff config is intentionally conservative. Future additions could include selected rules for:
@@ -494,7 +502,7 @@ Current Ruff config is intentionally conservative. Future additions could includ
 - logging format issues (`G`)
 - simplifications (`SIM`)
 
-### 3. Improve docs around runtime/config behavior
+### 2. Improve docs around runtime/config behavior
 Priority: medium.
 
 Recommended docs:
@@ -504,7 +512,7 @@ Recommended docs:
 - fixture-generation workflow
 - vector-store vs pickle storage behavior
 
-### 4. Optional cleanup
+### 3. Optional cleanup
 Priority: low.
 
 - Remove generated cache directories such as `src/negspacy/__pycache__/`.
@@ -526,4 +534,4 @@ The major application-structure refactors are complete. The project now has a mu
 - Ruff as project formatter/linter
 - passing test suite
 
-The next best investments are splitting `src/storage/marqo_external_utils.py`, then optionally continuing deeper decomposition of still-sizeable domain modules such as `src/core/clustering/word_embedding.py` and `src/core/data/factory.py`.
+The next best investments are expanding Ruff gradually, improving runtime/config documentation, and optionally continuing deeper decomposition of still-sizeable domain modules such as `src/core/clustering/word_embedding.py`, `src/core/data/factory.py`, and `src/storage/marqo/embedding_store.py`.

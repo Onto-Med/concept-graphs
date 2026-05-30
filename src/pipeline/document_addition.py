@@ -37,9 +37,9 @@ def add_documents_to_concept_graphs(
     storage_path: Optional[Union[str, pathlib.Path]] = None,
     process_name: str = "default",
     store_permanently: bool = True,
-    document_store_cls: str = "src.storage.marqo_external_utils.MarqoDocumentStore",
-    embedding_store_cls: str = "src.storage.marqo_external_utils.MarqoEmbeddingStore",
-    document_cls: str = "src.storage.marqo_external_utils.MarqoDocument",
+    document_store_cls: str = "src.storage.marqo.MarqoDocumentStore",
+    embedding_store_cls: str = "src.storage.marqo.MarqoEmbeddingStore",
+    document_cls: str = "src.storage.marqo.MarqoDocument",
 ):
     try:
         document_store = locate(document_store_cls)

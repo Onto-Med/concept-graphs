@@ -8,7 +8,7 @@ from src.core.embedding_functions import SentenceEmbeddingsFactory
 from src.pipeline.base import BaseUtil
 from src.pipeline.load_utils import FactoryLoader
 from src.pipeline.status import StepsName
-from src.storage.marqo_external_utils import MarqoEmbeddingStore
+from src.storage.marqo import MarqoEmbeddingStore
 
 
 # ToDo: I need to check the storage_method config/kwarg; it works but there are some redundancies

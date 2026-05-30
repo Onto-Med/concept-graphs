@@ -18,7 +18,7 @@ class ConceptGraphIntegrationUtil(BaseUtil):
         self,
         app: Flask,
         file_storage: str,
-        embedding_store_cls: str = "src.storage.marqo_external_utils.MarqoEmbeddingStore",
+        embedding_store_cls: str = "src.storage.marqo.MarqoEmbeddingStore",
     ):
         super().__init__(app, file_storage, StepsName.INTEGRATION)
         self._embedding_store_cls = embedding_store_cls

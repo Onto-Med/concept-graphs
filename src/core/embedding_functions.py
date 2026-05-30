@@ -12,7 +12,7 @@ from src.common.io import load_pickle, save_pickle
 from src.common.spacy_extensions import set_spacy_extensions
 from src.core.data import DataProcessingFactory
 from src.core.reduction import NoneDownScaleObj
-from src.storage.marqo_external_utils import MarqoEmbeddingStore
+from src.storage.marqo import MarqoEmbeddingStore
 
 
 class SentenceEmbeddingsFactory:
