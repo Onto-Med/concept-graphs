@@ -1,0 +1,22 @@
+FROM python:3.11-slim-bookworm
+
+ENV PYTHONUNBUFFERED=1 \
+    UV_PROJECT_ENVIRONMENT=/rest_api/.venv \
+    UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy \
+    DOWNLOAD_MODELS=true
+
+RUN pip install --no-cache-dir uv
+
+WORKDIR /rest_api
+
+# Keep the image small-ish: dependencies and models are intentionally not installed
+# at build time. They are resolved/downloaded when the container starts.
+COPY . .
+COPY docker-entrypoint-runtime-download.sh /usr/local/bin/concept-graphs-entrypoint
+
+RUN chmod +x /usr/local/bin/concept-graphs-entrypoint
+
+EXPOSE 9007
+
+ENTRYPOINT ["concept-graphs-entrypoint"]
