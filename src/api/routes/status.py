@@ -46,16 +46,12 @@ def create_status_blueprint(app, rag):
     @blueprint.route("/status/rag", methods=["GET"])
     def get_rag_status():
         process = string_conformity(request.args.get("process", "default"))
-        has_rag = rag.active is not None
-        if process is not None and has_rag and rag.active.process == process:
-            return jsonify(active=rag.active.ready, name=process, error=None), int(
+        active_rag = rag.active_by_process.get(process)
+        if active_rag is not None:
+            return jsonify(active=active_rag.ready, name=process, error=None), int(
                 HTTPResponses.OK
             )
-        err_string = (
-            f"RAG is active but it seems for the process: '{rag.active.process}'"
-            if has_rag
-            else "The RAG component is not initialized."
-        )
+        err_string = "The RAG component is not initialized for this process."
         return jsonify(active=False, name=process, error=err_string), int(
             HTTPResponses.NOT_FOUND
         )

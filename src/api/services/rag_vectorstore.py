@@ -83,7 +83,12 @@ def fill_chunk_vectorstore(process: str, rag, storage, pipeline, **kwargs) -> bo
         ).items()
         if k in getfullargspec(_splitter_class).args
     }
-    _rag = rag.active
+    _rag = rag.active_by_process.get(process)
+    if _rag is None:
+        logging.error(
+            "[fill_chunk_vectorstore] No RAG initialized for process '%s'.", process
+        )
+        return False
     if not _rag.initializing:
         _rag.initializing = True
         data_obj = FactoryLoader.with_active_objects(

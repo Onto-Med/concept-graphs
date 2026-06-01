@@ -31,6 +31,7 @@ Major completed work includes:
 - OpenAPI/Swagger UI review and cleanup
 - Marqo document provenance for vector-store document additions
 - `DELETE /graph/document/{document_id}` endpoint implementation
+- per-process active RAG runtime state
 - NetworkX-only pruning support
 - `binom_test` replacement with `binomtest`
 

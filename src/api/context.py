@@ -47,7 +47,18 @@ class StorageContext:
 class RagContext:
     """Runtime RAG state."""
 
-    active: ActiveRAG | None = None
+    active_by_process: dict[str, ActiveRAG]
+
+    @property
+    def active(self) -> ActiveRAG | None:
+        """Compatibility accessor returning the first active RAG, if any."""
+        return next(iter(self.active_by_process.values()), None)
+
+    @active.setter
+    def active(self, value: ActiveRAG | None) -> None:
+        self.active_by_process.clear()
+        if value is not None:
+            self.active_by_process[value.process] = value
 
 
 @dataclass

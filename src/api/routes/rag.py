@@ -40,13 +40,18 @@ def create_rag_blueprint(rag, processes, storage, pipeline):
                     )
 
                 rag_thread_id = f"rag_fill_vectorstore_{process}"
+                if init_thread := processes.threads.get(rag_thread_id, None):
+                    if not init_thread.return_value:
+                        return jsonify(
+                            f"There already seems to be an initialization thread running for process {process}. Please wait for it to finish."
+                        ), int(HTTPResponses.ACCEPTED)
                 vector_store = initialize_chunk_vectorstore(
                     process, config.vectorstore_server, force_init=force_init
                 )
                 chatter = config.chatter.pop(
                     "chatter", "src.rag.chatters.blablador.BlabladorChatter"
                 )
-                rag.active = ActiveRAG(
+                rag.active_by_process[process] = ActiveRAG(
                     rag=RAG.with_chatter(
                         api_key=config.api_key,
                         chatter=chatter,
@@ -69,12 +74,7 @@ def create_rag_blueprint(rag, processes, storage, pipeline):
                     return jsonify("Starting initializing RAG component."), int(
                         HTTPResponses.OK
                     )
-                if init_thread := processes.threads.get(rag_thread_id, None):
-                    if not init_thread.return_value:
-                        return jsonify(
-                            f"There already seems to be an initialization thread running for process {process}. Please wait for it to finish."
-                        ), int(HTTPResponses.ACCEPTED)
-                rag.active.switch_readiness()
+                rag.active_by_process[process].switch_readiness()
                 return jsonify("Initialized RAG component."), int(HTTPResponses.OK)
             return jsonify(
                 f"Wrong content type '{request.headers.get('Content-Type')}'; need 'application/json'"
@@ -95,30 +95,23 @@ def create_rag_blueprint(rag, processes, storage, pipeline):
             doc_ids = get_doc_ids(request.json)
             doc_part_limit = request.json.get("limit", 15)
         if request.method in ["GET", "POST"]:
-            if rag.active is None or not rag.active.ready:
+            process = string_conformity(request.args.get("process", "default"))
+            active_rag = rag.active_by_process.get(process)
+            if active_rag is None or not active_rag.ready:
                 return jsonify(
-                    "No active and ready rag component found."
+                    "No active and ready rag component found for this process."
                     " You need to initialize it first and wait for it to be ready."
                 ), int(HTTPResponses.NOT_FOUND)
             question = request.args.get("q", request.args.get("question", False))
-            process = string_conformity(request.args.get("process", "default"))
-            language = rag.active.rag.language
+            language = active_rag.rag.language
             if not question:
                 return jsonify("No question supplied."), int(HTTPResponses.BAD_REQUEST)
-            if rag.active.process != process:
-                return (
-                    jsonify(
-                        f"There is no ready and active RAG component for '{process}'."
-                        f" Currently active is : '{rag.active.process}'; use the 'init' endpoint."
-                    ),
-                    int(HTTPResponses.BAD_REQUEST),
-                )
 
             documents = list(
                 zip(
                     *itemgetter(1, -1)(
                         extract_text_from_highlights(
-                            rag.active.vectorstore.get_chunks(
+                            active_rag.vectorstore.get_chunks(
                                 question,
                                 filter_by=(
                                     {"doc_id": doc_ids} if len(doc_ids) > 0 else None
@@ -131,10 +124,11 @@ def create_rag_blueprint(rag, processes, storage, pipeline):
                     )
                 )
             )
-            success, answer = rag.active.rag.with_documents(
-                documents, concat_by="doc_id"
-            ).build_and_invoke(question)
-            reference = {k: v.metadata for k, v in rag.active.rag.documents.items()}
+            rag_documents = active_rag.rag.documents_from(documents, concat_by="doc_id")
+            success, answer = active_rag.rag.build_and_invoke(
+                question, documents=rag_documents
+            )
+            reference = {k: v.metadata for k, v in rag_documents.items()}
             if success:
                 return jsonify(
                     answer=answer, info=json.dumps(reference, ensure_ascii=False)

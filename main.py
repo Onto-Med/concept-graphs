@@ -42,7 +42,7 @@ def create_app_context(
         processes=ProcessContext(running={}, threads={}),
         pipeline=PipelineContext(active_objects={}),
         storage=StorageContext(file_storage_dir=pathlib.Path(file_storage_dir)),
-        rag=RagContext(),
+        rag=RagContext(active_by_process={}),
     )
     app_context.storage.file_storage_dir.mkdir(exist_ok=True)
     populate_running_processes(

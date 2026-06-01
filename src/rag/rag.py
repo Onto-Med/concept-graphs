@@ -148,22 +148,21 @@ class RAG:
         )
         return self
 
-    def with_documents(
+    def documents_from(
         self,
         documents: list[str] | list[tuple[str, dict]],
         lang: str = "en",
         concat_by: str = None,
         concat_str: str = "\n\n",
-    ) -> "RAG":
+    ) -> dict[str, Document]:
         _source_str_map = {"en": "Source", "de": "Quelle"}
-        _language = self.get_rag_language(lang)
         if len(documents) == 0:
             logging.warning("No documents given!")
-            return self
+            return {}
         with_metadata = isinstance(documents[0], tuple)
         if with_metadata and concat_by is not None:
             documents = self._concatenate_by_metadata(documents, concat_by, concat_str)
-        self._documents = {
+        return {
             f"[{ind}]": Document(
                 page_content=f"{_source_str_map.get(self.get_rag_language(lang))} [{ind}]: "
                 + (d[0] if with_metadata else d),
@@ -171,15 +170,27 @@ class RAG:
             )
             for ind, d in enumerate(documents)
         }
+
+    def with_documents(
+        self,
+        documents: list[str] | list[tuple[str, dict]],
+        lang: str = "en",
+        concat_by: str = None,
+        concat_str: str = "\n\n",
+    ) -> "RAG":
+        self._documents = self.documents_from(documents, lang, concat_by, concat_str)
         return self
 
     def build(self) -> Runnable:
         return self._prompt | self._initialized_chatter
 
-    def build_and_invoke(self, question: str):
+    def build_and_invoke(
+        self, question: str, documents: dict[str, Document] | None = None
+    ):
+        documents = self.documents if documents is None else documents
         try:
             return True, (self._prompt | self._initialized_chatter).invoke(
-                {"summaries": self.documents.values(), "question": question},
+                {"summaries": documents.values(), "question": question},
                 return_only_outputs=True,
             )
         except (LangChainException, RuntimeError, ValueError, TypeError) as e:
