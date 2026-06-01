@@ -28,6 +28,7 @@ Major completed work includes:
 - broad exception cleanup phases 1–6
 - split of large core modules into `src/core/data`, `src/core/clustering`, and `src/core/graph`
 - split of Marqo storage helpers into `src/storage/marqo`
+- OpenAPI/Swagger UI review and cleanup
 - NetworkX-only pruning support
 - `binom_test` replacement with `binomtest`
 
@@ -489,6 +490,32 @@ src/storage/marqo/document_store.py
 ```
 
 Project imports and dynamic class paths now prefer `src.storage.marqo`.
+
+### OpenAPI / Swagger UI cleanup
+
+Completed.
+
+Reviewed `api/concept-graphs-api.yml` against Flask route registrations and updated the Swagger UI/spec metadata.
+
+Changes include:
+
+- OpenAPI version updated to `0.9.6`.
+- Tags added for clearer Swagger UI grouping.
+- `operationId` values added.
+- `GET /status/document-server` placeholder endpoint documented.
+- Invalid schema-level `required: true/false` fields fixed in request schemas.
+- Swagger UI options improved in `api/index.html`.
+
+Functional business endpoints are represented. Documentation/static routes (`/`, `/openapi`, static files) are intentionally omitted from the business API spec.
+
+Not promoted in Swagger UI because they appear historical or non-functional:
+
+```text
+POST /graph/<path_arg>              # behaves like retrieval
+DELETE /graph/document/<path_arg>   # returns 501 / not implemented
+```
+
+A later cleanup can remove or fully implement/document these methods.
 
 ## Remaining Issues / Recommended Next Steps
 

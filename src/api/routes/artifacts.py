@@ -100,7 +100,7 @@ def create_artifact_blueprint(app, storage, pipeline):
                 return clustering_get_concepts(cluster_gen)
         return path_arg_error("clustering", path_arg, path_args)
 
-    @blueprint.route("/graph/<path_arg>", methods=["POST", "GET"])
+    @blueprint.route("/graph/<path_arg>", methods=["GET"])
     def graph_with_arg(path_arg):
         process = string_conformity(request.args.get("process", "default"))
         draw = get_bool_expression(request.args.get("draw", False))
