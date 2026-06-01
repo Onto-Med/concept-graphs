@@ -1,6 +1,6 @@
 [project]
 name = "concept-graphs"
-version = "0.9.5"
+version = "1.0.0"
 description = ""
 authors = [
     { name = "Franz Matthies", email = "franz.matthies@imise.uni-leipzig.de" },
@@ -9,7 +9,10 @@ authors = [
 requires-python = ">=3.11, <3.12"
 readme = "README.md"
 license = "MIT"
-maintainers = [{ name = "Franz Matthies", email = "franz.matthies@imise.uni-leipzig.de" }]
+maintainers = [
+    { name = "Franz Matthies", email = "franz.matthies@imise.uni-leipzig.de" },
+    { email = "franz.matthies@gmail.com" },
+]
 keywords = []
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -66,7 +69,7 @@ rag = [
     "langchain-ollama",
 ]
 test = [
-    "black>=25.9.0",
+    "ruff>=0.14.0",
 ]
 
 [tool.uv]
@@ -76,21 +79,49 @@ default-groups = [
     "rag",
 ]
 
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["test"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+exclude = [
+    ".git",
+    ".venv",
+    "experiments",
+    "jupyter-notebooks",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "I",   # import sorting
+    "UP",  # pyupgrade modernization
+]
+ignore = [
+    "E501",  # line length is handled by the formatter where practical
+]
+
+[tool.ruff.lint.per-file-ignores]
+"test/**/*.py" = ["F841"]
+"test/data/scripts/run_pipeline_on_folder.py" = ["E402"]
+
 [tool.hatch.build.targets.sdist]
 include = [
-    "negspacy",
-    "pruning",
-    "rag",
     "./*.py",
-    "./src/*.py",
+    "./src/**/*.py",
 ]
 
 [tool.hatch.build.targets.wheel]
 include = [
-    "negspacy",
-    "pruning",
-    "rag",
     "./*.py",
-    "./src/*.py",
+    "./src/**/*.py",
 ]
 #Changelog = ""

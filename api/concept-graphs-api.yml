@@ -1,149 +1,178 @@
-openapi: "3.0.3"
+openapi: 3.0.3
 info:
   title: Concept Graphs API
   description: API for managing concept graphs
-  version: "0.9.4"
+  version: 1.0.0
 servers:
-  - url: http://top-prod:9007
-  - url: http://localhost:9007
-  - url: http://localhost:9010
+- url: http://top-prod:9007
+- url: http://localhost:9007
+- url: http://localhost:9010
 paths:
   /preprocessing/statistics:
     parameters:
-      - $ref: "#/components/parameters/process_name"
+    - $ref: '#/components/parameters/process_name'
     get:
       summary: Get basic statistics for the corpus
       responses:
-        "200":
+        '200':
           description: Corpus statistics
+      tags:
+      - Artifacts
+      operationId: getPreprocessingStatistics
   /preprocessing/noun_chunks:
     parameters:
-      - $ref: "#/components/parameters/process_name"
+    - $ref: '#/components/parameters/process_name'
     get:
       summary: Get all noun chunks found
       responses:
-        "200":
+        '200':
           description: Noun chunks
+      tags:
+      - Artifacts
+      operationId: getPreprocessingNounChunks
   /embedding/statistics:
     parameters:
-      - $ref: "#/components/parameters/process_name"
+    - $ref: '#/components/parameters/process_name'
     get:
       summary: Get basic statistics for the embedding object
       responses:
-        "200":
+        '200':
           description: Embedding statistics
+      tags:
+      - Artifacts
+      operationId: getEmbeddingStatistics
   /clustering/concepts:
     parameters:
-      - $ref: "#/components/parameters/process_name"
+    - $ref: '#/components/parameters/process_name'
     get:
       summary: Show concepts that were found
       parameters:
-        - name: top_k
-          in: query
-          required: false
-          schema:
-            type: integer
-          description: Number of top k representatives
-          example: 15
-        - name: distance
-          in: query
-          required: false
-          schema:
-            type: number
-          description: Cosine distance threshold
-          example: 0.6
+      - name: top_k
+        in: query
+        required: false
+        schema:
+          type: integer
+        description: Number of top k representatives
+        example: 15
+      - name: distance
+        in: query
+        required: false
+        schema:
+          type: number
+        description: Cosine distance threshold
+        example: 0.6
       responses:
-        "200":
+        '200':
           description: Concepts found
+      tags:
+      - Artifacts
+      operationId: getClusteringConcepts
   /graph/document/add:
     parameters:
-      - $ref: "#/components/parameters/process_name"
+    - $ref: '#/components/parameters/process_name'
     post:
-      summary: Adds document/s to an existing vector store index and integrates its/their phrases into the graphs that were built for the corpus
+      summary: Adds document/s to an existing vector store index and integrates its/their
+        phrases into the graphs that were built for the corpus
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/GraphDocumentAddition"
+              $ref: '#/components/schemas/GraphDocumentAddition'
       responses:
-        "200":
-          description: "Added document/s."
-        "404":
-          description: "Path with specific argument not found."
-        "501":
-          description: "Path with specific argument not yet implemented."
+        '200':
+          description: Added document/s.
+        '404':
+          description: Path with specific argument not found.
+        '501':
+          description: Path with specific argument not yet implemented.
+      tags:
+      - Graph documents
+      operationId: addGraphDocuments
   /graph/document/add/status:
     parameters:
-      - $ref: "#/components/parameters/process_name"
+    - $ref: '#/components/parameters/process_name'
     get:
       summary: Get the status/result for a document addition task.
       responses:
-        "200":
+        '200':
           description: Result of the document addition task
-        "202":
+        '202':
           description: Request was accepted but thread task is still running
-        "400":
-          description: Some necessary input was not provided or is malformed (e.g. document content)
-        "404":
+        '400':
+          description: Some necessary input was not provided or is malformed (e.g.
+            document content)
+        '404':
           description: There was no such process found
-        "500":
+        '500':
           description: Some unforeseen error happened; only the logs can shed light
-        "501":
+        '501':
           description: Some methods are still not implemented
+      tags:
+      - Graph documents
+      operationId: getGraphDocumentAdditionStatus
   /graph/statistics:
     parameters:
-      - $ref: "#/components/parameters/process_name"
+    - $ref: '#/components/parameters/process_name'
     get:
       summary: Get basic statistics for the graphs
       responses:
-        "200":
+        '200':
           description: Graph statistics
+      tags:
+      - Artifacts
+      operationId: getGraphStatistics
   /graph/{graph_id}:
     parameters:
-      - $ref: "#/components/parameters/process_name"
+    - $ref: '#/components/parameters/process_name'
     get:
       summary: Get nodes and adjacency information for a specific graph
       parameters:
-        - name: graph_id
-          in: path
-          required: true
-          schema:
-            type: integer
-          description: ID of the graph
-        - name: draw
-          in: query
-          required: false
-          schema:
-            type: boolean
-          description: If true, response is a rendered graph
+      - name: graph_id
+        in: path
+        required: true
+        schema:
+          type: integer
+        description: ID of the graph
+      - name: draw
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: If true, response is a rendered graph
       responses:
-        "200":
+        '200':
           description: Graph data
+      tags:
+      - Artifacts
+      operationId: getGraph
   /pipeline:
     parameters:
-      - $ref: "#/components/parameters/process_name"
-      - $ref: "#/components/parameters/language"
-      - name: skip_present
-        in: query
-        required: false
-        schema:
-          type: boolean
-        description: Whether already finished steps should be skipped
-        example: true
-      - name: return_statistics
-        in: query
-        required: false
-        schema:
-          type: boolean
-        description: Whether the pipeline returns statistics of its processes at the end of its run (may take a couple of hours) or silently starts the process and just returns whether it successfully started.
-        example: false
-      - name: skip_steps
-        in: query
-        required: false
-        schema:
-          type: string
-        description: Comma-separated list of pipeline steps ("data", "embedding", "clustering", "graph", "integration") that should be skipped
+    - $ref: '#/components/parameters/process_name'
+    - $ref: '#/components/parameters/language'
+    - name: skip_present
+      in: query
+      required: false
+      schema:
+        type: boolean
+      description: Whether already finished steps should be skipped
+      example: true
+    - name: return_statistics
+      in: query
+      required: false
+      schema:
+        type: boolean
+      description: Whether the pipeline returns statistics of its processes at the
+        end of its run (may take a couple of hours) or silently starts the process
+        and just returns whether it successfully started.
+      example: false
+    - name: skip_steps
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Comma-separated list of pipeline steps ("data", "embedding", "clustering",
+        "graph", "integration") that should be skipped
     post:
       summary: Start a complete pipeline with all sub steps
       requestBody:
@@ -151,7 +180,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/PipelineConfiguration"
+              $ref: '#/components/schemas/PipelineConfiguration'
           multipart/form-data:
             schema:
               type: object
@@ -185,84 +214,101 @@ paths:
                   format: binary
                   description: Graph config file (optional)
       responses:
-        "200":
+        '200':
           description: Pipeline started
+      tags:
+      - Pipeline
+      operationId: startPipeline
   /pipeline/configuration:
     parameters:
-      - $ref: "#/components/parameters/process_name"
-      - $ref: "#/components/parameters/language"
+    - $ref: '#/components/parameters/process_name'
+    - $ref: '#/components/parameters/language'
     get:
       summary: Get pipeline configuration
       parameters:
-        - name: default
-          in: query
-          required: false
-          schema:
-            type: boolean
-          description: If true, returns default configuration
-          example: true
+      - name: default
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: If true, returns default configuration
+        example: true
       responses:
-        "200":
+        '200':
           description: Pipeline configuration
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PipelineConfiguration"
+                $ref: '#/components/schemas/PipelineConfiguration'
+      tags:
+      - Pipeline
+      operationId: getPipelineConfiguration
   /processes:
     get:
       summary: Get all stored processes
       responses:
-        "200":
+        '200':
           description: List of all stored processes
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ProcessesResponse"
+                $ref: '#/components/schemas/ProcessesResponse'
+      tags:
+      - Processes
+      operationId: listProcesses
   /processes/{process}/delete:
     parameters:
-      - $ref: "#/components/parameters/process"
+    - $ref: '#/components/parameters/process'
     delete:
-      summary: Sets a process to be deleted from the cache and any finished & serialized steps
+      summary: Sets a process to be deleted from the cache and any finished & serialized
+        steps
       parameters:
-        - name: hard_stop
-          in: query
-          required: false
-          schema:
-            type: boolean
-          description: Running processes need to be stopped before being able to be deleted. If set to 'false' (default) the stopping is handled gracefully.
-          example: false
+      - name: hard_stop
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: Running processes need to be stopped before being able to be
+          deleted. If set to 'false' (default) the stopping is handled gracefully.
+        example: false
       responses:
-        "200":
+        '200':
           description: Process was set to be deleted
-        "404":
+        '404':
           description: No such process found
+      tags:
+      - Processes
+      operationId: deleteProcess
   /processes/{process}/stop:
     parameters:
-      - $ref: "#/components/parameters/process"
+    - $ref: '#/components/parameters/process'
     get:
       summary: Sets a process to be stopped
       parameters:
-        - name: hard_stop
-          in: query
-          required: false
-          schema:
-            type: boolean
-          description: If set to 'false' (default) the stopping is handled gracefully.
-          example: false
-      responses:
-        "200":
-          description: Process was set to be stopped
-        "404":
-          description: No such process found
-  /rag/init:
-    parameters:
-      - $ref: "#/components/parameters/process_name"
-      - name: force
+      - name: hard_stop
         in: query
+        required: false
         schema:
           type: boolean
-        description: Resets an index for this process if present
+        description: If set to 'false' (default) the stopping is handled gracefully.
         example: false
+      responses:
+        '200':
+          description: Process was set to be stopped
+        '404':
+          description: No such process found
+      tags:
+      - Processes
+      operationId: stopProcess
+  /rag/init:
+    parameters:
+    - $ref: '#/components/parameters/process_name'
+    - name: force
+      in: query
+      schema:
+        type: boolean
+      description: Resets an index for this process if present
+      example: false
     post:
       summary: Initializes a RAG with the config provided
       requestBody:
@@ -270,36 +316,51 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/RAGConfiguration"
+              $ref: '#/components/schemas/RAGConfiguration'
       responses:
-        "200":
+        '200':
           description: Initialization successful
-        "202":
+        '202':
           description: Found already initializing thread
-        "400":
+        '400':
           description: Something went wrong
+      tags:
+      - RAG
+      operationId: initializeRag
   /rag/question:
     summary: Poses a question to the RAG component for the specified corpus/process
     parameters:
-      - $ref: "#/components/parameters/process_name"
-      - name: q
-        in: query
-        required: true
-        schema:
-          type: string
-        description: The question to pose
-        example: "?"
+    - $ref: '#/components/parameters/process_name'
+    - name: q
+      in: query
+      required: true
+      schema:
+        type: string
+      description: The question to pose
+      example: '?'
     get:
+      summary: Ask the active RAG component a question
+      description: Uses the ready RAG component for the selected process to retrieve
+        relevant document chunks and generate an answer. The question is supplied
+        via the `q` query parameter.
       responses:
-        "200":
+        '200':
           description: The answer
-        "400":
+        '400':
           description: Either no question posed or wrong method
-        "404":
+        '404':
           description: No active RAG component found
-        "500":
+        '500':
           description: Something went wrong
+      tags:
+      - RAG
+      operationId: askRagQuestion
     post:
+      summary: Ask the active RAG component a question with document filters
+      description: Uses the ready RAG component for the selected process to retrieve
+        relevant document chunks and generate an answer. The question is supplied
+        via the `q` query parameter; the optional JSON body can restrict retrieval
+        to specific document IDs and set the chunk limit.
       requestBody:
         required: false
         content:
@@ -314,31 +375,38 @@ paths:
                   type: integer
                   example: 15
       responses:
-        "200":
+        '200':
           description: The answer
-        "400":
+        '400':
           description: Either no question posed or wrong method
-        "404":
+        '404':
           description: No active RAG component found
-        "500":
+        '500':
           description: Something went wrong
+      tags:
+      - RAG
+      operationId: askRagQuestionWithDocumentFilter
   /status:
     parameters:
-      - $ref: "#/components/parameters/process_name"
+    - $ref: '#/components/parameters/process_name'
     get:
       summary: Get the status of a specified process
       responses:
-        "200":
+        '200':
           description: Status of the specified process
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ProcessesResponse"
-        "404":
+                $ref: '#/components/schemas/ProcessesResponse'
+        '404':
           description: Process not found
+      tags:
+      - Processes
+      operationId: getProcessStatus
   /status/document-server:
     post:
-      summary: Check if the data server specified in an uploaded document_server_config file is reachable
+      summary: Check if the data server specified in an uploaded document_server_config
+        file is reachable
       requestBody:
         required: true
         content:
@@ -351,40 +419,109 @@ paths:
                   example: 9008
                 url:
                   type: string
-                  example: "http://localhost"
+                  example: http://localhost
                 index:
                   type: string
-                  example: "documents"
+                  example: documents
           multipart/form-data:
             schema:
-              $ref: "#/components/schemas/DocumentServerConfigUpload"
+              $ref: '#/components/schemas/DocumentServerConfigUpload'
       responses:
-        "200":
+        '200':
           description: Document server is reachable
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DocumentServerStatus"
-        "503":
+                $ref: '#/components/schemas/DocumentServerStatus'
+        '503':
           description: Document server is not reachable
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DocumentServerStatus"
+                $ref: '#/components/schemas/DocumentServerStatus'
+      tags:
+      - Status
+      operationId: checkDocumentServer
+    get:
+      tags:
+      - Status
+      operationId: getDocumentServerStatusPlaceholder
+      summary: Document-server status placeholder
+      description: 'Currently returns a placeholder message: Method ''GET'' not yet
+        implemented.'
+      responses:
+        '200':
+          description: Placeholder response
   /status/rag:
     parameters:
-      - $ref: "#/components/parameters/process_name"
+    - $ref: '#/components/parameters/process_name'
     get:
       summary: Get the status of a RAG component for a specific process
       responses:
-        "200":
+        '200':
           description: Status of the RAG component
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/RAGStatus"
-        "404":
+                $ref: '#/components/schemas/RAGStatus'
+        '404':
           description: Process not found
+      tags:
+      - Status
+      operationId: getRagStatus
+  /graph/document/{document_id}:
+    parameters:
+    - $ref: '#/components/parameters/process_name'
+    - name: document_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: ID of the added document to remove from graph/vector-store provenance.
+    delete:
+      tags:
+      - Graph documents
+      operationId: deleteGraphDocument
+      summary: Remove an added document from concept graph provenance
+      description: Removes the document references from serialized concept graphs
+        and, when vector-store provenance is available, removes the document provenance
+        from matching Marqo entries. Embedding entries can optionally be deleted when
+        no document references remain.
+      parameters:
+      - name: remove_unreferenced_nodes
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: true
+        description: Remove graph nodes that have no remaining document references
+          after deletion.
+      - name: delete_unreferenced_embeddings
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+        description: Delete vector-store entries when removing this document leaves
+          no document provenance on the entry.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                vectorstore_server:
+                  type: object
+      responses:
+        '200':
+          description: Document provenance was removed.
+        '400':
+          description: Malformed request.
+        '404':
+          description: Document provenance or graph data was not found.
+        '500':
+          description: Unexpected deletion error.
 components:
   schemas:
     Status:
@@ -392,39 +529,39 @@ components:
       properties:
         name:
           type: string
-          example: "data"
+          example: data
         rank:
           type: integer
           example: 1
         status:
           type: string
-          example: "running"
+          example: running
       required:
-        - name
-        - rank
-        - status
+      - name
+      - rank
+      - status
     Process:
       type: object
       properties:
         name:
           type: string
-          example: "process1"
+          example: process1
         status:
           type: array
           items:
-            $ref: "#/components/schemas/Status"
+            $ref: '#/components/schemas/Status'
       required:
-        - name
-        - status
+      - name
+      - status
     ProcessesResponse:
       type: object
       properties:
         processes:
           type: array
           items:
-            $ref: "#/components/schemas/Process"
+            $ref: '#/components/schemas/Process'
       required:
-        - processes
+      - processes
     DocumentServerConfigUpload:
       type: object
       properties:
@@ -433,7 +570,7 @@ components:
           format: binary
           description: The configuration file for the document server
       required:
-        - document_server_config
+      - document_server_config
     DocumentServerStatus:
       type: object
       properties:
@@ -442,50 +579,50 @@ components:
           example: true
         message:
           type: string
-          example: "Document server is reachable."
+          example: Document server is reachable.
       required:
-        - reachable
-        - message
+      - reachable
+      - message
     RAGStatus:
       type: object
       properties:
         name:
           type: string
-          example: "default"
+          example: default
         active:
           type: boolean
           example: true
         error:
           type: string
-          example: "None"
+          example: None
     GraphDocumentAddition:
       type: object
       properties:
         vectorstore_server:
           type: object
-          required: false
         document_server:
           type: object
-          required: false
         language:
           type: string
-          required: true
         documents:
           type: array
           items:
             type: object
-            required: true
+            required:
+            - name
+            - content
             properties:
               id:
                 type: string
-                required: false
               name:
                 type: string
               content:
                 type: string
               label:
                 type: string
-                required: false
+      required:
+      - language
+      - documents
     PipelineConfiguration:
       type: object
       properties:
@@ -497,7 +634,7 @@ components:
               properties:
                 algorithm:
                   type: string
-                  example: "kmeans"
+                  example: kmeans
                 clustering:
                   type: object
                   example: {}
@@ -524,7 +661,7 @@ components:
                       example: 25
                 downscale:
                   type: string
-                  example: "umap"
+                  example: umap
                 missing_as_recommended:
                   type: boolean
                   example: true
@@ -552,10 +689,10 @@ components:
                   example: null
                 file_encoding:
                   type: string
-                  example: "utf-8"
+                  example: utf-8
                 file_extension:
                   type: string
-                  example: "txt"
+                  example: txt
                 head_only:
                   type: boolean
                   example: false
@@ -570,10 +707,10 @@ components:
                       properties:
                         feat_of_interest:
                           type: string
-                          example: "NC"
+                          example: NC
                         language:
                           type: string
-                          example: "en"
+                          example: en
                         scope:
                           type: integer
                           example: 1
@@ -585,7 +722,7 @@ components:
                   example: false
                 spacy_model:
                   type: string
-                  example: "en_core_web_trf"
+                  example: en_core_web_trf
                 tfidf_filter:
                   type: object
                   properties:
@@ -610,7 +747,7 @@ components:
               properties:
                 model:
                   type: string
-                  example: "sentence-transformers/paraphrase-albert-small-v2"
+                  example: sentence-transformers/paraphrase-albert-small-v2
                 n_process:
                   type: integer
                   example: 1
@@ -634,13 +771,13 @@ components:
                                   example: 16
                             spaceType:
                               type: string
-                              example: "dotproduct"
+                              example: dotproduct
                         normalizeEmbeddings:
                           type: boolean
                           example: false
                     method:
                       type: string
-                      example: "vectorstore"
+                      example: vectorstore
             graph:
               type: object
               properties:
@@ -670,7 +807,7 @@ components:
                       example: 0.5
                     simplify_alg:
                       type: string
-                      example: "significance"
+                      example: significance
                     sub_clustering:
                       type: boolean
                       example: false
@@ -685,13 +822,13 @@ components:
           properties:
             index:
               type: string
-              example: "documents"
+              example: documents
             label_key:
               type: string
-              example: "label"
+              example: label
             other_id:
               type: string
-              example: "id"
+              example: id
             port:
               type: integer
               example: 9008
@@ -700,19 +837,19 @@ components:
               properties:
                 text:
                   type: string
-                  example: "content"
+                  example: content
             size:
               type: integer
               example: 30
             url:
               type: string
-              example: "http://localhost"
+              example: http://localhost
         language:
           type: string
-          example: "en"
+          example: en
         name:
           type: string
-          example: "default"
+          example: default
         vectorstore_server:
           type: object
           properties:
@@ -721,12 +858,12 @@ components:
               example: 8882
             url:
               type: string
-              example: "http://localhost"
+              example: http://localhost
     RAGPromptTemplate:
       properties:
         templates:
           type: object
-          description: "Keys are language codes and values are the respective prompts"
+          description: Keys are language codes and values are the respective prompts
           properties:
             en:
               type: string
@@ -734,7 +871,8 @@ components:
               type: string
         input_variables:
           type: array
-          description: "A list of variables that are referenced in the prompt (i.e. surrounded by curly brackets)."
+          description: A list of variables that are referenced in the prompt (i.e.
+            surrounded by curly brackets).
           items:
             type: string
       example: {}
@@ -742,26 +880,28 @@ components:
       properties:
         api_key:
           type: string
-          required: true
-          example: ""
+          example: ''
         chatter:
           type: object
         language:
           type: string
-          example: "en"
+          example: en
         prompt_template:
-          $ref: "#/components/schemas/RAGPromptTemplate"
+          $ref: '#/components/schemas/RAGPromptTemplate'
         vectorstore_server:
           type: object
           properties:
             url:
               type: string
-              example: "http://localhost"
+              example: http://localhost
             port:
               type: integer
               example: 8882
             index_settings:
               type: object
+      type: object
+      required:
+      - api_key
   parameters:
     process:
       name: process
@@ -778,10 +918,23 @@ components:
         type: string
       description: Name of the process
     language:
-        name: language
-        in: query
-        required: false
-        schema:
-          type: string
-        description: Language the documents are written in
-        example: en
+      name: language
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Language the documents are written in
+      example: en
+tags:
+- name: Pipeline
+  description: Start pipeline runs and inspect pipeline configuration.
+- name: Artifacts
+  description: Inspect preprocessing, embedding, clustering, and graph artifacts.
+- name: Graph documents
+  description: Add documents to existing concept graphs.
+- name: Processes
+  description: List, inspect, stop, and delete pipeline processes.
+- name: RAG
+  description: Initialize and query the retrieval augmented generation component.
+- name: Status
+  description: Check external services and runtime component status.

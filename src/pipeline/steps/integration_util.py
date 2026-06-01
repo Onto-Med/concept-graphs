@@ -1,0 +1,114 @@
+import logging
+from collections.abc import Callable
+from pathlib import Path
+from pydoc import locate
+
+from flask import Flask, Response
+from werkzeug.datastructures import FileStorage
+
+from src.common.io import load_pickle
+from src.core.integration_functions import ConceptGraphIntegrationFactory
+from src.pipeline.base import BaseUtil
+from src.pipeline.status import StepsName
+from src.storage.interfaces import EmbeddingStore
+
+
+class ConceptGraphIntegrationUtil(BaseUtil):
+    def __init__(
+        self,
+        app: Flask,
+        file_storage: str,
+        embedding_store_cls: str = "src.storage.marqo.MarqoEmbeddingStore",
+    ):
+        super().__init__(app, file_storage, StepsName.INTEGRATION)
+        self._embedding_store_cls = embedding_store_cls
+
+    @property
+    def serializable_config(self) -> dict:
+        return {}
+
+    @property
+    def default_config(self) -> dict:
+        return {}
+
+    @property
+    def sub_config_names(self) -> list[str]:
+        return []
+
+    @property
+    def necessary_config_keys(self) -> list[str]:
+        return []
+
+    @property
+    def protected_kwargs(self) -> list[str]:
+        return []
+
+    def has_process(
+        self, process: str | None = None, extensions: list[str] | None = None
+    ) -> bool:
+        return super().has_process(process, extensions)
+
+    def delete_process(
+        self, process: str | None = None, extensions: list[str] | None = None
+    ) -> None:
+        super().delete_process(process, extensions)
+
+    def read_config(
+        self,
+        config: FileStorage | dict | None,
+        process_name=None,
+        language=None,
+    ) -> Response | None:
+        return super().read_config(config, process_name, language)
+
+    def read_stored_config(self, ext: str = "yaml") -> tuple[str, dict]:
+        return super().read_stored_config(ext)
+
+    def _process_method(self) -> Callable | None:
+        return ConceptGraphIntegrationFactory.create
+
+    def _load_pre_components(
+        self, cache_name, active_process_objs: dict[str, dict] | None = None
+    ) -> tuple | list | None:
+        _emb_config = load_pickle(
+            Path(self._file_storage / f"{cache_name}_embedding.pickle")
+        )
+        if not isinstance(_emb_config, dict):
+            logging.warning(
+                f"It seems you didn't configure a vector store for the embeddings. Therefore the step '{self.process_step}' is skipped"
+            )
+            return None
+        embedding_store: EmbeddingStore = locate(self._embedding_store_cls)
+        if not embedding_store.is_accessible(_emb_config):
+            logging.error(
+                f"Couldn't access embedding store for '{cache_name}'. Check if the server is running for the following configuration:\n{_emb_config}."
+            )
+            raise RuntimeError("Embedding store not present.")
+        embedding_store_impl: EmbeddingStore = embedding_store.existing_from_config(
+            _emb_config
+        )
+        graph_list = load_pickle(
+            Path(self._file_storage / f"{cache_name}_graph.pickle")
+        )
+        if len(graph_list) > 0:
+            return embedding_store_impl, graph_list
+        else:
+            logging.warning("There were no graphs present.")
+        raise RuntimeError("Couldn't find any graphs to update embeddings with.")
+
+    def _start_process(self, process_factory, *args, **kwargs):
+        if len(args) == 2:
+            emb_store, graphs = args
+        else:
+            return (
+                False,
+                "No prerequisite components seem to have been loaded; see the logs, where an error might have occurred.",
+            )
+        int_obj = process_factory.create(
+            embedding_store=emb_store,
+            graphs=graphs,
+            cache_path=self._file_storage,
+            cache_name=f"{self.process_name}_{self.process_step}",
+            **kwargs,
+        )
+        return True, int_obj

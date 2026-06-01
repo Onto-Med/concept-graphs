@@ -1,141 +1,223 @@
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-46a2f1.svg)](https://docs.astral.sh/ruff/)
 
 # Concept Graphs
 
-Concept Graphs is a Flask-based API for building, storing, inspecting, and extending concept graphs from document corpora.
+Concept Graphs is a Flask API for building, storing, inspecting, extending, and querying concept graphs from document corpora.
 
-The application processes text documents through a pipeline:
+A corpus is processed through a pipeline:
 
-1. **Preprocessing**: extracts noun chunks / phrases from documents.
-2. **Embedding**: embeds extracted phrases into a vector space.
-3. **Clustering**: groups related phrases into concept clusters.
-4. **Graph creation**: creates one graph per concept cluster.
-5. **Optional integration**: stores phrase/document information in an external vector store.
-6. **Optional RAG**: initializes a retrieval-augmented generation component over processed documents.
+1. **Preprocessing**: load documents and extract noun chunks / phrase chunks.
+2. **Embedding**: encode extracted phrases into vectors.
+3. **Clustering**: group related phrases into concepts.
+4. **Graph creation**: build concept graphs from phrase/document relations.
+5. **Optional integration**: write graph-cluster metadata to an external vector store.
+6. **Optional RAG**: initialize retrieval-augmented generation over processed document chunks.
 
-The API also exposes endpoints to inspect process status, retrieve graph data, add documents to existing graphs, and ask questions via RAG.
+The API also supports process management, graph inspection, adding documents to existing graphs, deleting added document provenance, and asking questions through RAG.
 
-> The implementation is based on the Concept Graphs approach described in the references below [1].
+The implementation is based on the Concept Graphs approach described in the references.
+
+---
 
 ## Requirements
 
-The project uses **Python 3.11** and `uv`.
+- Python `>=3.11,<3.12`
+- [`uv`](https://docs.astral.sh/uv/)
+- Optional external services:
+  - Marqo/vector store
+  - document index server
+  - RAG backend/chatter service, depending on configuration
 
-Install dependencies with:
+Install dependencies:
+
 ```bash
 uv sync
 ```
+
+Run checks:
+
+```bash
+uv run --group test ruff format .
+uv run --group test ruff check .
+uv run --no-sync pytest -q
+```
+
+---
+
 ## Running locally
 
-Start the API directly:
+Start the Flask development server:
+
 ```bash
 uv run python main.py
 ```
-By default, the Flask application listens on:
+
+Default local URL:
+
 ```text
 http://localhost:9010
 ```
-The OpenAPI UI is available at:
+
+Swagger UI / OpenAPI UI:
+
 ```text
 http://localhost:9010/
 http://localhost:9010/openapi
 ```
+
+The OpenAPI document lives at:
+
+```text
+api/concept-graphs-api.yml
+```
+
+---
+
+## Application factory and runtime state
+
+The app uses a Flask application factory:
+
+```python
+from main import create_app
+
+app = create_app()
+```
+
+Production servers should call the factory, for example with Waitress:
+
+```bash
+waitress-serve --call --port=9007 main:create_app
+```
+
+Shared runtime state is attached to the Flask app under:
+
+```python
+app.extensions["concept_graphs_context"]
+```
+
+That context contains grouped runtime state for:
+
+- running processes and threads
+- active pipeline step objects
+- file storage configuration
+- per-process active RAG state
+
+---
+
 ## Docker
 
-Build and start the services:
+Build and start the default compose setup:
+
 ```bash
 docker compose build
 docker compose up -d
 ```
-Depending on the compose configuration, the API is usually exposed at:
+
+The production image runs Waitress with the factory entrypoint:
+
+```text
+main:create_app --call
+```
+
+The production compose setup should use the code baked into the image. It should not bind-mount the project over `/rest_api`, because doing so can hide the image's build-time `.venv`.
+
+The local development compose file may bind-mount the source tree for iterative work.
+
+Typical API URL in Docker setups:
+
 ```text
 http://localhost:9007
 ```
-Generated results are written to the configured storage directory inside the container, typically mounted from the `results` Docker volume.
 
-## Data model and processes
+---
 
-Most API operations are associated with a **process** name. A process represents one corpus and its generated pipeline artifacts.
+## Processes and storage
 
-If no process is supplied, the API uses:
+Most endpoints use a `process` query parameter. A process represents one corpus and its stored artifacts.
+
+If omitted, the process defaults to:
+
 ```text
 default
 ```
-Use the `process` query parameter to select a process:
+
+Example:
+
 ```bash
 curl "http://localhost:9010/status?process=my_corpus"
 ```
-Process names are normalized by the server.
 
-## OpenAPI specification
+Pipeline artifacts are stored below the configured file storage directory, defaulting to:
 
-The OpenAPI specification is served by the application UI and is defined in:
 ```text
-api/concept-graphs-api.yml
+tmp/
 ```
-Configured server URLs include:
+
+Each process has its own directory:
+
 ```text
-http://top-prod:9007
-http://localhost:9007
-http://localhost:9010
+tmp/<process>/
 ```
+
+Typical storage behavior:
+
+| Artifact / data | Stored where |
+|---|---|
+| Pipeline step pickles | `tmp/<process>/` |
+| Graph pickle | `tmp/<process>/<process>_graph.pickle` |
+| Phrase embeddings | local pickle and/or Marqo, depending on config |
+| Integration metadata | Marqo/vector store when configured |
+| Document-addition graph provenance | graph pickle node attributes |
+| Document-addition vector provenance | Marqo entry metadata |
+| Full documents added through `/graph/document/add` | not currently inserted into the external document server |
+
+Document addition currently updates the graph/vector-store side only:
+
+| Target | Added by document addition? |
+|---|---:|
+| Concept graph pickle | yes |
+| Vector store / Marqo phrase index | yes |
+| Existing processed data pickle | no |
+| External document index server | no |
+
+---
+
 ## Pipeline
 
 ### `POST /pipeline`
 
-Starts a complete concept-graph pipeline.
+Starts a full concept-graph pipeline.
 
 The endpoint accepts either:
 
-- `multipart/form-data`
 - `application/json`
+- `multipart/form-data`
 
-A pipeline can read documents from:
+Documents can come from either:
 
 - an uploaded zip file, or
 - an external document server.
 
-If a vector store is configured and reachable, the API can additionally run an integration step. If the vector store is not reachable, the API falls back to pickle-based storage where possible.
-
-### Query parameters
+### Pipeline query parameters
 
 | Name | Type | Default | Description |
 |---|---:|---:|---|
-| `process` | string | `default` | Name of the corpus/process. |
-| `language` | string | `en` | Language of the documents. Common values are `en` and `de`. |
-| `skip_present` | boolean | `true` | Skip already completed serialized steps. |
-| `skip_steps` | string | | Comma-separated list of steps to skip. Supported values include `data`, `embedding`, `clustering`, `graph`, and `integration`. |
-| `return_statistics` | boolean | `false` | If `true`, waits for the pipeline to finish and returns graph statistics. This may take a long time. |
-
-### Multipart request
-```bash
-curl -X POST "http://localhost:9010/pipeline?process=my_corpus&language=en&skip_present=true" \
-  -F data=@"./documents.zip" \
-  -F data_config=@"./data-config.yaml" \
-  -F embedding_config=@"./embedding-config.yaml" \
-  -F clustering_config=@"./clustering-config.yaml" \
-  -F graph_config=@"./graph-config.yaml"
-```
-Supported multipart fields:
-
-| Field | Required | Description |
-|---|---:|---|
-| `data` | conditionally | Zip file containing input text documents. Required unless `document_server_config` is provided. |
-| `document_server_config` | conditionally | YAML config for loading documents from an external document server. Required unless `data` is provided. |
-| `vectorstore_server_config` | no | YAML config for an external vector store. |
-| `labels` | no | YAML file mapping document names/ids to labels. |
-| `data_config` | no | Preprocessing configuration. |
-| `embedding_config` | no | Embedding configuration. |
-| `clustering_config` | no | Clustering configuration. |
-| `graph_config` | no | Graph creation configuration. |
+| `process` | string | `default` | Corpus/process name. |
+| `language` | string | `en` | Document language, for example `en` or `de`. |
+| `skip_present` | boolean | `true` | Reuse already serialized step artifacts where possible. |
+| `skip_steps` | string | | Comma-separated steps to skip: `data`, `embedding`, `clustering`, `graph`, `integration`. |
+| `return_statistics` | boolean | `false` | If `true`, waits for completion and returns graph statistics. This can take a long time. |
 
 ### JSON request
+
 ```bash
 curl -X POST "http://localhost:9010/pipeline?process=my_corpus&language=en" \
   -H "Content-Type: application/json" \
-  -d @pipeline-config.json
+  -d @conf/pipeline-config_en.json
 ```
-A JSON pipeline configuration may contain:
+
+A full JSON config has this general shape:
+
 ```json
 {
   "name": "my_corpus",
@@ -163,113 +245,105 @@ A JSON pipeline configuration may contain:
   }
 }
 ```
-### Response
 
-If `return_statistics=false`, the endpoint starts the pipeline asynchronously and returns `202 Accepted` with the current process status.
+### Multipart request
 
-If `return_statistics=true`, the endpoint waits for the pipeline thread to finish and returns graph statistics.
+```bash
+curl -X POST "http://localhost:9010/pipeline?process=my_corpus&language=en&skip_present=true" \
+  -F data=@"./documents.zip" \
+  -F data_config=@"./data-config.yaml" \
+  -F embedding_config=@"./embedding-config.yaml" \
+  -F clustering_config=@"./clustering-config.yaml" \
+  -F graph_config=@"./graph-config.yaml" \
+  -F vectorstore_server_config=@"./vectorstore-server.yaml"
+```
 
-## Pipeline configuration
+Supported multipart fields:
 
-### `GET /pipeline/configuration`
+| Field | Required | Description |
+|---|---:|---|
+| `data` | conditionally | Zip file containing input text documents. Required unless a document server config is provided. |
+| `document_server_config` | conditionally | Config file for loading documents from an external document server. Required unless uploaded data is provided. |
+| `vectorstore_server_config` | no | External vector-store config. |
+| `labels` | no | Optional labels mapping file. |
+| `data_config` | no | Preprocessing config. |
+| `embedding_config` | no | Embedding config. |
+| `clustering_config` | no | Clustering config. |
+| `graph_config` | no | Graph creation config. |
 
-Returns either a default pipeline configuration or a stored configuration for a process.
+### Pipeline configuration
+
+Get the default configuration:
+
 ```bash
 curl "http://localhost:9010/pipeline/configuration?default=true&language=en"
 ```
-Query parameters:
 
-| Name | Type | Default | Description |
-|---|---:|---:|---|
-| `default` | boolean | `true` | If `true`, returns the default configuration for the selected language. |
-| `process` | string | `default` | Process name, used when `default=false`. |
-| `language` | string | `en` | Language for the default configuration. |
+Get a stored process configuration:
 
-Examples:
 ```bash
-curl "http://localhost:9010/pipeline/configuration?default=true&language=en"
 curl "http://localhost:9010/pipeline/configuration?default=false&process=my_corpus"
 ```
-## Preprocessing inspection
 
-The standalone preprocessing creation endpoint is no longer exposed. Preprocessing is run through `/pipeline`.
+Available defaults are stored in `conf/`, for example:
 
-The following endpoints inspect stored preprocessing results.
+```text
+conf/pipeline-config_de.json
+```
 
-### `GET /preprocessing/statistics`
+---
 
-Returns basic statistics for a processed corpus.
+## Inspecting pipeline artifacts
+
+### Preprocessing
+
 ```bash
 curl "http://localhost:9010/preprocessing/statistics?process=my_corpus"
-```
-### `GET /preprocessing/noun_chunks`
-
-Returns extracted noun chunks / phrase chunks.
-```bash
 curl "http://localhost:9010/preprocessing/noun_chunks?process=my_corpus"
 ```
-## Embedding inspection
 
-Embedding is run through `/pipeline`.
+### Embedding
 
-### `GET /embedding/statistics`
-
-Returns statistics for the stored embedding object.
 ```bash
 curl "http://localhost:9010/embedding/statistics?process=my_corpus"
 ```
-## Clustering inspection
 
-Clustering is run through `/pipeline`.
+### Clustering
 
-### `GET /clustering/concepts`
-
-Returns the concepts found during clustering.
 ```bash
 curl "http://localhost:9010/clustering/concepts?process=my_corpus&top_k=15&distance=0.6"
 ```
-Query parameters:
+
+Parameters:
 
 | Name | Type | Default | Description |
 |---|---:|---:|---|
-| `process` | string | `default` | Process name. |
-| `top_k` | integer | `15` | Number of representative phrases to return for each concept. |
-| `distance` | number | `0.6` | Cosine distance threshold for representatives. |
+| `top_k` | integer | `15` | Number of representative phrases per concept. |
+| `distance` | number | `0.6` | Cosine distance threshold. |
 
-## Graphs
+### Graphs
 
-Graph creation is run through `/pipeline`.
-
-### `GET /graph/statistics`
-
-Returns basic graph statistics for a process.
 ```bash
 curl "http://localhost:9010/graph/statistics?process=my_corpus"
-```
-### `GET /graph/{graph_id}`
-
-Returns nodes and adjacency information for a specific graph.
-```bash
 curl "http://localhost:9010/graph/0?process=my_corpus"
-```
-To request a rendered graph where supported:
-```bash
 curl "http://localhost:9010/graph/0?process=my_corpus&draw=true"
 ```
-Query parameters:
+
+Parameters:
 
 | Name | Type | Default | Description |
 |---|---:|---:|---|
 | `process` | string | `default` | Process name. |
-| `draw` | boolean | `false` | If `true`, returns a rendered graph instead of JSON where supported. |
+| `draw` | boolean | `false` | Return a rendered graph where supported. |
+
+---
 
 ## Adding documents to existing graphs
 
 ### `POST /graph/document/add`
 
-Adds one or more documents to an existing process and integrates their phrases into the graphs built for that corpus.
+Adds one or more documents to an existing process and integrates their phrases into already built graphs.
 
-The request body must be JSON.
 ```bash
 curl -X POST "http://localhost:9010/graph/document/add?process=my_corpus" \
   -H "Content-Type: application/json" \
@@ -289,82 +363,109 @@ curl -X POST "http://localhost:9010/graph/document/add?process=my_corpus" \
     }
   }'
 ```
+
 Request fields:
 
 | Field | Type | Required | Description |
 |---|---|---:|---|
 | `language` | string | yes | Document language. |
 | `documents` | array | yes | Documents to add. |
-| `documents[].id` | string | no | External document id. |
+| `documents[].id` | string | no | External document ID. If missing, a UUID is generated. |
 | `documents[].name` | string | yes | Document name. |
 | `documents[].content` | string | yes | Document text. |
 | `documents[].label` | string | no | Optional document label. |
-| `vectorstore_server` | object | no | Vector store connection settings. |
-| `document_server` | object | no | Reserved for document-server based additions. |
+| `vectorstore_server` | object | no | Vector-store connection settings. |
+| `document_server` | object | no | Currently not used for inserting added documents. |
 
 The endpoint starts an asynchronous document-addition thread.
 
-### `GET /graph/document/add/status`
+Check the result:
 
-Returns the status or result of a document-addition task.
 ```bash
 curl "http://localhost:9010/graph/document/add/status?process=my_corpus"
 ```
-Possible responses include:
 
-- `200 OK`: task finished and returned a result
-- `202 Accepted`: task is still running
-- `404 Not Found`: no document-addition task exists for the process
+Document-addition provenance is stored as:
 
-### `DELETE /graph/document/<DOCUMENT_ID>`
+- graph node `documents` attributes in the graph pickle
+- `documents` metadata on Marqo/vector-store entries
 
-The path exists internally but document deletion is not implemented.
+Example Marqo provenance metadata:
+
+```json
+{
+  "documents": [
+    {
+      "id": "doc-001",
+      "offsets": [[0, 42]]
+    }
+  ],
+  "source": "document_addition"
+}
+```
+
+### `DELETE /graph/document/{document_id}`
+
+Removes document provenance from graphs and, where vector-store provenance is available, from Marqo entries.
+
+```bash
+curl -X DELETE "http://localhost:9010/graph/document/doc-001?process=my_corpus"
+```
+
+Optional query parameters:
+
+| Name | Type | Default | Description |
+|---|---:|---:|---|
+| `remove_unreferenced_nodes` | boolean | `true` | Remove graph nodes that have no document references after deletion. |
+| `delete_unreferenced_embeddings` | boolean | `false` | Delete vector-store entries that have no document provenance after deletion. |
+
+Optional JSON body if vector-store settings are not available from the saved embedding object:
+
+```json
+{
+  "vectorstore_server": {
+    "client_url": "http://localhost:8882",
+    "index_name": "my_corpus"
+  }
+}
+```
+
+---
 
 ## Process management
 
-### `GET /processes`
+List known/running processes:
 
-Returns all known stored processes.
 ```bash
 curl "http://localhost:9010/processes"
 ```
-### `GET /status`
 
-Returns the status of a specific process.
+Get one process status:
+
 ```bash
 curl "http://localhost:9010/status?process=my_corpus"
 ```
-### `GET /processes/{process}/stop`
 
-Requests that a running process be stopped.
+Stop a process:
+
 ```bash
-curl "http://localhost:9010/processes/my_corpus/stop"
+curl "http://localhost:9010/processes/my_corpus/stop?hard_stop=false"
 ```
-Optional query parameter:
 
-| Name | Type | Default | Description |
-|---|---:|---:|---|
-| `hard_stop` | boolean | `false` | If `false`, attempts a graceful stop. |
+Delete a process and serialized artifacts:
 
-### `DELETE /processes/{process}/delete`
-
-Deletes a process from the in-memory cache and removes serialized artifacts for finished steps.
 ```bash
-curl -X DELETE "http://localhost:9010/processes/my_corpus/delete"
+curl -X DELETE "http://localhost:9010/processes/my_corpus/delete?hard_stop=false"
 ```
-Optional query parameter:
 
-| Name | Type | Default | Description |
-|---|---:|---:|---|
-| `hard_stop` | boolean | `false` | If the process is running, stop it before deletion. |
+---
 
 ## Document server status
 
-### `POST /status/document-server`
+Check whether a configured document server is reachable and contains data.
 
-Checks whether a configured document server is reachable and contains data.
+JSON request:
 
-JSON example:
 ```bash
 curl -X POST "http://localhost:9010/status/document-server" \
   -H "Content-Type: application/json" \
@@ -375,12 +476,16 @@ curl -X POST "http://localhost:9010/status/document-server" \
     "size": 30
   }'
 ```
-Multipart example:
+
+Multipart request:
+
 ```bash
 curl -X POST "http://localhost:9010/status/document-server" \
   -F document_server_config=@"./document-server-config.yaml"
 ```
-A typical document server configuration contains:
+
+Typical document-server config:
+
 ```yaml
 url: "http://localhost"
 port: 9008
@@ -391,13 +496,15 @@ label_key: "label"
 replace_keys:
   text: content
 ```
+
+---
+
 ## RAG
 
-The API can initialize one active RAG component for a process and answer questions over retrieved document chunks.
+The API can initialize one active RAG component per process/corpus. Each process uses its own RAG vector-store index named `<process>_rag`.
 
 ### `POST /rag/init`
 
-Initializes the RAG component.
 ```bash
 curl -X POST "http://localhost:9010/rag/init?process=my_corpus&force=false" \
   -H "Content-Type: application/json" \
@@ -409,7 +516,7 @@ curl -X POST "http://localhost:9010/rag/init?process=my_corpus&force=false" \
       "port": 8882
     },
     "chatter": {
-      "chatter": "src.rag.chatters.BlabladorChatter.BlabladorChatter"
+      "chatter": "src.rag.chatters.blablador.BlabladorChatter"
     },
     "prompt_template": {
       "templates": {
@@ -419,6 +526,7 @@ curl -X POST "http://localhost:9010/rag/init?process=my_corpus&force=false" \
     }
   }'
 ```
+
 Query parameters:
 
 | Name | Type | Default | Description |
@@ -426,23 +534,22 @@ Query parameters:
 | `process` | string | `default` | Process name. |
 | `force` | boolean | `false` | Reinitialize/refill the vector-store index even if it already exists. |
 
-If the backing chunk vector store is empty, initialization starts a background task to fill it. The RAG component becomes ready after initialization completes.
+If the backing chunk vector store is empty, initialization starts a background task. Check readiness with:
 
-### `GET /status/rag`
-
-Checks whether the active RAG component is ready for a process.
 ```bash
 curl "http://localhost:9010/status/rag?process=my_corpus"
 ```
+
 ### `GET /rag/question`
 
-Asks a question using the active RAG component.
 ```bash
 curl "http://localhost:9010/rag/question?process=my_corpus&q=What%20is%20this%20corpus%20about%3F"
 ```
+
 ### `POST /rag/question`
 
-Asks a question and optionally restricts retrieval to selected document ids.
+Use POST to restrict retrieval to selected document IDs and/or set a chunk limit:
+
 ```bash
 curl -X POST "http://localhost:9010/rag/question?process=my_corpus&q=What%20does%20document%20A%20say%3F" \
   -H "Content-Type: application/json" \
@@ -451,198 +558,112 @@ curl -X POST "http://localhost:9010/rag/question?process=my_corpus&q=What%20does
     "limit": 15
   }'
 ```
+
 Request body fields:
 
 | Field | Type | Default | Description |
 |---|---|---:|---|
-| `doc_ids` | array of strings | `[]` | Optional list of document ids to restrict retrieval. |
-| `limit` | integer | `15` | Maximum number of document chunks to retrieve. |
+| `doc_ids` | array of strings | `[]` | Restrict retrieval to selected document IDs. |
+| `limit` | integer | `15` | Maximum number of chunks to retrieve. |
 
-A successful response contains:
+Successful response:
+
 ```json
 {
   "answer": "...",
   "info": "..."
 }
 ```
-`info` contains serialized metadata for the retrieved reference documents.
 
-## Example configuration files
+---
 
-The recommended way to retrieve a complete current configuration is:
+## Fixture generation for tests
+
+A helper script can run the pipeline on a folder of documents and write fixtures:
+
 ```bash
-curl "http://localhost:9010/pipeline/configuration?default=true&language=en"
+uv run --no-sync python test/data/scripts/run_pipeline_on_folder.py \
+  test/data/documents/grascco/ \
+  --process grascco \
+  --language de \
+  --file-storage-dir test/data/results \
+  --pipeline-config conf/pipeline-config_de.json \
+  --skip-steps integration
 ```
-The sections below show the main configuration concepts.
 
-### Pipeline JSON configuration
-```json
-{
-  "name": "default",
-  "language": "en",
-  "document_server": {
-    "url": "http://localhost",
-    "port": 9008,
-    "index": "documents",
-    "size": 30,
-    "other_id": "id",
-    "label_key": "label",
-    "replace_keys": {
-      "text": "content"
-    }
-  },
-  "vectorstore_server": {
-    "url": "http://localhost",
-    "port": 8882
-  },
-  "config": {
-    "data": {
-      "spacy_model": "en_core_web_trf",
-      "n_process": 1,
-      "file_extension": "txt",
-      "file_encoding": "utf-8",
-      "use_lemma": false,
-      "prepend_head": false,
-      "head_only": false,
-      "case_sensitive": false,
-      "disable": null,
-      "tfidf_filter": {
-        "enabled": false,
-        "min_df": 1,
-        "max_df": 1,
-        "stop": null
-      },
-      "negspacy": {
-        "enabled": true,
-        "configuration": {
-          "scope": 1,
-          "language": "en",
-          "feat_of_interest": "NC"
-        }
-      }
-    },
-    "embedding": {
-      "model": "sentence-transformers/paraphrase-albert-small-v2",
-      "n_process": 1,
-      "storage": {
-        "method": "vectorstore",
-        "config": {
-          "normalizeEmbeddings": false,
-          "annParameters": {
-            "spaceType": "dotproduct",
-            "parameters": {
-              "efConstruction": 1024,
-              "m": 16
-            }
-          }
-        }
-      }
-    },
-    "clustering": {
-      "algorithm": "kmeans",
-      "downscale": "umap",
-      "missing_as_recommended": true,
-      "deduction": {
-        "enabled": true,
-        "k_min": 2,
-        "k_max": 100,
-        "n_samples": 15,
-        "sample_fraction": 25,
-        "regression_poly_degree": 5
-      },
-      "scaling": {
-        "n_neighbors": 10,
-        "n_components": 100,
-        "min_dist": 0.1
-      },
-      "clustering": {}
-    },
-    "graph": {
-      "cluster": {
-        "distance": 0.7,
-        "min_size": 4
-      },
-      "graph": {
-        "cosine_weight": 0.6,
-        "merge_threshold": 0.9,
-        "graph_weight_cut_off": 0.6,
-        "unroll": false,
-        "simplify": 0.5,
-        "simplify_alg": "significance",
-        "sub_clustering": false
-      },
-      "restrict_to_cluster": true
-    }
-  }
-}
-```
-### Document server YAML configuration
-```yaml
-url: "http://localhost"
-port: 9008
-index: "documents"
-size: 30
-other_id: "id"
-label_key: "label"
-replace_keys:
-  text: content
-```
-### Vector store YAML configuration
-```yaml
-url: "http://localhost"
-port: 8882
-```
-## Stored artifacts
+Useful flags:
 
-Pipeline artifacts are stored below the configured file storage directory, which defaults to:
+| Flag | Description |
+|---|---|
+| `--pipeline-config` | Full JSON pipeline config. |
+| `--skip-present` | Reuse existing artifacts. This is the default. |
+| `--no-skip-present` | Recompute artifacts. |
+| `--skip-steps integration` | Skip external vector-store integration. |
+
+Current tests use fixtures under:
+
 ```text
-tmp/
+test/data/results/grascco
 ```
-Each process has its own subdirectory.
 
-Depending on configuration and reachable external services, embeddings and integration data may be stored either through the configured vector store or serialized locally.
+---
 
-## Common workflow
+## API overview
 
-Start a full pipeline from an uploaded zip file:
+Business endpoints are documented in Swagger UI and `api/concept-graphs-api.yml`.
+
+Main endpoint groups:
+
+| Group | Endpoints |
+|---|---|
+| Pipeline | `POST /pipeline`, `GET /pipeline/configuration` |
+| Artifacts | `/preprocessing/*`, `/embedding/*`, `/clustering/*`, `/graph/*` |
+| Graph documents | `POST /graph/document/add`, `GET /graph/document/add/status`, `DELETE /graph/document/{document_id}` |
+| Processes | `GET /processes`, `GET /status`, `GET /processes/{process}/stop`, `DELETE /processes/{process}/delete` |
+| Status | `POST /status/document-server`, `GET /status/rag` |
+| RAG | `POST /rag/init`, `GET/POST /rag/question` |
+
+Documentation/static routes such as `/`, `/openapi`, and static files are intentionally not considered business API endpoints.
+
+---
+
+## Development notes
+
+Code style and linting use Ruff:
+
 ```bash
-curl -X POST "http://localhost:9010/pipeline?process=my_corpus&language=en&return_statistics=false" \
-  -F data=@"./documents.zip"
+uv run --group test ruff format .
+uv run --group test ruff check .
 ```
-Check progress:
+
+Current Ruff rule groups include:
+
+- `E`: pycodestyle errors
+- `F`: pyflakes
+- `I`: import sorting
+- `UP`: pyupgrade modernization
+
+Run the full validation set:
+
 ```bash
-curl "http://localhost:9010/status?process=my_corpus"
+uv run --group test ruff format .
+uv run --group test ruff check .
+uv run --no-sync python -m compileall -q main.py src test
+uv run --no-sync pytest -q
 ```
-Inspect concepts:
-```bash
-curl "http://localhost:9010/clustering/concepts?process=my_corpus&top_k=10"
-```
-Inspect graph statistics:
-```bash
-curl "http://localhost:9010/graph/statistics?process=my_corpus"
-```
-Fetch a graph:
-```bash
-curl "http://localhost:9010/graph/0?process=my_corpus"
-```
-Initialize RAG:
-```bash
-curl -X POST "http://localhost:9010/rag/init?process=my_corpus" \
-  -H "Content-Type: application/json" \
-  -d @rag-config.json
-```
-Ask a question:
-```bash
-curl "http://localhost:9010/rag/question?process=my_corpus&q=Summarize%20the%20main%20topics."
-```
-## Notes and limitations
+
+---
+
+## Known limitations
 
 - Pipeline execution can take a long time for large corpora.
-- Some operations run asynchronously. Use `/status`, `/processes`, `/graph/document/add/status`, and `/status/rag` to inspect progress.
-- Only one active RAG component is held by the application at a time.
-- Document deletion from graphs is not implemented.
-- Graph quality depends heavily on corpus size, extracted phrase quality, embeddings, and clustering settings.
+- Some operations are asynchronous. Use `/status`, `/processes`, `/graph/document/add/status`, and `/status/rag` to inspect progress.
+- RAG state is held in memory per process; it must be reinitialized after an application restart.
+- Document addition does not currently insert full documents into the external document server.
+- Graph quality depends heavily on corpus size, extracted phrase quality, embedding model, and clustering settings.
 - Very small corpora may not produce useful concept clusters or graphs.
+
+---
 
 ## References
 
@@ -651,3 +672,5 @@ curl "http://localhost:9010/rag/question?process=my_corpus&q=Summarize%20the%20m
 **[2]** NetworkX: https://networkx.org/
 
 **[3]** Dianati, N. *Unwinding the hairball graph: Pruning algorithms for weighted complex networks.* Physical Review E. 2016;93(1). Available from: https://link.aps.org/doi/10.1103/PhysRevE.93.012304
+
+**[4]** Chapman, Bridewell, Hanbury, Cooper, Buchanan. *NegEx - A Simple Algorithm for Identifying Negated Findings and Diseases in Discharge Summaries.* https://doi.org/10.1006/jbin.2001.1029

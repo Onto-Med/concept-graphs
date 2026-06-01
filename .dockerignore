@@ -1,2 +1,25 @@
 .git
+.gitignore
+
+# Runtime/build artifacts
+tmp
 /tmp
+__pycache__/
+**/__pycache__/
+.pytest_cache/
+*.py[cod]
+
+# Tests are not needed in runtime images
+test/
+src/tests/
+**/test_*.py
+**/*_test.py
+
+# Experiments/notebooks are not needed in runtime images
+experiments/
+jupyter-notebooks/
+*.ipynb
+
+# Local development files
+.idea/
+.venv/

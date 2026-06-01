@@ -9,14 +9,13 @@ edge of an integer-weighted graph based on a maximum likelihood null model deriv
 from the configuration model
 """
 
-# import igraph as ig
-# import pandas as pd
 import copy
 import logging
+from numbers import Number
 
 import networkx as nx
 import numpy as np
-from scipy.stats import binom_test
+from scipy.stats import binomtest
 
 logger = logging.getLogger()
 logger.setLevel("DEBUG")
@@ -28,10 +27,11 @@ MAX_NEG_LOG = np.log(np.finfo(np.float64).max)
 
 
 class MLF:
-    """
-    Under the hood, if graph is not an instance of igraph.Graph, first it will
-    be converted to one before the filter is applied.
+    """Marginal Likelihood Filter for weighted NetworkX graphs.
 
+    The concept-graphs pipeline uses NetworkX internally, so this implementation
+    intentionally accepts only simple ``networkx.Graph``/``networkx.DiGraph``
+    inputs. Every edge must have a numeric ``weight`` attribute.
     """
 
     def __init__(self, directed=True):
@@ -45,23 +45,12 @@ class MLF:
         representation, only with a significance score calculated
         for each edge.
 
-        Graph is one of the following:
-        - A list of tuples: (node_id1, node_id_2, weight) where node_id1 and node_id2
-        can be integers or strings and weight is integer. The output list will consist
-        of 4-tuples and the 4th tuple is the significance score.
-        - an igraph.Graph instance where each edge has an integer attribute "weight".
-        The output will be a Graph instance with an additional edge attribute
-        "significance"
-        - a pandas.DataFrame with three columns: "source", "target", "weight" where
-        "weight" values are positive integers. The output will have an additional
-        column "significance".
-        Graph must be simple: no loops and no multiple edges
+        ``graph`` must be a simple NetworkX graph with numeric edge weights.
+        The returned graph contains an additional ``significance`` edge
+        attribute. By default the input graph is modified in place; pass
+        ``return_copy=True`` to leave the input untouched.
         """
-        # self._check_types(graph)
-        # dtype = type(graph)
-        #
-        # # Convert to igraph.Graph
-        # g = self._convert_to_graph(graph, directed=self.directed)
+        self._check_graph(graph)
 
         if return_copy:
             h = copy.deepcopy(graph)
@@ -76,14 +65,27 @@ class MLF:
                 weight_is_percentile=weight_as_percentile,
                 directed=graph.is_directed(),
             )
-        # if graph.is_directed():
-        #     g = self._compute_significance_directed(graph, weight_as_percentile)
-        # else:
-        #     g = self._compute_significance_undirected(graph, weight_as_percentile)
-
-        # output = self._cast(g, dtype)
-        # return output
         return g
+
+    @staticmethod
+    def _check_graph(graph: nx.Graph) -> None:
+        """Validate the supported MLF input graph shape."""
+        if not isinstance(graph, nx.Graph):
+            raise TypeError("MLF only supports networkx.Graph/networkx.DiGraph inputs.")
+        if isinstance(graph, (nx.MultiGraph, nx.MultiDiGraph)):
+            raise TypeError("MLF only supports simple graphs, not multigraphs.")
+        if any(source == target for source, target in graph.edges):
+            raise ValueError("MLF only supports simple graphs without self-loops.")
+        for source, target, data in graph.edges(data=True):
+            if "weight" not in data:
+                raise ValueError(
+                    f"Edge ({source!r}, {target!r}) is missing required 'weight'."
+                )
+            if not isinstance(data["weight"], Number):
+                raise TypeError(
+                    f"Edge ({source!r}, {target!r}) has non-numeric weight "
+                    f"{data['weight']!r}."
+                )
 
     # def _cast(self, graph, dtype):
     #     '''
@@ -138,18 +140,17 @@ class MLF:
                 d["significance"] = min(
                     MAX_NEG_LOG, MAX_NEG_LOG if p <= 0 else -np.log(p)
                 )
-            except ValueError as error:
-                logger.warning("warning: ValueError {}".format(str(error)))
+            except (ValueError, TypeError, ArithmeticError) as error:
+                logger.warning("Could not compute edge significance: %s", error)
                 logger.debug(
-                    "ValueError weight: {} ks[i0]:{} ks[i1]:{} total_degree:{} p:{}".format(
-                        d["weight"], ks[i0], ks[i1], total_degree, p
-                    )
+                    "Significance inputs weight=%s ks[i0]=%s ks[i1]=%s total_degree=%s p=%s",
+                    d["weight"],
+                    ks[i0],
+                    ks[i1],
+                    total_degree,
+                    p,
                 )
                 d["significance"] = None
-            except Exception as error:
-                logger.warning("warning: Exception {}".format(str(error)))
-                d["significance"] = None
-                # print "error computing significance", p
 
         try:
             max_sig = max(
@@ -161,9 +162,7 @@ class MLF:
                     {"significance": 0.0},
                 ),
             )[2]["significance"]
-        except (
-            TypeError
-        ) as te:  # ToDo: there were case where TypeErrors were thrown (comparison btw. 'NoneType') but I thought I made sure no 'NoneType' was allowed in the list...
+        except TypeError as te:  # ToDo: there were case where TypeErrors were thrown (comparison btw. 'NoneType') but I thought I made sure no 'NoneType' was allowed in the list...
             logging.error(f"{te}\n-->\t{graph.edges(data=True)}")
             max_sig = 0.0
         for _, _, d in graph.edges(data=True):
@@ -342,7 +341,7 @@ def _pvalue_undirected(w, ku, kv, q):
         raise ValueError
 
     p = ku * kv * 1.0 / q / q / 2.0
-    return binom_test(x=w, n=q, p=p, alternative="greater")
+    return binomtest(k=w, n=q, p=p, alternative="greater")
 
 
 def _pvalue_directed(w_uv, ku_out, kv_in, q):
@@ -359,4 +358,4 @@ def _pvalue_directed(w_uv, ku_out, kv_in, q):
         raise ValueError
 
     p = 1.0 * ku_out * kv_in / q / q / 1.0
-    return binom_test(x=w_uv, n=q, p=p, alternative="greater")
+    return binomtest(k=w_uv, n=q, p=p, alternative="greater")

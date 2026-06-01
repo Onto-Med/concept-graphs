@@ -2,19 +2,20 @@ import logging
 from collections import defaultdict
 from operator import itemgetter
 from pydoc import locate
-from typing import Union, Optional, Any
+from typing import Any
 
 from langchain_core.documents import Document
+from langchain_core.exceptions import LangChainException
 from langchain_core.prompts import PromptTemplate
 from langchain_core.runnables import Runnable
 
-from src.rag.chatters.AbstractChatter import Chatter
-from src.rag.embedding_stores.MarqoChunkEmbeddingStore import MarqoChunkEmbeddingStore
+from src.rag.chatters.base import Chatter
+from src.rag.embedding_stores.marqo import MarqoChunkEmbeddingStore
 from src.rag.marqo_rag_utils import extract_text_from_highlights
 
 
 class RAG:
-    def __init__(self, chatter: Union[Chatter, str], language: Optional[str] = None):
+    def __init__(self, chatter: Chatter | str, language: str | None = None):
         self._language = language
         self._documents = None
         self._prompt = None
@@ -26,25 +27,23 @@ class RAG:
             self._chatter = chatter
         else:
             raise TypeError(
-                f"'chatter' must be an implementation of the Chatter class, or a string denoting the location of said class."
+                "'chatter' must be an implementation of the Chatter class, or a string denoting the location of said class."
             )
 
     @classmethod
     def with_chatter(
         cls,
-        chatter: Optional[
-            Union[Chatter, str]
-        ] = "src.rag.chatters.BlabladorChatter.BlabladorChatter",
+        chatter: Chatter | str | None = "src.rag.chatters.blablador.BlabladorChatter",
         **kwargs,
     ) -> "RAG":
         if chatter is None:
             raise TypeError(
-                f"'chatter' seems to be 'None' but must be an implementation of the Chatter class, or a string denoting the location of said class."
+                "'chatter' seems to be 'None' but must be an implementation of the Chatter class, or a string denoting the location of said class."
             )
         chatter = (
             chatter
             if chatter is not None
-            else "src.rag.chatters.BlabladorChatter.BlabladorChatter"
+            else "src.rag.chatters.blablador.BlabladorChatter"
         )
         _rag = cls(chatter, language=kwargs.pop("language", None))
         if len(kwargs) > 0:
@@ -88,7 +87,7 @@ class RAG:
         ]
 
     def with_chatter_options(self, api_key: str, **kwargs) -> "RAG":
-        if not "api_key" in kwargs:
+        if "api_key" not in kwargs:
             kwargs["api_key"] = api_key
         self._initialized_chatter = self._chatter.with_kwargs(**kwargs)
         if self._initialized_chatter is None:
@@ -99,7 +98,7 @@ class RAG:
         return self
 
     def with_prompt(
-        self, lang: str = "en", prompt_template_config: Optional[dict[str, Any]] = None
+        self, lang: str = "en", prompt_template_config: dict[str, Any] | None = None
     ) -> "RAG":
         """
 
@@ -149,22 +148,21 @@ class RAG:
         )
         return self
 
-    def with_documents(
+    def documents_from(
         self,
-        documents: Union[list[str], list[tuple[str, dict]]],
+        documents: list[str] | list[tuple[str, dict]],
         lang: str = "en",
         concat_by: str = None,
         concat_str: str = "\n\n",
-    ) -> "RAG":
+    ) -> dict[str, Document]:
         _source_str_map = {"en": "Source", "de": "Quelle"}
-        _language = self.get_rag_language(lang)
         if len(documents) == 0:
             logging.warning("No documents given!")
-            return self
+            return {}
         with_metadata = isinstance(documents[0], tuple)
         if with_metadata and concat_by is not None:
             documents = self._concatenate_by_metadata(documents, concat_by, concat_str)
-        self._documents = {
+        return {
             f"[{ind}]": Document(
                 page_content=f"{_source_str_map.get(self.get_rag_language(lang))} [{ind}]: "
                 + (d[0] if with_metadata else d),
@@ -172,26 +170,40 @@ class RAG:
             )
             for ind, d in enumerate(documents)
         }
+
+    def with_documents(
+        self,
+        documents: list[str] | list[tuple[str, dict]],
+        lang: str = "en",
+        concat_by: str = None,
+        concat_str: str = "\n\n",
+    ) -> "RAG":
+        self._documents = self.documents_from(documents, lang, concat_by, concat_str)
         return self
 
     def build(self) -> Runnable:
         return self._prompt | self._initialized_chatter
 
-    def build_and_invoke(self, question: str):
+    def build_and_invoke(
+        self, question: str, documents: dict[str, Document] | None = None
+    ):
+        documents = self.documents if documents is None else documents
         try:
             return True, (self._prompt | self._initialized_chatter).invoke(
-                {"summaries": self.documents.values(), "question": question},
+                {"summaries": documents.values(), "question": question},
                 return_only_outputs=True,
             )
-        except Exception as e:
+        except (LangChainException, RuntimeError, ValueError, TypeError) as e:
+            logging.warning("RAG invocation failed: %s", e)
             return False, e
 
 
 if __name__ == "__main__":
-    import sys
     import pathlib
-    from load_utils import FactoryLoader
-    from TextSplitters import PreprocessedSpacyTextSplitter
+    import sys
+
+    from src.pipeline.load_utils import FactoryLoader
+    from src.rag.text_splitters import PreprocessedSpacyTextSplitter
 
     _args = {a.split("=")[0]: a.split("=")[1] for a in sys.argv[1:]}
     _api_key = _args.pop("api_key")
@@ -272,4 +284,4 @@ if __name__ == "__main__":
         )
         .build_and_invoke(question_rag)
     )
-    print(result)
+    logging.info("%s", result)
