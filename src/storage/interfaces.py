@@ -2,14 +2,15 @@
 
 import abc
 import pathlib
-from typing import Any, Iterable, Optional, Union
+from collections.abc import Iterable
+from typing import Any
 
 import numpy as np
 
 
 class Document(metaclass=abc.ABCMeta):
     @abc.abstractmethod
-    def embeddings(self) -> list[Union[np.ndarray, list]]:
+    def embeddings(self) -> list[np.ndarray | list]:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -20,13 +21,13 @@ class Document(metaclass=abc.ABCMeta):
 class EmbeddingStore(metaclass=abc.ABCMeta):
     @classmethod
     @abc.abstractmethod
-    def existing_from_config(cls, config: Union[dict, pathlib.Path, str]):
+    def existing_from_config(cls, config: dict | pathlib.Path | str):
         """Instantiates an object from a config."""
         raise NotImplementedError
 
     @staticmethod
     @abc.abstractmethod
-    def is_accessible(config: Union[dict, pathlib.Path, str]) -> bool:
+    def is_accessible(config: dict | pathlib.Path | str) -> bool:
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -52,7 +53,7 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_embeddings(self, embedding_ids: Optional[Iterable]):
+    def get_embeddings(self, embedding_ids: Iterable | None):
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -74,14 +75,14 @@ class EmbeddingStore(metaclass=abc.ABCMeta):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def best_hits_for_field(self, embedding: Union[str, np.ndarray, list[float], dict]):
+    def best_hits_for_field(self, embedding: str | np.ndarray | list[float] | dict):
         raise NotImplementedError
 
 
 class DocumentStore(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def add_document(
-        self, document: Union[Document, tuple[Document, dict]], as_tuple: bool = False
+        self, document: Document | tuple[Document, dict], as_tuple: bool = False
     ) -> dict[str, dict[str, dict[str, list[str]]]]:
         """Adds a document to the store."""
         raise NotImplementedError
@@ -89,7 +90,7 @@ class DocumentStore(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def add_documents(
         self,
-        document: Union[Iterable[Document], Iterable[tuple[Document, dict]]],
+        document: Iterable[Document] | Iterable[tuple[Document, dict]],
         as_tuple: bool = False,
     ) -> dict[str, dict[str, dict[str, dict[str, list[str]]]]]:
         """Adds documents from the iterable to the store."""

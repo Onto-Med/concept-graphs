@@ -1,7 +1,6 @@
 import logging
 import pathlib
 from itertools import islice
-from typing import Optional, Union
 
 from spacy.language import Language
 from spacy.matcher import PhraseMatcher
@@ -70,14 +69,14 @@ class Negex:
         self,
         nlp: Language,
         name: str,
-        neg_termset: Optional[dict],
+        neg_termset: dict | None,
         feat_types: list,
         extension_name: str,
         chunk_prefix: list,
-        neg_termset_file: Union[pathlib.Path, str, None],
+        neg_termset_file: pathlib.Path | str | None,
         feat_of_interest: list[str],
-        scope: Union[str, int, bool, None],
-        language: Optional[str],
+        scope: str | int | bool | None,
+        language: str | None,
     ):
         # if not termset_lang in LANGUAGES:
         #     raise KeyError(

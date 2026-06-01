@@ -1,5 +1,5 @@
 import itertools
-from typing import Iterable, Optional, Union
+from collections.abc import Iterable
 
 from src.storage.interfaces import DocumentStore
 from src.storage.marqo.documents import MarqoDocument
@@ -14,19 +14,19 @@ class MarqoDocumentStore(DocumentStore):
 
     @staticmethod
     def _document_obj(
-        document: Union[MarqoDocument, tuple[MarqoDocument, dict]], as_tuple: bool
+        document: MarqoDocument | tuple[MarqoDocument, dict], as_tuple: bool
     ) -> MarqoDocument:
         return document[0] if as_tuple and isinstance(document, tuple) else document
 
     @staticmethod
     def _additional_info(
-        document: Union[MarqoDocument, tuple[MarqoDocument, dict]], as_tuple: bool
+        document: MarqoDocument | tuple[MarqoDocument, dict], as_tuple: bool
     ) -> dict:
         return document[1] if as_tuple and isinstance(document, tuple) else {}
 
     def _provenance_for_phrase(
         self,
-        document: Union[MarqoDocument, tuple[MarqoDocument, dict]],
+        document: MarqoDocument | tuple[MarqoDocument, dict],
         phrase_index: int,
         as_tuple: bool,
     ) -> dict:
@@ -49,7 +49,7 @@ class MarqoDocumentStore(DocumentStore):
 
     def _embedding_documents(
         self,
-        document: Union[MarqoDocument, tuple[MarqoDocument, dict]],
+        document: MarqoDocument | tuple[MarqoDocument, dict],
         as_tuple: bool,
     ) -> list[dict]:
         document_obj = self._document_obj(document, as_tuple)
@@ -65,7 +65,7 @@ class MarqoDocumentStore(DocumentStore):
 
     def add_document(
         self,
-        document: Union[MarqoDocument, tuple[MarqoDocument, dict]],
+        document: MarqoDocument | tuple[MarqoDocument, dict],
         as_tuple: bool = False,
     ) -> dict[str, dict[str, dict[str, list]]]:
         # ToDo: this method doesn't utilize "score_frac" of "best_hits_for_field" which governs how similar phrases should be
@@ -188,7 +188,7 @@ class MarqoDocumentStore(DocumentStore):
 
     def add_documents(
         self,
-        documents: Union[Iterable[MarqoDocument], Iterable[tuple[MarqoDocument, dict]]],
+        documents: Iterable[MarqoDocument] | Iterable[tuple[MarqoDocument, dict]],
         as_tuple: bool = False,
     ) -> dict[str, dict[str, dict[str, dict[str, list]]]]:
         return_dict = dict()
@@ -202,7 +202,7 @@ class MarqoDocumentStore(DocumentStore):
             ] = self.add_document(document, as_tuple)
         return return_dict
 
-    def suggest_graph_cluster(self, document: MarqoDocument) -> Optional[str]:
+    def suggest_graph_cluster(self, document: MarqoDocument) -> str | None:
         # _graph_cluster = self._embedding_store.best_hits_for_field(
         #     embedding=document.embedding,
         #     field="graph_cluster",

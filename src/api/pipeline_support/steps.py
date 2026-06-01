@@ -2,7 +2,6 @@
 
 import logging
 import pathlib
-from typing import Optional
 
 from src.api.pipeline_support.models import PipelineRequestData, PreparedPipeline
 from src.api.services.configuration import read_config
@@ -27,7 +26,7 @@ from src.pipeline.steps.integration_util import ConceptGraphIntegrationUtil
 from src.pipeline.steps.preprocessing_util import PreprocessingUtil
 
 
-def pipeline_process_definitions(vector_store_config: Optional[dict], request_data):
+def pipeline_process_definitions(vector_store_config: dict | None, request_data):
     """Return the ordered pipeline step definitions for the current request."""
     processes = [
         (
@@ -102,7 +101,7 @@ def configure_process_step(
     config,
     query_params,
     request_data: PipelineRequestData,
-    vector_store_config: Optional[dict],
+    vector_store_config: dict | None,
 ):
     """Read step configuration and apply step-specific runtime inputs."""
     read_config(
@@ -134,7 +133,7 @@ def configure_process_step(
         process_obj.config["check_for_reasonable_result"] = True
 
 
-def embedding_storage_method(process_obj, vector_store_config: Optional[dict]):
+def embedding_storage_method(process_obj, vector_store_config: dict | None):
     """Choose pickle or vector-store backing for phrase embeddings."""
     if vector_store_config is None:
         return "pickle", None
@@ -147,7 +146,7 @@ def prepare_pipeline_processes(
     app_context,
     query_params: pipeline_query_params,
     request_data: PipelineRequestData,
-    vector_store_config: Optional[dict],
+    vector_store_config: dict | None,
 ) -> PreparedPipeline:
     """Create and configure pipeline processors that still need to run."""
     processes_threading = []

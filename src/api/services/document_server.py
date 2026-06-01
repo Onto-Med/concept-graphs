@@ -1,6 +1,6 @@
 """Document server service helpers."""
 
-from typing import Iterable, Union
+from collections.abc import Iterable
 
 import flask
 import requests
@@ -13,7 +13,7 @@ from src.common.parsing import get_bool_expression
 
 
 def get_data_server_config(
-    document_server_config: Union[FileStorage, dict], app: flask.Flask
+    document_server_config: FileStorage | dict, app: flask.Flask
 ):
     base_config = {
         "url": "http://localhost",
@@ -52,7 +52,7 @@ def get_data_server_config(
 
 
 def check_data_server(
-    config: Union[Munch, dict],
+    config: Munch | dict,
 ):
     for _url_key in ["url", "alternate_url"]:
         _url = config.get(_url_key, None)
@@ -105,7 +105,7 @@ def is_skip_doc(
 
 def get_documents_from_es_server(
     url: str,
-    port: Union[str, int],
+    port: str | int,
     index: str,
     size: int = 30,
     other_id: str = "id",

@@ -1,14 +1,13 @@
 """Vector-store configuration helpers for the pipeline route."""
 
 import logging
-from typing import Optional
 
 from src.storage.marqo import MarqoEmbeddingStore
 
 
 def normalize_vector_store_config(
-    vector_store_config: Optional[dict],
-) -> Optional[dict]:
+    vector_store_config: dict | None,
+) -> dict | None:
     """Convert vector-store settings to client_url form and verify accessibility."""
     if vector_store_config is None:
         return None

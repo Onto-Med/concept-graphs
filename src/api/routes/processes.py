@@ -1,7 +1,5 @@
 """Routes for process status, stopping, and deletion."""
 
-from typing import Optional
-
 from flask import Blueprint, Response, jsonify, request
 
 from src.api.responses import HTTPResponses
@@ -40,7 +38,7 @@ def create_process_blueprint(app, processes, pipeline, storage):
                 for step in processes.running.get(process_id).get("status", [])
             ]
         ):
-            to_stop: Optional[StoppableThread]
+            to_stop: StoppableThread | None
             if to_stop := processes.threads.get(process_id, None):
                 stop_thread(
                     app=app,

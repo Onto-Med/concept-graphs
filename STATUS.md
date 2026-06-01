@@ -551,9 +551,15 @@ The endpoint removes document references from serialized graph nodes and removes
 ### 1. Expand Ruff gradually
 Priority: medium.
 
-Current Ruff config is intentionally conservative. Future additions could include selected rules for:
+Current Ruff config includes:
 
-- modernization (`UP`)
+- pycodestyle errors (`E`)
+- pyflakes (`F`)
+- import sorting (`I`)
+- modernization / pyupgrade (`UP`)
+
+Future additions could include selected rules for:
+
 - bugbear-style checks (`B`)
 - logging format issues (`G`)
 - simplifications (`SIM`)
@@ -568,7 +574,21 @@ Recommended docs:
 - fixture-generation workflow
 - vector-store vs pickle storage behavior
 
-### 3. Optional cleanup
+### 3. Document addition/document-server consistency
+Priority: low to medium.
+
+Document addition currently updates the graph/vector-store side only. It does not insert the full document into the external document index server.
+
+| Target | Added by document addition? |
+|---|---:|
+| Concept graph pickle | yes |
+| Vector store / Marqo phrase index | yes |
+| Existing processed data pickle | no |
+| External document index server | no |
+
+Potential future update: add optional document-server insertion during document addition, respecting the configured document-server schema/index mapping.
+
+### 4. Optional cleanup
 Priority: low.
 
 - Remove generated cache directories such as `src/negspacy/__pycache__/`.

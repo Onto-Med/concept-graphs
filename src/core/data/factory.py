@@ -6,9 +6,9 @@ import os
 import pathlib
 import re
 from collections import defaultdict
+from collections.abc import Callable, Generator, Iterable
 from functools import lru_cache
 from random import sample
-from typing import Callable, Dict, Generator, Iterable, List, Optional, Set, Union
 
 import numpy as np
 import spacy
@@ -40,9 +40,7 @@ def _populate_chunk_set_dict_with_doc(
 
 class DataProcessingFactory:
     @classmethod
-    def load(
-        cls, data_obj_path: Union[pathlib.Path, str, io.IOBase]
-    ) -> "DataProcessing":
+    def load(cls, data_obj_path: pathlib.Path | str | io.IOBase) -> "DataProcessing":
         set_spacy_extensions()
         data_obj_path = (
             data_obj_path
@@ -63,27 +61,27 @@ class DataProcessingFactory:
     @staticmethod
     def create(
         pipeline: Language,
-        base_data: Union[pathlib.Path, Iterable[Dict[str, str]]],
-        labels: Optional[Union[dict, Callable]] = None,
-        sub_paths: Optional[list] = None,
-        cache_path: Optional[pathlib.Path] = None,
-        cache_name: Optional[str] = None,
+        base_data: pathlib.Path | Iterable[dict[str, str]],
+        labels: dict | Callable | None = None,
+        sub_paths: list | None = None,
+        cache_path: pathlib.Path | None = None,
+        cache_name: str | None = None,
         n_process: int = 1,
         file_encoding: str = "utf-8",
-        file_extension: Optional[str] = "txt",
+        file_extension: str | None = "txt",
         save_to_file: bool = True,
-        subset: Optional[int] = None,
+        subset: int | None = None,
         use_lemma: bool = False,
         prepend_head: bool = False,
         head_only: bool = False,
         case_sensitive: bool = False,
-        filter_min_df: Union[int, float] = 1,
-        filter_max_df: Union[int, float] = 1.0,
-        filter_stop: Optional[list] = None,
-        disable: Optional[Iterable[str]] = None,
-        categories: Optional[list] = None,
+        filter_min_df: int | float = 1,
+        filter_max_df: int | float = 1.0,
+        filter_stop: list | None = None,
+        disable: Iterable[str] | None = None,
+        categories: list | None = None,
         omit_negated_chunks: bool = True,
-        negspacy_config: Optional[dict] = None,
+        negspacy_config: dict | None = None,
     ):
         def _get_label_from_file(fi: pathlib.Path) -> str:
             _label = None
@@ -95,11 +93,11 @@ class DataProcessingFactory:
 
         def _file_like_data_entries(
             base_path: pathlib.Path,
-            sub_path: List[str],
+            sub_path: list[str],
             file_ext: str,
-            sub: Optional[int] = None,
-            target_categories: Optional[list] = None,
-        ) -> Generator[Dict[str, Optional[str]], None, None]:
+            sub: int | None = None,
+            target_categories: list | None = None,
+        ) -> Generator[dict[str, str | None], None, None]:
             _iter = (
                 itertools.chain(
                     *[
@@ -202,19 +200,19 @@ class DataProcessingFactory:
         def __init__(
             self,
             pipeline: Language,
-            data_entries: Iterable[Dict[str, str]],
+            data_entries: Iterable[dict[str, str]],
             n_process: int = 1,
             file_encoding: str = "utf-8",
             use_lemma: bool = False,
             prepend_head: bool = False,
             head_only: bool = False,
             case_sensitive: bool = False,
-            filter_min_df: Union[int, float] = 1,
-            filter_max_df: Union[int, float] = 1.0,
-            filter_stop: Optional[list] = None,
-            disable: Optional[Iterable[str]] = None,
+            filter_min_df: int | float = 1,
+            filter_max_df: int | float = 1.0,
+            filter_stop: list | None = None,
+            disable: Iterable[str] | None = None,
             omit_negated_chunks: bool = True,
-            negspacy_config: Optional[dict] = None,
+            negspacy_config: dict | None = None,
         ) -> None:
             self._data_entries = [d for d in data_entries]
             self._file_encoding = file_encoding
@@ -265,7 +263,7 @@ class DataProcessingFactory:
         # ToDo: some method to set 'doc_topic' outside init?
 
         @property
-        def model_name(self) -> Optional[str]:
+        def model_name(self) -> str | None:
             if _pipe := self.document_process_config.get("pipeline", {}):
                 if _pipe.get("lang", False) and _pipe.get("name", False):
                     return f"{_pipe['lang']}_{_pipe['name']}"
@@ -279,8 +277,8 @@ class DataProcessingFactory:
         def document_process_config(self, value: dict):
             self._document_process_config = value
 
-        @lru_cache()
-        def _document_list(self) -> List[str]:
+        @lru_cache
+        def _document_list(self) -> list[str]:
             if self._view is None:
                 return [
                     v
@@ -298,15 +296,15 @@ class DataProcessingFactory:
                 ]
 
         @property
-        def document_list(self) -> List[str]:
+        def document_list(self) -> list[str]:
             return self._document_list()
 
         @property
-        def true_labels_vec(self) -> List[int]:
+        def true_labels_vec(self) -> list[int]:
             return [self._true_labels_dict[i] for i in self.true_labels]
 
         @property
-        def true_labels(self) -> List[str]:
+        def true_labels(self) -> list[str]:
             if self._view is None:
                 return self._true_labels
             else:
@@ -317,7 +315,7 @@ class DataProcessingFactory:
                 ]
 
         @property
-        def topics(self) -> Set[str]:
+        def topics(self) -> set[str]:
             if self._view is None:
                 return set(self._true_labels)
             else:
@@ -330,7 +328,7 @@ class DataProcessingFactory:
             return len(self._document_list())
 
         @property
-        @lru_cache()
+        @lru_cache
         def data_chunk_sets(self) -> list:
             if self._view is None:
                 return self._chunk_set_dicts
@@ -353,7 +351,7 @@ class DataProcessingFactory:
                 ]
 
         @processed_docs.setter
-        def processed_docs(self, value: Union[list, DocBin]):
+        def processed_docs(self, value: list | DocBin):
             if isinstance(value, list):
                 self._processed_docs = value
             elif isinstance(value, DocBin):
@@ -371,7 +369,7 @@ class DataProcessingFactory:
         def chunk_sets_n(self) -> int:
             return len(self.data_chunk_sets)
 
-        def noun_chunks_corpus(self, external: Optional[list[Doc]]) -> Generator:
+        def noun_chunks_corpus(self, external: list[Doc] | None) -> Generator:
             # ToDo: utilize blacklist for noun chunks that should not be included [sie, er, die, etc.] - or check if later on this is done and switch accordingly
             #  because here every superfluous chunk will be run through negex and slows process down and probably  induces errors
             for doc in self.processed_docs if external is None else external:
@@ -401,11 +399,11 @@ class DataProcessingFactory:
                         }
 
         @property
-        def document_chunk_matrix(self) -> List[List[str]]:
+        def document_chunk_matrix(self) -> list[list[str]]:
             return self._document_chunk_matrix
 
         @property
-        def tfidf_filter(self) -> Optional[tfidfVec]:
+        def tfidf_filter(self) -> tfidfVec | None:
             if self._tfidf_filter is None:
                 if (
                     self._filter_min_df != 1
@@ -434,9 +432,9 @@ class DataProcessingFactory:
 
         def reset_filter(
             self,
-            filter_min_df: Union[int, float] = 1,
-            filter_max_df: Union[int, float] = 1.0,
-            filter_stop: Optional[list] = None,
+            filter_min_df: int | float = 1,
+            filter_max_df: int | float = 1.0,
+            filter_stop: list | None = None,
         ) -> None:
             self._filter_min_df = filter_min_df
             self._filter_max_df = filter_max_df
@@ -459,8 +457,8 @@ class DataProcessingFactory:
             ):
                 return self._text_id_to_doc_name[doc_id]
 
-        @lru_cache()
-        def get_document_by_id(self, doc_id: int) -> List[Doc]:
+        @lru_cache
+        def get_document_by_id(self, doc_id: int) -> list[Doc]:
             if self._view is None:
                 return [t for t in self._processed_docs if t._.doc_id == doc_id]
             else:
@@ -473,8 +471,8 @@ class DataProcessingFactory:
                     )
                 ]
 
-        @lru_cache()
-        def get_document_by_name(self, doc_name: str) -> List[Doc]:
+        @lru_cache
+        def get_document_by_name(self, doc_name: str) -> list[Doc]:
             if self._view is None:
                 return [t for t in self._processed_docs if t._.doc_name == doc_name]
             else:
@@ -487,8 +485,8 @@ class DataProcessingFactory:
                     )
                 ]
 
-        @lru_cache()
-        def get_document_names_by_topic(self, topic: str) -> List[str]:
+        @lru_cache
+        def get_document_names_by_topic(self, topic: str) -> list[str]:
             self._check_view_elements(topic)
             return sorted(
                 set(
@@ -501,8 +499,8 @@ class DataProcessingFactory:
                 )
             )
 
-        @lru_cache()
-        def get_document_ids_by_topic(self, topic: str) -> List[int]:
+        @lru_cache
+        def get_document_ids_by_topic(self, topic: str) -> list[int]:
             self._check_view_elements(topic)
             return sorted(
                 set(
@@ -515,7 +513,7 @@ class DataProcessingFactory:
                 )
             )
 
-        def set_view_by_labels(self, labels: Optional[Iterable[str]] = None) -> None:
+        def set_view_by_labels(self, labels: Iterable[str] | None = None) -> None:
             for _obj in self._cache_obj:
                 _obj.cache_clear()
             if labels is not None:
@@ -545,7 +543,7 @@ class DataProcessingFactory:
                 omit_negated_chunks=omit_negated_chunks,
             )
 
-        def _check_view_elements(self, label: Union[str, Iterable[str]]) -> None:
+        def _check_view_elements(self, label: str | Iterable[str]) -> None:
             if isinstance(label, str):
                 if label.lower() not in (
                     self._view["labels"]
@@ -564,8 +562,8 @@ class DataProcessingFactory:
                     raise KeyError(f"'{','.join(_missing)}' are not in current view.")
 
         def _build_data_tuples(
-            self, split_on: str = "\n", external: Optional[list[dict]] = None
-        ) -> list[tuple[str, dict[str, Optional[Union[str, int]]]]]:
+            self, split_on: str = "\n", external: list[dict] | None = None
+        ) -> list[tuple[str, dict[str, str | int | None]]]:
             _data_corpus_tuples = []
             # if len(self._data_corpus_tuples) == 0:
             _labels_count = 0
@@ -602,13 +600,13 @@ class DataProcessingFactory:
 
         def _build_chunk_set_dicts(
             self,
-            data: Optional[Iterable[spacy.tokens.Doc]],
+            data: Iterable[spacy.tokens.Doc] | None,
             prepend_head: bool,
             use_lemma: bool,
             head_only: bool,
             case_sensitive: bool = False,
             omit_negated_chunks: bool = True,
-        ) -> Optional[list[dict]]:
+        ) -> list[dict] | None:
             _key = (
                 prepend_head,
                 use_lemma,
@@ -666,14 +664,14 @@ class DataProcessingFactory:
 
         def _process_documents(
             self,
-            pipeline: Optional[spacy.Language] = None,
+            pipeline: spacy.Language | None = None,
             n_process: int = 1,
             case_sensitive: bool = False,
-            disable: Optional[Iterable[str]] = None,
+            disable: Iterable[str] | None = None,
             omit_negated_chunks: bool = True,
-            negspacy_config: Optional[dict] = None,
-            external: Optional[list[dict]] = None,
-        ) -> Optional[list]:
+            negspacy_config: dict | None = None,
+            external: list[dict] | None = None,
+        ) -> list | None:
             if pipeline is None and external is None:
                 logging.error(
                     "No spacy pipeline specified and not referencing deserialized pipeline."
@@ -780,7 +778,7 @@ class DataProcessingFactory:
                     return _chunk_set_dicts
             return None
 
-        def process_external_docs(self, content: list[dict[str, Optional[str]]]):
+        def process_external_docs(self, content: list[dict[str, str | None]]):
             """
             content: {"name": document name, "content": document content, "label": label/category of document if present}
             """

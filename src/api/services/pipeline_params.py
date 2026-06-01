@@ -1,7 +1,5 @@
 """Pipeline query parameter service helpers."""
 
-from typing import Union
-
 import flask
 from flask import jsonify
 
@@ -23,7 +21,7 @@ def get_pipeline_query_params(
     flask_request: flask.Request,
     running_processes: dict,
     config_obj_json: pipeline_json_config,
-) -> Union[pipeline_query_params, tuple]:
+) -> pipeline_query_params | tuple:
     if config_obj_json is not None and config_obj_json.name is not None:
         corpus = string_conformity(config_obj_json.name)
     else:

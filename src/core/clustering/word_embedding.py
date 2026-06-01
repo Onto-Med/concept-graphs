@@ -3,10 +3,11 @@ import logging
 import re
 import statistics
 from collections import Counter, defaultdict
+from collections.abc import Iterable
 from concurrent.futures import ProcessPoolExecutor
 from functools import cache
 from itertools import repeat
-from typing import TYPE_CHECKING, Any, Iterable, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Any, Optional
 
 import networkx as nx
 import numpy as np
@@ -56,7 +57,7 @@ class WordEmbeddingClustering:
         self,
         sentence_embedding_obj: SentenceEmbeddingsFactory.SentenceEmbeddings,
         cluster_obj: Optional["PhraseClusterFactory.PhraseCluster"] = None,
-        cluster_exclusion_ids: Optional[Iterable[int]] = None,
+        cluster_exclusion_ids: Iterable[int] | None = None,
         text_field_value: str = "text",
         lemma_field_value: str = "lemma",
         text_id_field_value: str = "doc_index",
@@ -102,7 +103,7 @@ class WordEmbeddingClustering:
         def __init__(
             self,
             outer_instance: "WordEmbeddingClustering",
-            exclusion_ids: Optional[list] = None,
+            exclusion_ids: list | None = None,
             use_lemma: bool = False,
             head_only: bool = False,
         ):
@@ -127,9 +128,7 @@ class WordEmbeddingClustering:
 
         l2_norm_document_concept_matrix = property(get_norm_document_concept_matrix)
 
-        def _build_concept_word_matrix(
-            self, exclusion_ids: Optional[list] = None
-        ) -> list:
+        def _build_concept_word_matrix(self, exclusion_ids: list | None = None) -> list:
             return [
                 " ".join(
                     [
@@ -296,12 +295,12 @@ class WordEmbeddingClustering:
         def document_concept_matrix(self) -> np.ndarray:
             return self._document_concept_matrix
 
-        def get_document_id_by_idx(self, idx: int) -> Optional[str]:
+        def get_document_id_by_idx(self, idx: int) -> str | None:
             if self._doc_index_id_dict is not None:
                 return self._doc_index_id_dict.get(idx, None)
             return None
 
-        def get_document_idx_by_id(self, id: str) -> Optional[int]:
+        def get_document_idx_by_id(self, id: str) -> int | None:
             if self._doc_id_index_dict is not None:
                 return self._doc_id_index_dict.get(id, None)
             return None
@@ -315,7 +314,7 @@ class WordEmbeddingClustering:
         l2_norm_document_concept_matrix = property(get_norm_document_concept_matrix)
 
         def _filter_entries(
-            self, iter: Iterable, filter_list: Optional[list] = None
+            self, iter: Iterable, filter_list: list | None = None
         ):  # ToDo: use vectorized methods since feature_names are already ndarrays
             if filter_list is None:
                 return iter
@@ -332,10 +331,10 @@ class WordEmbeddingClustering:
         def _concept_clusters(
             self,
             cluster_distance: float = 0.6,
-            cluster_min_size: Union[float, int] = 1,
-            exclusion_ids: Optional[tuple] = None,
+            cluster_min_size: float | int = 1,
+            exclusion_ids: tuple | None = None,
             restrict_to_cluster: bool = False,
-        ) -> Iterable[List[int]]:
+        ) -> Iterable[list[int]]:
             _meaningful_clusters = []
             # tfidf_filter = self._data_proc.tfidf_filter
             # if tfidf_filter is not None: # ToDo need to check whether filtering is enabled!
@@ -394,7 +393,7 @@ class WordEmbeddingClustering:
         @cache
         def _build_graph(
             self,
-            cluster: Tuple[int],
+            cluster: tuple[int],
             graph_cosine_weight: float = 0.5,
             graph_merge_threshold: float = 0.95,
             graph_weight_cut_off: float = 0.5,
@@ -413,11 +412,11 @@ class WordEmbeddingClustering:
 
         def _graph_list(
             self,
-            graph_simplify: Optional[float],
+            graph_simplify: float | None,
             graph_unroll: bool,
             graph_simplify_alg: str,
             graph_sub_clustering: bool,
-        ) -> List[nx.Graph]:
+        ) -> list[nx.Graph]:
             # Todo: some method to incorporate sub_clustering (e.g. adding weight/significance) when not unrolling
             _graph_list_gen = ((g, g) for g in self._concept_graphs)
 
@@ -479,7 +478,7 @@ class WordEmbeddingClustering:
                 if len(g.edges) > 0
             ]
 
-        def _calculate_connection_alg1(self, concept_graphs: List[nx.Graph]):
+        def _calculate_connection_alg1(self, concept_graphs: list[nx.Graph]):
             logging.info("Iterating over edges ...")
             for j, concept_graph in tqdm(
                 enumerate(concept_graphs), total=len(concept_graphs)
@@ -503,7 +502,7 @@ class WordEmbeddingClustering:
 
         def _calculate_connection_alg2(
             self,
-            concept_graphs: List[nx.Graph],
+            concept_graphs: list[nx.Graph],
             distance: int = 2,
             gamma: float = 0.5,
             sub_cluster_reward: float = 1.75,
@@ -583,7 +582,7 @@ class WordEmbeddingClustering:
                         _connected_nodes[node].add(target)
 
         def _calculate_connection_alg3(
-            self, concept_graphs: List[nx.Graph], cutoff: float = 0.5
+            self, concept_graphs: list[nx.Graph], cutoff: float = 0.5
         ):
             logging.info("Algorithm 3")
             for j, concept_graph in tqdm(
@@ -661,7 +660,7 @@ class WordEmbeddingClustering:
 
         def _calculate_connection_alg4(
             self,
-            concept_graphs: List[nx.Graph],
+            concept_graphs: list[nx.Graph],
             weight: str = "weight",
             normalize: bool = False,
         ):
@@ -689,17 +688,15 @@ class WordEmbeddingClustering:
                 for nid, ndict in concept_graph.nodes(data=True):
                     _graph.add_weighted_edges_from(
                         (
-                            (
-                                nid,
-                                f"d{self.get_document_idx_by_id(d.get('id'))}",
-                                _tfidf_filter_vec_norm[
-                                    self.get_document_idx_by_id(d.get("id")),
-                                    _tfidf_vocab[ndict["label"]],
-                                ],
-                            )
-                            for d in ndict["documents"]
-                            if d.get("id", False)
+                            nid,
+                            f"d{self.get_document_idx_by_id(d.get('id'))}",
+                            _tfidf_filter_vec_norm[
+                                self.get_document_idx_by_id(d.get("id")),
+                                _tfidf_vocab[ndict["label"]],
+                            ],
                         )
+                        for d in ndict["documents"]
+                        if d.get("id", False)
                     )
                 _doc_array = []
                 _doc_eigen_array = []
@@ -714,7 +711,7 @@ class WordEmbeddingClustering:
                     _doc_eigen_array *= 1.0 / _doc_eigen_array.max()
                 self._document_concept_matrix[_doc_array, j] += _doc_eigen_array
 
-        def _build_doc_id_index_dict(self, concept_graphs: List[nx.Graph]):
+        def _build_doc_id_index_dict(self, concept_graphs: list[nx.Graph]):
             _dict_1 = dict()
             _dict_2 = dict()
             _idx = 0
@@ -731,15 +728,15 @@ class WordEmbeddingClustering:
         def build_concept_graphs(
             self,
             cluster_distance: float = 0.6,
-            cluster_min_size: Union[float, int] = 1,
-            cluster_exclusion_ids: Optional[list] = None,
+            cluster_min_size: float | int = 1,
+            cluster_exclusion_ids: list | None = None,
             graph_cosine_weight: float = 0.5,
             graph_merge_threshold: float = 0.95,
             graph_weight_cut_off: float = 0.5,  # edges where weight is smaller than this value are cut
-            graph_simplify: Optional[float] = 0.5,
+            graph_simplify: float | None = 0.5,
             graph_simplify_alg: str = "weight",  # ToDo: class enumeration for simplify alg
             graph_unroll: bool = True,
-            graph_sub_clustering: Union[float, bool] = False,
+            graph_sub_clustering: float | bool = False,
             connection_distance: int = 2,
             restrict_to_cluster: bool = False,
             # filter_min_df: Union[int, float] = 1,
@@ -801,7 +798,7 @@ class WordEmbeddingClustering:
         def build_document_concept_matrix(
             self,
             graph_unroll: bool = True,
-            graph_sub_clustering: Union[float, bool] = False,
+            graph_sub_clustering: float | bool = False,
             graph_distance_cutoff: float = 0.5,
             **kwargs,
         ):
@@ -866,8 +863,8 @@ class WordEmbeddingClustering:
 
     def ari_score(
         self,
-        embeddings_cluster_obj: Union[_WEClustering, _ConceptGraphClustering],
-        clustering_obj: Union[KMeans, AgglomerativeClustering],
+        embeddings_cluster_obj: _WEClustering | _ConceptGraphClustering,
+        clustering_obj: KMeans | AgglomerativeClustering,
         min_concepts: int = 10,
         **kwargs,
     ):
@@ -886,8 +883,8 @@ class WordEmbeddingClustering:
 
     def purity_score(
         self,
-        embeddings_cluster_obj: Union[_WEClustering, _ConceptGraphClustering],
-        clustering_obj: Union[KMeans, AgglomerativeClustering],
+        embeddings_cluster_obj: _WEClustering | _ConceptGraphClustering,
+        clustering_obj: KMeans | AgglomerativeClustering,
         min_concepts: int = 10,
         **kwargs,
     ):

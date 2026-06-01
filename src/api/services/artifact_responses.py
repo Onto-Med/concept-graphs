@@ -4,7 +4,6 @@ import os
 import pathlib
 import pickle
 from collections import defaultdict
-from typing import Union
 
 import flask
 import networkx as nx
@@ -39,7 +38,7 @@ def clustering_get_concepts(cluster_gen):
 
 
 def graph_get_statistics(
-    app: flask.Flask, data: Union[str, list], path: Union[str, pathlib.Path]
+    app: flask.Flask, data: str | list, path: str | pathlib.Path
 ) -> dict:
     if isinstance(data, str):
         _path = pathlib.Path(
@@ -93,7 +92,7 @@ def build_adjacency_obj(graph_obj: nx.Graph):
 
 
 def graph_get_specific(
-    process: Union[str, list], graph_nr, path: Union[str, pathlib.Path], draw=False
+    process: str | list, graph_nr, path: str | pathlib.Path, draw=False
 ):
     try:
         if isinstance(process, str):
@@ -133,7 +132,7 @@ def graph_get_specific(
         return jsonify(f"There is no graph data present for '{process}'.")
 
 
-def graph_create(app: flask.Flask, path: Union[str, pathlib.Path]):
+def graph_create(app: flask.Flask, path: str | pathlib.Path):
     app.logger.info("=== Graph creation started ===")
     exclusion_ids_query = read_exclusion_ids(request.args.get("exclusion_ids", "[]"))
     # ToDo: files read doesn't work...

@@ -1,7 +1,7 @@
 import logging
 import pathlib
+from collections.abc import Iterable
 from copy import copy
-from typing import Iterable, Optional, Tuple, Union
 
 import marqo
 import numpy as np
@@ -21,7 +21,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
         index_name: str,
         create_index: bool = False,
         vector_dim: int = 1024,
-        additional_index_settings: Optional[Union[dict, Iterable[str]]] = None,
+        additional_index_settings: dict | Iterable[str] | None = None,
     ):
         self._settings = None
         self._vector_dim = vector_dim
@@ -44,15 +44,15 @@ class MarqoEmbeddingStore(EmbeddingStore):
                     f" and 'create_if_not_exists' is set to False."
                 )
 
-    def _update_index_settings(self, index_settings: Union[dict, Iterable[str]]):
+    def _update_index_settings(self, index_settings: dict | Iterable[str]):
         self.index_settings.update(index_settings)
 
     def _doc_representation(
         self,
-        did: Union[str, int],
-        vec: Union[list, np.ndarray],
-        cont: Optional[str],
-        metadata: Optional[dict] = None,
+        did: str | int,
+        vec: list | np.ndarray,
+        cont: str | None,
+        metadata: dict | None = None,
     ) -> dict:
         _d = {
             "_id": str(did),
@@ -67,7 +67,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
         return _d
 
     @staticmethod
-    def _read_config(config: Union[dict, pathlib.Path, str]) -> dict:
+    def _read_config(config: dict | pathlib.Path | str) -> dict:
         if isinstance(config, str):
             config = pathlib.Path(config)
         if not hasattr(config, "get"):
@@ -79,7 +79,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
         return config
 
     @staticmethod
-    def is_accessible(config: Union[dict, pathlib.Path, str]) -> bool:
+    def is_accessible(config: dict | pathlib.Path | str) -> bool:
         config = MarqoEmbeddingStore._read_config(config)
 
         try:
@@ -96,7 +96,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
 
     @classmethod
     def existing_from_config(
-        cls, config: Union[dict, pathlib.Path, str]
+        cls, config: dict | pathlib.Path | str
     ) -> "MarqoEmbeddingStore":
         config = MarqoEmbeddingStore._read_config(config)
         return cls(
@@ -146,7 +146,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
         return self.client
 
     def _check_for_same_embedding(
-        self, check_id: Union[str, Iterable[str]]
+        self, check_id: str | Iterable[str]
     ) -> dict[str, list]:
         _field = "graph_cluster"
 
@@ -220,9 +220,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
 
     def store_embedding(
         self,
-        embedding: Union[
-            Tuple[str, list], Tuple[str, np.ndarray], Union[list, np.ndarray]
-        ],
+        embedding: tuple[str, list] | tuple[str, np.ndarray] | list | np.ndarray,
         check_for_same: bool = False,
         **kwargs,
     ) -> dict[str, list]:
@@ -254,14 +252,10 @@ class MarqoEmbeddingStore(EmbeddingStore):
 
     def store_embeddings(
         self,
-        embeddings: Union[
-            Iterable[
-                Union[dict, list, Union[Tuple[str, list], Tuple[str, np.ndarray]]]
-            ],
-            np.ndarray,
-        ],
+        embeddings: Iterable[dict | list | tuple[str, list] | tuple[str, np.ndarray]]
+        | np.ndarray,
         embeddings_repr: list[str] = None,
-        vector_name: Optional[str] = None,
+        vector_name: str | None = None,
         check_for_same: bool = False,
     ) -> dict[str, list]:
         """Takes embeddings (with optional textual representation), and stores them in the vector store.
@@ -339,7 +333,7 @@ class MarqoEmbeddingStore(EmbeddingStore):
             else {"added": _ids, "retained": [], "added_idx": _idx, "retained_idx": []}
         )
 
-    def get_embedding(self, embedding_id: str) -> Optional[np.ndarray]:
+    def get_embedding(self, embedding_id: str) -> np.ndarray | None:
         try:
             return np.asarray(
                 self.marqo_index.get_document(embedding_id, expose_facets=True)[
@@ -351,8 +345,8 @@ class MarqoEmbeddingStore(EmbeddingStore):
             return None
 
     def get_embeddings(
-        self, embedding_ids: Optional[Iterable[str]] = None
-    ) -> Optional[np.ndarray]:
+        self, embedding_ids: Iterable[str] | None = None
+    ) -> np.ndarray | None:
         if embedding_ids is None:
             embedding_ids = [str(_id) for _id in range(self.store_size)]
             if len(embedding_ids) == 0:
@@ -523,13 +517,11 @@ class MarqoEmbeddingStore(EmbeddingStore):
 
     def best_hits_for_field(
         self,
-        embedding: Union[
-            str,
-            np.ndarray,
-            list[float],
-            tuple[str, np.ndarray],
-            tuple[str, list[float]],
-        ],
+        embedding: str
+        | np.ndarray
+        | list[float]
+        | tuple[str, np.ndarray]
+        | tuple[str, list[float]],
         field: str = "graph_cluster",
         score_frac: float = 0.5,
         delete_if_not_similar: bool = True,

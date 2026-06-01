@@ -1,10 +1,10 @@
 """Pipeline step names, process status values, and status tracking helpers."""
 
 from dataclasses import dataclass, field
-from enum import Enum
+from enum import StrEnum
 
 
-class ProcessStatus(str, Enum):
+class ProcessStatus(StrEnum):
     STARTED = "started"
     RUNNING = "running"
     FINISHED = "finished"

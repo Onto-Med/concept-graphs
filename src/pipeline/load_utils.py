@@ -1,6 +1,5 @@
 import logging
 from pathlib import Path
-from typing import Optional, Union
 
 import networkx as nx
 
@@ -19,13 +18,13 @@ class FactoryLoader:
         process: str,
         active_objects: dict[str, dict],
         specific_step: str = None,
-    ) -> Union[
-        dict,
-        DataProcessingFactory.DataProcessing,
-        SentenceEmbeddingsFactory.SentenceEmbeddings,
-        PhraseClusterFactory.PhraseCluster,
-        list[nx.Graph],
-    ]:
+    ) -> (
+        dict
+        | DataProcessingFactory.DataProcessing
+        | SentenceEmbeddingsFactory.SentenceEmbeddings
+        | PhraseClusterFactory.PhraseCluster
+        | list[nx.Graph]
+    ):
         if process not in active_objects:
             active_objects[process] = {}
 
@@ -84,8 +83,8 @@ class FactoryLoader:
         cls,
         path: str,
         process: str,
-        data_obj: Optional[DataProcessingFactory.DataProcessing] = None,
-        vector_store: Optional[dict] = None,
+        data_obj: DataProcessingFactory.DataProcessing | None = None,
+        vector_store: dict | None = None,
     ) -> SentenceEmbeddingsFactory.SentenceEmbeddings:
         sent_emb = load_pickle(Path(Path(path) / f"{process}_embedding.pickle"))
         if data_obj is not None:
@@ -123,8 +122,8 @@ class FactoryLoader:
         cls,
         path: str,
         process: str,
-        data_obj: Optional[DataProcessingFactory.DataProcessing] = None,
-        emb_obj: Optional[SentenceEmbeddingsFactory.SentenceEmbeddings] = None,
+        data_obj: DataProcessingFactory.DataProcessing | None = None,
+        emb_obj: SentenceEmbeddingsFactory.SentenceEmbeddings | None = None,
     ) -> PhraseClusterFactory.PhraseCluster:
         if emb_obj is not None:
             if not hasattr(emb_obj, "sentence_embeddings"):
@@ -166,15 +165,15 @@ class FactoryLoader:
         step: str,
         path: str,
         process: str,
-        data_obj: Optional[DataProcessingFactory.DataProcessing] = None,
-        emb_obj: Optional[SentenceEmbeddingsFactory.SentenceEmbeddings] = None,
-        vector_store: Optional[dict] = None,
-    ) -> Union[
-        DataProcessingFactory.DataProcessing,
-        SentenceEmbeddingsFactory.SentenceEmbeddings,
-        PhraseClusterFactory.PhraseCluster,
-        list[nx.Graph],
-    ]:
+        data_obj: DataProcessingFactory.DataProcessing | None = None,
+        emb_obj: SentenceEmbeddingsFactory.SentenceEmbeddings | None = None,
+        vector_store: dict | None = None,
+    ) -> (
+        DataProcessingFactory.DataProcessing
+        | SentenceEmbeddingsFactory.SentenceEmbeddings
+        | PhraseClusterFactory.PhraseCluster
+        | list[nx.Graph]
+    ):
         if step == StepsName.DATA:
             return cls.load_data(path, process)
         elif step == StepsName.EMBEDDING:

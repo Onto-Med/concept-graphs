@@ -1,5 +1,3 @@
-from typing import Optional
-
 from langchain_core.language_models import BaseLLM
 from langchain_ollama import OllamaLLM
 
@@ -10,7 +8,7 @@ class OllamaChatter(Chatter):
     base_url = "http://localhost:11434"
 
     @classmethod
-    def with_kwargs(cls, **kwargs) -> Optional[BaseLLM]:
+    def with_kwargs(cls, **kwargs) -> BaseLLM | None:
         if _model := kwargs.get("model", None):
             return OllamaLLM(
                 base_url=kwargs.get("base_url", cls.base_url),

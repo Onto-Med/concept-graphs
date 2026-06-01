@@ -5,8 +5,6 @@ request parsing, step preparation, vector-store handling, and response creation
 to focused helpers under ``src.api.pipeline_support``.
 """
 
-from typing import Optional
-
 import flask
 from flask import jsonify, request
 
@@ -29,7 +27,7 @@ def run_complete_pipeline(app, processes, pipeline, storage):
     query_params = default_query_params()
     try:
         content_type_json = request.headers.get("Content-Type") == "application/json"
-        config_object_json: Optional[pipeline_json_config] = None
+        config_object_json: pipeline_json_config | None = None
         if content_type_json:
             config_object_json = parse_pipeline_config_json(request.json)
 

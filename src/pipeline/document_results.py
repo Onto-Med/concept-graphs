@@ -1,6 +1,6 @@
 """Document addition result transformation helpers."""
 
-from typing import Iterator
+from collections.abc import Iterator
 
 
 def transform_document_addition_results(iterator: Iterator):

@@ -1,5 +1,5 @@
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional, Union
 
 import flask
 import networkx as nx
@@ -50,7 +50,7 @@ class GraphCreationUtil(BaseUtil):
 
     def read_config(
         self,
-        config: Optional[Union[FileStorage, dict]],
+        config: FileStorage | dict | None,
         process_name=None,
         language=None,
     ):
@@ -60,12 +60,12 @@ class GraphCreationUtil(BaseUtil):
         return super().read_stored_config(ext)
 
     def has_process(
-        self, process: Optional[str] = None, extensions: Optional[list[str]] = None
+        self, process: str | None = None, extensions: list[str] | None = None
     ):
         return super().has_process(process, extensions)
 
     def delete_process(
-        self, process: Optional[str] = None, extensions: Optional[list[str]] = None
+        self, process: str | None = None, extensions: list[str] | None = None
     ):
         return super().delete_process(process, ["pickle"])
 
@@ -73,7 +73,7 @@ class GraphCreationUtil(BaseUtil):
         return WordEmbeddingClustering._ConceptGraphClustering.build_concept_graphs
 
     def _load_pre_components(
-        self, cache_name, active_process_objs: Optional[dict[str, dict]] = None
+        self, cache_name, active_process_objs: dict[str, dict] | None = None
     ) -> tuple:
         _cached_data = active_process_objs.get(cache_name, {}).get(StepsName.DATA, None)
         _cached_sent = active_process_objs.get(cache_name, {}).get(

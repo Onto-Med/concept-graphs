@@ -2,7 +2,6 @@
 
 import pathlib
 from dataclasses import dataclass
-from typing import Optional
 
 import flask
 
@@ -48,7 +47,7 @@ class StorageContext:
 class RagContext:
     """Runtime RAG state."""
 
-    active: Optional[ActiveRAG] = None
+    active: ActiveRAG | None = None
 
 
 @dataclass
@@ -82,10 +81,10 @@ class AppContext:
         return self.storage.file_storage_dir
 
     @property
-    def active_rag(self) -> Optional[ActiveRAG]:
+    def active_rag(self) -> ActiveRAG | None:
         """Compatibility alias for ``rag.active``."""
         return self.rag.active
 
     @active_rag.setter
-    def active_rag(self, value: Optional[ActiveRAG]) -> None:
+    def active_rag(self, value: ActiveRAG | None) -> None:
         self.rag.active = value

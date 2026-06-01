@@ -1,5 +1,6 @@
+from collections.abc import Iterable
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Tuple, Union
+from typing import Any
 
 import networkx as nx
 import numpy as np
@@ -13,7 +14,7 @@ from src.core.embedding_functions import cosine
 class GraphCreator:
     def __init__(
         self,
-        chunk_set_dict: List[Dict],
+        chunk_set_dict: list[dict],
         embeddings: np.ndarray,
         doc_text_value: str = "doc",
     ) -> None:
@@ -24,14 +25,14 @@ class GraphCreator:
             [len(d[self.doc_text_value]) for d in chunk_set_dict]
         )
 
-    @lru_cache()
+    @lru_cache
     def _chunks_as_np_array(self, text_value: str = "text") -> np.ndarray:
         return np.asarray([i[text_value] for i in self.chunk_set_dict])
 
-    @lru_cache()
+    @lru_cache
     def _indices_and_some(
-        self, cluster: Tuple[int]
-    ) -> Tuple[ndarray, Union[Iterable, Tuple], Any]:
+        self, cluster: tuple[int]
+    ) -> tuple[ndarray, Iterable | tuple, Any]:
         # ToDo: think about batching this somehow -> when _cluster is relatively large, combinations (triu_indices)
         #  get's really large and memory allocation issues might occur when indexing self.embeddings (in _cosine_adj)
         _cluster = sorted(cluster)
@@ -44,12 +45,12 @@ class GraphCreator:
 
         return adj_matrix, tri, idx
 
-    @lru_cache()
+    @lru_cache
     def _str_sim_adj(
         self,
-        cluster: Tuple[int],
+        cluster: tuple[int],
         similarity_add: float = 0.05,
-        merge_threshold: Union[float, None] = 0.95,
+        merge_threshold: float | None = 0.95,
         text_value: str = "text",
         fuzzy_matching: str = "token_sort_ratio",
     ) -> dict:
@@ -118,8 +119,8 @@ class GraphCreator:
             ],
         }
 
-    @lru_cache()
-    def _cosine_adj(self, cluster: Tuple[int]) -> np.ndarray:
+    @lru_cache
+    def _cosine_adj(self, cluster: tuple[int]) -> np.ndarray:
         _adj_matrix, _tri, _idx = self._indices_and_some(cluster)
 
         # Calculate cosine similarity for combinations and assigns them to upper triangle
@@ -158,8 +159,8 @@ class GraphCreator:
         cluster: Iterable[int],
         similarity_add: float = 0.05,
         weight_on_cosine: float = 0.5,
-        merge_threshold: Union[float, None] = 0.95,
-        weight_cut_off: Union[float, None] = 0.5,
+        merge_threshold: float | None = 0.95,
+        weight_cut_off: float | None = 0.5,
         text_value: str = "text",
         fuzzy_matching: str = "token_sort_ratio",
     ) -> nx.Graph:

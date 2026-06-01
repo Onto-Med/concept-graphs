@@ -1,6 +1,6 @@
 import logging
 import pathlib
-from typing import Iterable, List, Optional, Tuple, Union
+from collections.abc import Iterable
 
 import numpy as np
 import torch
@@ -25,10 +25,10 @@ class SentenceEmbeddingsFactory:
     @classmethod
     def load(
         cls,
-        embeddings_obj_path: Union[pathlib.Path, str],
+        embeddings_obj_path: pathlib.Path | str,
         data_obj: DataProcessingFactory.DataProcessing,
-        view_from_topics: Optional[Iterable[str]] = None,
-        storage_method: tuple[str, Optional[dict]] = (
+        view_from_topics: Iterable[str] | None = None,
+        storage_method: tuple[str, dict | None] = (
             "pickle",
             None,
         ),
@@ -83,10 +83,10 @@ class SentenceEmbeddingsFactory:
         cache_name: str,
         model_name: str,
         n_process: int = 1,
-        view_from_topics: Optional[Iterable[str]] = None,
-        down_scale_algorithm: Optional[str] = None,
+        view_from_topics: Iterable[str] | None = None,
+        down_scale_algorithm: str | None = None,
         head_only: bool = False,
-        storage_method: tuple[str, Optional[dict]] = (
+        storage_method: tuple[str, dict | None] = (
             "pickle",
             None,
         ),  # dict for vectorstore configures the url and index name (things that shouldn't go to config params in yaml)
@@ -170,9 +170,9 @@ class SentenceEmbeddingsFactory:
     class SentenceEmbeddings:
         def __init__(
             self,
-            model_name: Optional[str] = None,
-            data_obj: Optional[DataProcessingFactory.DataProcessing] = None,
-            down_scale_obj: Optional[object] = None,
+            model_name: str | None = None,
+            data_obj: DataProcessingFactory.DataProcessing | None = None,
+            down_scale_obj: object | None = None,
             head_only: bool = False,
         ):
             self._model = (
@@ -202,11 +202,11 @@ class SentenceEmbeddingsFactory:
             self._data_obj = value
 
         @property
-        def source(self) -> Optional[dict]:
+        def source(self) -> dict | None:
             return self._source
 
         @source.setter
-        def source(self, value: Tuple[str, Optional[dict]]):
+        def source(self, value: tuple[str, dict | None]):
             if isinstance(value, tuple):
                 self._source = value[1] if len(value) > 1 else None
             else:
@@ -228,8 +228,8 @@ class SentenceEmbeddingsFactory:
         def _encode_data(
             self,
             n_process: int = 1,
-            device: Union[str, List[str]] = "cpu",
-            external: Optional[Iterable[str]] = None,
+            device: str | list[str] = "cpu",
+            external: Iterable[str] | None = None,
             **kwargs,
         ):
             if "convert_to_numpy" in kwargs.keys():

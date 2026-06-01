@@ -4,7 +4,7 @@ import logging
 import pathlib
 from inspect import getfullargspec
 from pydoc import locate
-from typing import Optional, cast
+from typing import cast
 
 from marqo.errors import MarqoError
 
@@ -16,7 +16,7 @@ from src.rag.text_splitters import PreprocessedSpacyTextSplitter
 
 def initialize_chunk_vectorstore(
     process_name: str,
-    config: Optional[dict],
+    config: dict | None,
     chunk_store: str = "src.rag.embedding_stores.marqo.MarqoChunkEmbeddingStore",
     force_init: bool = False,
 ):

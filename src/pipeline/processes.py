@@ -4,7 +4,6 @@ import logging
 import pathlib
 from collections import OrderedDict
 from time import sleep
-from typing import Optional, Union
 
 import flask
 from flask import Response
@@ -21,7 +20,7 @@ from src.pipeline.status import (
 
 
 def populate_running_processes(
-    app: flask.Flask, path: Union[str, pathlib.Path], running_processes: dict
+    app: flask.Flask, path: str | pathlib.Path, running_processes: dict
 ):
     for process in get_all_processes(path):
         _finished = [
@@ -46,7 +45,7 @@ def populate_running_processes(
     return running_processes
 
 
-def get_all_processes(path: Union[str, pathlib.Path]):
+def get_all_processes(path: str | pathlib.Path):
     if isinstance(path, str):
         path = pathlib.Path(path)
     _process_detailed = list()
@@ -90,7 +89,7 @@ def start_processes(
     }
     for process_obj, _fact, _name in processes:
         process_obj: BaseUtil
-        this_thread: Optional[StoppableThread] = thread_store.get(process_name, None)
+        this_thread: StoppableThread | None = thread_store.get(process_name, None)
         if this_thread is not None and this_thread.set_to_stop:
             add_status_to_running_process(
                 process_name=process_name,
@@ -132,7 +131,7 @@ def start_thread(
     app: flask.Flask,
     process_name: str,
     pipeline_thread: StoppableThread,
-    threading_store: Optional[dict[str, StoppableThread]],
+    threading_store: dict[str, StoppableThread] | None,
 ):
     app.logger.info(f"Starting thread for '{process_name}'.")
     pipeline_thread.start()

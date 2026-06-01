@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any
 
 from marqo import Client
 
@@ -12,9 +12,9 @@ class MarqoChunkEmbeddingStore(ChunkEmbeddingStore):
         index_name: str,
         url: str = "http://localhost",
         port: int = 8882,
-        config: Optional[dict[str, Any]] = None,
+        config: dict[str, Any] | None = None,
     ):
-        self._client: Optional[Client] = Client(url=f"{url}:{port}")
+        self._client: Client | None = Client(url=f"{url}:{port}")
         self._index_name: str = index_name
         self._config: dict = config if config is not None else {}
 
@@ -53,7 +53,7 @@ class MarqoChunkEmbeddingStore(ChunkEmbeddingStore):
     def is_filled(self) -> bool:
         return self._client.index(self._index_name).get_stats()["numberOfDocuments"] > 0
 
-    def reset_index(self, with_settings: Optional[dict[str, Any]] = None) -> None:
+    def reset_index(self, with_settings: dict[str, Any] | None = None) -> None:
         _settings = (
             self._client.get_index(self._index_name).get_settings()
             if with_settings is None
@@ -76,7 +76,7 @@ class MarqoChunkEmbeddingStore(ChunkEmbeddingStore):
     def get_chunks(
         self,
         question: str,
-        filter_by: Optional[dict[str, list[str]]] = None,
+        filter_by: dict[str, list[str]] | None = None,
         limit: int = 10,
     ) -> list[Any]:
         # ToDo: right now only filter on one field is allowed!

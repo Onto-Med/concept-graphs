@@ -1,10 +1,9 @@
 """Small parsing and normalization helpers."""
 
 import re
-from typing import Union
 
 
-def get_bool_expression(str_bool: str, default: Union[bool, str] = False) -> bool:
+def get_bool_expression(str_bool: str, default: bool | str = False) -> bool:
     if isinstance(str_bool, bool):
         return str_bool
     elif isinstance(str_bool, str):

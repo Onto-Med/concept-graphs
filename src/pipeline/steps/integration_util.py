@@ -1,7 +1,7 @@
 import logging
+from collections.abc import Callable
 from pathlib import Path
 from pydoc import locate
-from typing import Callable, Optional, Union
 
 from flask import Flask, Response
 from werkzeug.datastructures import FileStorage
@@ -44,32 +44,32 @@ class ConceptGraphIntegrationUtil(BaseUtil):
         return []
 
     def has_process(
-        self, process: Optional[str] = None, extensions: Optional[list[str]] = None
+        self, process: str | None = None, extensions: list[str] | None = None
     ) -> bool:
         return super().has_process(process, extensions)
 
     def delete_process(
-        self, process: Optional[str] = None, extensions: Optional[list[str]] = None
+        self, process: str | None = None, extensions: list[str] | None = None
     ) -> None:
         super().delete_process(process, extensions)
 
     def read_config(
         self,
-        config: Optional[Union[FileStorage, dict]],
+        config: FileStorage | dict | None,
         process_name=None,
         language=None,
-    ) -> Optional[Response]:
+    ) -> Response | None:
         return super().read_config(config, process_name, language)
 
     def read_stored_config(self, ext: str = "yaml") -> tuple[str, dict]:
         return super().read_stored_config(ext)
 
-    def _process_method(self) -> Optional[Callable]:
+    def _process_method(self) -> Callable | None:
         return ConceptGraphIntegrationFactory.create
 
     def _load_pre_components(
-        self, cache_name, active_process_objs: Optional[dict[str, dict]] = None
-    ) -> Optional[Union[tuple, list]]:
+        self, cache_name, active_process_objs: dict[str, dict] | None = None
+    ) -> tuple | list | None:
         _emb_config = load_pickle(
             Path(self._file_storage / f"{cache_name}_embedding.pickle")
         )

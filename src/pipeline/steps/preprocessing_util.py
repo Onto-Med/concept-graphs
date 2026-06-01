@@ -1,7 +1,7 @@
 import zipfile
+from collections.abc import Callable, Generator
 from pathlib import Path
 from types import GeneratorType
-from typing import Callable, Dict, Generator, List, Optional, Union
 
 import flask.app
 import yaml
@@ -64,7 +64,7 @@ class PreprocessingUtil(BaseUtil):
     def protected_kwargs(self) -> list[str]:
         return ["spacy_model"]
 
-    def _read_zip_content(self, zip_archive, labels) -> List[Dict[str, str]]:
+    def _read_zip_content(self, zip_archive, labels) -> list[dict[str, str]]:
         extension = self.config.get("file_extension", "txt")
         return [
             {
@@ -81,9 +81,9 @@ class PreprocessingUtil(BaseUtil):
 
     def read_data(
         self,
-        data: Union[FileStorage, Path, Generator],
-        replace_keys: Optional[dict],
-        label_getter: Optional[str],
+        data: FileStorage | Path | Generator,
+        replace_keys: dict | None,
+        label_getter: str | None,
     ):
         try:
             if isinstance(data, FileStorage):
@@ -141,7 +141,7 @@ class PreprocessingUtil(BaseUtil):
 
     def read_config(
         self,
-        config: Optional[Union[FileStorage, dict]],
+        config: FileStorage | dict | None,
         process_name=None,
         language=None,
     ):
@@ -198,20 +198,20 @@ class PreprocessingUtil(BaseUtil):
         return super().read_stored_config(ext)
 
     def has_process(
-        self, process: Optional[str] = None, extensions: Optional[list[str]] = None
+        self, process: str | None = None, extensions: list[str] | None = None
     ):
         return super().has_process(process, extensions)
 
     def delete_process(
-        self, process: Optional[str] = None, extensions: Optional[list[str]] = None
+        self, process: str | None = None, extensions: list[str] | None = None
     ):
         super().delete_process(process, ["pickle", "spacy"])
 
-    def _process_method(self) -> Optional[Callable]:
+    def _process_method(self) -> Callable | None:
         return DataProcessingFactory.create
 
     def _load_pre_components(
-        self, cache_name, active_process_objs: Optional[dict[str, dict]] = None
+        self, cache_name, active_process_objs: dict[str, dict] | None = None
     ):
         return None
 

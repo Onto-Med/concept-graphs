@@ -5,7 +5,6 @@ import pathlib
 import uuid
 from collections import defaultdict
 from pydoc import locate
-from typing import Optional, Union
 
 import networkx as nx
 import numpy as np
@@ -21,7 +20,7 @@ from src.pipeline.status import StepsName
 from src.storage.interfaces import DocumentStore, EmbeddingStore
 
 
-def _source_keys(source: dict) -> tuple[Optional[str], Optional[str]]:
+def _source_keys(source: dict) -> tuple[str | None, str | None]:
     client_keys = set(source.keys()).intersection(
         ["client_url", "url", "client", "clienturl"]
     )
@@ -75,14 +74,11 @@ def add_documents_to_concept_graphs(
     #       - docs won't be stored in the processed_data
     #       - docs (their phrase embeddings) will be stored in the vector store
     content_json: document_adding_json,
-    data_processing: Optional[
-        data_functions.DataProcessingFactory.DataProcessing
-    ] = None,
-    embedding_processing: Optional[
-        embedding_functions.SentenceEmbeddingsFactory.SentenceEmbeddings
-    ] = None,
-    graph_processing: Optional[list[nx.Graph]] = None,
-    storage_path: Optional[Union[str, pathlib.Path]] = None,
+    data_processing: data_functions.DataProcessingFactory.DataProcessing | None = None,
+    embedding_processing: embedding_functions.SentenceEmbeddingsFactory.SentenceEmbeddings
+    | None = None,
+    graph_processing: list[nx.Graph] | None = None,
+    storage_path: str | pathlib.Path | None = None,
     process_name: str = "default",
     store_permanently: bool = True,
     document_store_cls: str = "src.storage.marqo.MarqoDocumentStore",
@@ -191,12 +187,11 @@ def add_documents_to_concept_graphs(
         for idx, _chunk in enumerate(
             # sorted(
             (
-                (
-                    _result["text"],
-                    set(_doc["id"] for _doc in _result["doc"]),
-                )
-                for _result in _chunk_result
-            )  # ,
+                _result["text"],
+                set(_doc["id"] for _doc in _result["doc"]),
+            )
+            for _result in _chunk_result
+            # ,
             # key=lambda _result: _result[0],
             # )
         ):
@@ -271,13 +266,12 @@ def add_documents_to_concept_graphs(
 
 def delete_document_from_concept_graphs(
     document_id: str,
-    embedding_processing: Optional[
-        embedding_functions.SentenceEmbeddingsFactory.SentenceEmbeddings
-    ] = None,
-    graph_processing: Optional[list[nx.Graph]] = None,
-    storage_path: Optional[Union[str, pathlib.Path]] = None,
+    embedding_processing: embedding_functions.SentenceEmbeddingsFactory.SentenceEmbeddings
+    | None = None,
+    graph_processing: list[nx.Graph] | None = None,
+    storage_path: str | pathlib.Path | None = None,
     process_name: str = "default",
-    vectorstore_server: Optional[dict] = None,
+    vectorstore_server: dict | None = None,
     remove_unreferenced_nodes: bool = True,
     delete_unreferenced_embeddings: bool = False,
     embedding_store_cls: str = "src.storage.marqo.MarqoEmbeddingStore",

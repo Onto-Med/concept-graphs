@@ -1,5 +1,6 @@
 import logging
-from typing import Any, Generator, Iterable, Optional, Union
+from collections.abc import Generator, Iterable
+from typing import Any
 
 from langchain_text_splitters import TextSplitter
 from spacy.tokens import Doc
@@ -31,8 +32,8 @@ class PreprocessedSpacyTextSplitter(TextSplitter):
         )
 
     def split_preprocessed_documents(
-        self, docs: Iterable[Doc], keep_metadata: Optional[list[str]] = None
-    ) -> Generator[Union[list[str], tuple[list[str], dict]], None, None]:
+        self, docs: Iterable[Doc], keep_metadata: list[str] | None = None
+    ) -> Generator[list[str] | tuple[list[str], dict], None, None]:
         for doc in docs:
             splits = (
                 s.text if self._strip_whitespace else s.text_with_ws for s in doc.sents
@@ -51,8 +52,8 @@ class PreprocessedSpacyTextSplitter(TextSplitter):
         self,
         sentences: Iterable[Doc],
         doc_metadata_key: str,
-        keep_metadata: Optional[list[str]] = None,
-    ) -> Generator[Union[list[str], tuple[list[str], dict]], None, None]:
+        keep_metadata: list[str] | None = None,
+    ) -> Generator[list[str] | tuple[list[str], dict], None, None]:
         docs = []
         current_doc_id = None
         meta_data = {}

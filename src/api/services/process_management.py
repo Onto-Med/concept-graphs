@@ -2,7 +2,6 @@
 
 import pathlib
 import shutil
-from typing import Optional
 
 import flask
 
@@ -20,7 +19,7 @@ def delete_pipeline(
     process_name: str,
     running_processes: dict,
     cached_processes: dict,
-    wait_for_thread: Optional[StoppableThread] = None,
+    wait_for_thread: StoppableThread | None = None,
 ):
     app.logger.info(f"Deleting pipeline '{process_name}'.")
     if wait_for_thread is not None:

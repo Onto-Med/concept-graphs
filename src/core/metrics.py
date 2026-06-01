@@ -2,7 +2,7 @@
 
 import logging
 from collections import Counter, defaultdict
-from typing import Iterable, Union
+from collections.abc import Iterable
 
 import numpy as np
 import pandas as pd
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def cluster_purity(
-    cluster_obj: Union[KMeans, AgglomerativeClustering],
+    cluster_obj: KMeans | AgglomerativeClustering,
     targets: np.ndarray,
     print_df: bool = False,
 ) -> float:

@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Union
+from collections.abc import Callable
 
 import flask
 from werkzeug.datastructures import FileStorage
@@ -32,7 +32,7 @@ class PhraseEmbeddingUtil(BaseUtil):
         )
 
     @property
-    def storage_method(self) -> tuple[str, Optional[dict]]:
+    def storage_method(self) -> tuple[str, dict | None]:
         if (
             self.config is None
             or self.config.get("storage_method", "pickle") == "pickle"
@@ -42,7 +42,7 @@ class PhraseEmbeddingUtil(BaseUtil):
             return self.config.get("storage_method")
 
     @storage_method.setter
-    def storage_method(self, storage_method: tuple[str, Optional[dict]]):
+    def storage_method(self, storage_method: tuple[str, dict | None]):
         self.config["storage_method"] = storage_method
 
     def set_storage_method(self, storage_method: str, connection_dict: dict):
@@ -74,7 +74,7 @@ class PhraseEmbeddingUtil(BaseUtil):
 
     def read_config(
         self,
-        config: Optional[Union[FileStorage, dict]],
+        config: FileStorage | dict | None,
         process_name=None,
         language=None,
     ):
@@ -110,12 +110,12 @@ class PhraseEmbeddingUtil(BaseUtil):
         return super().read_stored_config(ext)
 
     def has_process(
-        self, process: Optional[str] = None, extensions: Optional[list[str]] = None
+        self, process: str | None = None, extensions: list[str] | None = None
     ):
         return super().has_process(process, extensions)
 
     def delete_process(
-        self, process: Optional[str] = None, extensions: Optional[list[str]] = None
+        self, process: str | None = None, extensions: list[str] | None = None
     ):
         if self.has_process(process):
             _pickle = self._complete_pickle_path(process)
@@ -130,8 +130,8 @@ class PhraseEmbeddingUtil(BaseUtil):
         return SentenceEmbeddingsFactory.create
 
     def _load_pre_components(
-        self, cache_name, active_process_objs: Optional[dict[str, dict]] = None
-    ) -> Union[tuple, list]:
+        self, cache_name, active_process_objs: dict[str, dict] | None = None
+    ) -> tuple | list:
         _cached = active_process_objs.get(cache_name, {}).get(StepsName.DATA, None)
         data_obj = (
             FactoryLoader.load_data(self._file_storage, cache_name)

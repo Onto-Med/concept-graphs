@@ -1,7 +1,6 @@
 import inspect
 import logging
 import pathlib
-from typing import Union
 
 import numpy as np
 import umap
@@ -30,9 +29,7 @@ logging.root.setLevel(logging.INFO)
 class PhraseClusterFactory:
     @staticmethod
     def create(
-        sentence_embeddings: Union[
-            SentenceEmbeddingsFactory.SentenceEmbeddings, np.ndarray
-        ],
+        sentence_embeddings: SentenceEmbeddingsFactory.SentenceEmbeddings | np.ndarray,
         cache_path: pathlib.Path,
         cache_name: str,
         cluster_algorithm: str = "kmeans",
@@ -54,7 +51,7 @@ class PhraseClusterFactory:
     @classmethod
     def load(
         cls,
-        cluster_obj_path: Union[pathlib.Path, str],
+        cluster_obj_path: pathlib.Path | str,
         embedding_obj: SentenceEmbeddingsFactory.SentenceEmbeddings,
     ):
         _data = load_pickle(pathlib.Path(cluster_obj_path).resolve())
@@ -82,9 +79,8 @@ class PhraseClusterFactory:
 
         def __init__(
             self,
-            sentence_embeddings: Union[
-                SentenceEmbeddingsFactory.SentenceEmbeddings, np.ndarray
-            ],
+            sentence_embeddings: SentenceEmbeddingsFactory.SentenceEmbeddings
+            | np.ndarray,
             cluster_algorithm: str = "kmeans",
             down_scale_algorithm: str = "umap",
             cluster_by_down_scale: bool = True,

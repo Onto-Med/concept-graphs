@@ -1,4 +1,4 @@
-from typing import Callable, Optional, Union
+from collections.abc import Callable
 
 import flask
 from werkzeug.datastructures import FileStorage
@@ -45,7 +45,7 @@ class ClusteringUtil(BaseUtil):
 
     def read_config(
         self,
-        config: Optional[Union[FileStorage, dict]],
+        config: FileStorage | dict | None,
         process_name=None,
         language=None,
     ):
@@ -61,12 +61,12 @@ class ClusteringUtil(BaseUtil):
         return super().read_stored_config(ext)
 
     def has_process(
-        self, process: Optional[str] = None, extensions: Optional[list[str]] = None
+        self, process: str | None = None, extensions: list[str] | None = None
     ) -> bool:
         return super().has_process(process, extensions)
 
     def delete_process(
-        self, process: Optional[str] = None, extensions: Optional[list[str]] = None
+        self, process: str | None = None, extensions: list[str] | None = None
     ) -> None:
         return super().delete_process(process, ["pickle"])
 
@@ -74,7 +74,7 @@ class ClusteringUtil(BaseUtil):
         return PhraseClusterFactory.create
 
     def _load_pre_components(
-        self, cache_name, active_process_objs: Optional[dict[str, dict]] = None
+        self, cache_name, active_process_objs: dict[str, dict] | None = None
     ) -> tuple:
         _cached = active_process_objs.get(cache_name, {}).get(StepsName.EMBEDDING, None)
         sent_emb = (

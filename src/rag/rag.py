@@ -2,7 +2,7 @@ import logging
 from collections import defaultdict
 from operator import itemgetter
 from pydoc import locate
-from typing import Any, Optional, Union
+from typing import Any
 
 from langchain_core.documents import Document
 from langchain_core.exceptions import LangChainException
@@ -15,7 +15,7 @@ from src.rag.marqo_rag_utils import extract_text_from_highlights
 
 
 class RAG:
-    def __init__(self, chatter: Union[Chatter, str], language: Optional[str] = None):
+    def __init__(self, chatter: Chatter | str, language: str | None = None):
         self._language = language
         self._documents = None
         self._prompt = None
@@ -33,9 +33,7 @@ class RAG:
     @classmethod
     def with_chatter(
         cls,
-        chatter: Optional[
-            Union[Chatter, str]
-        ] = "src.rag.chatters.blablador.BlabladorChatter",
+        chatter: Chatter | str | None = "src.rag.chatters.blablador.BlabladorChatter",
         **kwargs,
     ) -> "RAG":
         if chatter is None:
@@ -100,7 +98,7 @@ class RAG:
         return self
 
     def with_prompt(
-        self, lang: str = "en", prompt_template_config: Optional[dict[str, Any]] = None
+        self, lang: str = "en", prompt_template_config: dict[str, Any] | None = None
     ) -> "RAG":
         """
 
@@ -152,7 +150,7 @@ class RAG:
 
     def with_documents(
         self,
-        documents: Union[list[str], list[tuple[str, dict]]],
+        documents: list[str] | list[tuple[str, dict]],
         lang: str = "en",
         concat_by: str = None,
         concat_str: str = "\n\n",

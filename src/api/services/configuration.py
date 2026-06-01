@@ -3,7 +3,6 @@
 import collections
 import logging
 import pathlib
-from typing import Optional, Union
 
 import flask
 import yaml
@@ -25,9 +24,9 @@ def read_config(
     app: flask.Flask,
     processor: any,
     process_type: str,
-    process_name: Optional[str] = None,
-    config: Optional[dict] = None,
-    language: Optional[str] = None,
+    process_name: str | None = None,
+    config: dict | None = None,
+    language: str | None = None,
     mode: str = "yaml",
 ):
     _language = (
@@ -72,7 +71,7 @@ def read_config(
 def load_configs(
     app: flask.app,
     process_name: str,
-    path_to_configs: Union[pathlib.Path, str],
+    path_to_configs: pathlib.Path | str,
     ext: str = "yaml",
 ):
     final_config = {"config": {}}
@@ -114,7 +113,7 @@ def load_configs(
     return final_config
 
 
-def read_exclusion_ids(exclusion: Union[str, FileStorage]):
+def read_exclusion_ids(exclusion: str | FileStorage):
     if isinstance(exclusion, str):
         if exclusion.startswith("[") and exclusion.endswith("]"):
             try:

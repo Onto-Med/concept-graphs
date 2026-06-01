@@ -1,6 +1,5 @@
 import logging
 import pathlib
-from typing import Optional
 
 import flask
 
@@ -15,7 +14,7 @@ from src.api.routes import register_routes
 from src.pipeline.processes import populate_running_processes
 
 
-def configure_logging(logging_setup_tuples: Optional[list[tuple]] = None) -> None:
+def configure_logging(logging_setup_tuples: list[tuple] | None = None) -> None:
     """Configure application logging defaults."""
     if logging_setup_tuples is None:
         logging_setup_tuples = [
@@ -58,7 +57,7 @@ def create_app(
     static_folder: str = "api",
     static_url_path: str = "",
     file_storage_dir: str = "tmp",
-    logging_setup_tuples: Optional[list[tuple]] = None,
+    logging_setup_tuples: list[tuple] | None = None,
 ) -> flask.Flask:
     """Create and configure the Flask application."""
     configure_logging(logging_setup_tuples)

@@ -2,7 +2,6 @@
 
 import logging
 from dataclasses import dataclass, field
-from typing import Optional
 
 from munch import Munch
 
@@ -11,10 +10,10 @@ from src.common.parsing import string_conformity
 
 @dataclass
 class pipeline_json_config:
-    name: Optional[str]
-    language: Optional[str]
-    document_server: Optional[dict]
-    vectorstore_server: Optional[dict]
+    name: str | None
+    language: str | None
+    document_server: dict | None
+    vectorstore_server: dict | None
     data: object = field(default_factory=Munch)
     embedding: object = field(default_factory=Munch)
     clustering: object = field(default_factory=Munch)
@@ -23,19 +22,19 @@ class pipeline_json_config:
 
 @dataclass
 class document_adding_json:
-    language: Optional[str]
+    language: str | None
     documents: list = field(default_factory=list)
-    document_server: Optional[dict] = None
-    vectorstore_server: Optional[dict] = None
+    document_server: dict | None = None
+    vectorstore_server: dict | None = None
 
 
 @dataclass
 class rag_config_json:
-    chatter: Optional[str]
-    api_key: Optional[str]
-    language: Optional[str]
-    prompt_template: Optional[dict]
-    vectorstore_server: Optional[dict]
+    chatter: str | None
+    api_key: str | None
+    language: str | None
+    prompt_template: dict | None
+    vectorstore_server: dict | None
 
 
 def parse_pipeline_config_json(response_json) -> pipeline_json_config:
@@ -72,7 +71,7 @@ def parse_pipeline_config_json(response_json) -> pipeline_json_config:
         )
 
 
-def parse_document_adding_json(response_json) -> Optional[document_adding_json]:
+def parse_document_adding_json(response_json) -> document_adding_json | None:
     try:
         config = Munch.fromDict(response_json)
         # _id_key = list(set(config.keys()).intersection(["id", "_id"]))
@@ -88,7 +87,7 @@ def parse_document_adding_json(response_json) -> Optional[document_adding_json]:
         return None
 
 
-def parse_rag_config_json(response_json) -> Optional[rag_config_json]:
+def parse_rag_config_json(response_json) -> rag_config_json | None:
     try:
         config = Munch.fromDict(response_json)
         _chatter = config.get("chatter", None)

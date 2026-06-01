@@ -4,13 +4,14 @@ import io
 import logging
 import pathlib
 import pickle
-from typing import Any, Callable, Optional, Union
+from collections.abc import Callable
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 def load_pickle(
-    file_path: Union[pathlib.Path, str, io.IOBase], logger: logging.Logger = None
+    file_path: pathlib.Path | str | io.IOBase, logger: logging.Logger = None
 ) -> Any:
     if logger is None:
         logger = logging.getLogger()
@@ -50,9 +51,9 @@ def unpickle_or_run(
     base_path: pathlib.Path,
     filename: str,
     overwrite: bool = False,
-    run: Optional[Callable] = None,
-    args: Optional[list] = None,
-    kwargs: Optional[dict] = None,
+    run: Callable | None = None,
+    args: list | None = None,
+    kwargs: dict | None = None,
 ) -> Any:
     args = [] if args is None else args
     kwargs = {} if kwargs is None else kwargs

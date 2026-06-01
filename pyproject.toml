@@ -103,6 +103,7 @@ select = [
     "E",   # pycodestyle errors
     "F",   # pyflakes
     "I",   # import sorting
+    "UP",  # pyupgrade modernization
 ]
 ignore = [
     "E501",  # line length is handled by the formatter where practical

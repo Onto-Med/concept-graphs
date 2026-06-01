@@ -1,7 +1,6 @@
 import copy
 import logging
 import pathlib
-from typing import Optional
 
 import spacy
 
@@ -52,7 +51,7 @@ def validate_negspacy_config(config) -> dict:
 def clean_span(
     chunk: spacy.tokens.Span,
     offset: tuple[int, int] = None,
-) -> Optional[dict]:
+) -> dict | None:
     _chunk_root_text = chunk.root.text.strip().replace("\t", "")
     _text, _lemma, _pos = [], [], []
     if offset is not None:

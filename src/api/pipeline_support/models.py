@@ -1,7 +1,6 @@
 """Data containers for pipeline route orchestration."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 import flask
 
@@ -28,9 +27,9 @@ class PipelineRequestData:
     data: object = False
     data_upload: bool = False
     document_server_config: object = False
-    vector_store_config: Optional[dict] = None
-    replace_keys: Optional[dict] = None
-    label_getter: Optional[str] = None
+    vector_store_config: dict | None = None
+    replace_keys: dict | None = None
+    label_getter: str | None = None
     labels: object = None
     data_config: object = None
     embedding_config: object = None

@@ -43,7 +43,7 @@ def load_spacy_model(spacy_model: str, logger: logging.Logger, default_model: st
     spacy_language = None
     try:
         spacy_language = spacy.load(spacy_model)
-    except IOError as e:
+    except OSError as e:
         if spacy_model != default_model:
             if is_valid_spacy_model(spacy_model):
                 logger.info(
@@ -55,7 +55,7 @@ def load_spacy_model(spacy_model: str, logger: logging.Logger, default_model: st
                 logger.error(f"{e}\nUsing default model {default_model}.")
                 try:
                     spacy_language = spacy.load(default_model)
-                except IOError as e:
+                except OSError as e:
                     logger.error(
                         f"{e}\ntrying to download default model {default_model}."
                     )

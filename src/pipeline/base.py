@@ -2,10 +2,11 @@
 
 import pathlib
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from copy import deepcopy
 from inspect import getfullargspec
 from pathlib import Path
-from typing import Any, Callable, Optional, Tuple, Union
+from typing import Any
 
 import flask
 import yaml
@@ -23,12 +24,12 @@ class BaseUtil(ABC):
         self._file_storage = pathlib.Path(file_storage)
         self._process_step = step_name
         self._process_name = None
-        self._thread: Optional[StoppableThread] = None
+        self._thread: StoppableThread | None = None
         self.config = None
 
     def _complete_pickle_path(
         self,
-        process: Optional[str],
+        process: str | None,
         extension: str = "pickle",
     ) -> pathlib.Path:
         return Path(
@@ -91,7 +92,7 @@ class BaseUtil(ABC):
         )
 
     @property
-    def process_name(self) -> Optional[str]:
+    def process_name(self) -> str | None:
         return self._process_name
 
     @process_name.setter
@@ -107,13 +108,13 @@ class BaseUtil(ABC):
         return self._file_storage
 
     @file_storage_path.setter
-    def file_storage_path(self, sub_path: Union[str, pathlib.Path]) -> None:
+    def file_storage_path(self, sub_path: str | pathlib.Path) -> None:
         self._file_storage = Path(self._file_storage / sub_path)
         self._file_storage.mkdir(exist_ok=True)  # ToDo: warning when folder exists
 
     @abstractmethod
     def has_process(
-        self, process: Optional[str] = None, extensions: Optional[list[str]] = None
+        self, process: str | None = None, extensions: list[str] | None = None
     ) -> bool:
         if extensions is None:
             return self._complete_pickle_path(process).exists()
@@ -124,8 +125,8 @@ class BaseUtil(ABC):
     @abstractmethod
     def delete_process(
         self,
-        process: Optional[str] = None,
-        extensions: Optional[list[str]] = None,
+        process: str | None = None,
+        extensions: list[str] | None = None,
     ) -> None:
         if self.has_process(process, extensions):
             if extensions is None:
@@ -137,10 +138,10 @@ class BaseUtil(ABC):
     @abstractmethod
     def read_config(
         self,
-        config: Optional[Union[FileStorage, dict]],
+        config: FileStorage | dict | None,
         process_name=None,
         language=None,
-    ) -> Optional[Response]:
+    ) -> Response | None:
         base_config = self.default_config
         is_default_config = True
         if isinstance(config, dict):
@@ -199,13 +200,13 @@ class BaseUtil(ABC):
         return self.process_step, config_yaml
 
     @abstractmethod
-    def _process_method(self) -> Optional[Callable]:
+    def _process_method(self) -> Callable | None:
         raise NotImplementedError()
 
     @abstractmethod
     def _load_pre_components(
-        self, cache_name, active_process_objs: Optional[dict[str, dict]] = None
-    ) -> Optional[Union[tuple, list]]:
+        self, cache_name, active_process_objs: dict[str, dict] | None = None
+    ) -> tuple | list | None:
         """
         Pre Components should be returned as a tuple or list; they will be provided to
         '_start_process' as its args. So when implementing both methods, one should be
@@ -216,7 +217,7 @@ class BaseUtil(ABC):
     @abstractmethod
     def _start_process(
         self, process_factory, *args, **kwargs
-    ) -> Tuple[bool, Union[str, Any]]:
+    ) -> tuple[bool, str | Any]:
         """
         Should return whether process was successful (and with it could provide the resulting object)
          and if not additional an error/exception message
@@ -259,9 +260,9 @@ class BaseUtil(ABC):
         cache_name: str,
         process_factory,
         process_tracker: dict,
-        active_process_objs: Optional[dict[str, dict]] = None,
+        active_process_objs: dict[str, dict] | None = None,
         return_result_obj: bool = False,
-        thread: Optional[StoppableThread] = None,
+        thread: StoppableThread | None = None,
         **kwargs,
     ):
         self.this_thread = thread

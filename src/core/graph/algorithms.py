@@ -3,7 +3,6 @@ import random
 import statistics
 import warnings
 from inspect import getfullargspec
-from typing import Optional
 
 import networkx as nx
 import numpy as np
@@ -27,7 +26,7 @@ def rank_nodes(graph: nx.Graph, algorithm="naive", **kwargs) -> dict:
 
 def unroll_graph(
     graph: nx.Graph,
-    reference_graph: Optional[nx.Graph] = None,
+    reference_graph: nx.Graph | None = None,
     rank_algorithm: str = "page_rank",
     weight: str = "weight",
 ) -> nx.Graph:
@@ -94,7 +93,7 @@ def unroll_graph(
 def simplify_graph_naive(
     g: nx.Graph,
     gamma: float = 0.5,
-    n_graph: Optional[int] = None,
+    n_graph: int | None = None,
     weight: str = "weight",
     assert_connected: bool = True,
 ) -> nx.Graph:
@@ -188,11 +187,11 @@ def sub_clustering(
     g: nx.Graph,
     g_reference: nx.Graph,  # the graph that wasn't pruned or unrolled
     gamma: float = 0.01,  # the factor by which the string similarity is penalized if no weight was recorded in graph
-    damping: Optional[float] = None,
-    max_iter: Optional[int] = None,
+    damping: float | None = None,
+    max_iter: int | None = None,
     inplace: bool = False,
     retries: int = 1,
-) -> Optional[nx.Graph]:
+) -> nx.Graph | None:
     """
     Returns a copy (or modifies in place) of the graph with annotated sub clusters.
     The exemplar nodes of each sub cluster have a node attribute '{root: True}' whereas the example nodes are just

@@ -1,5 +1,6 @@
 import logging
-from typing import Iterable, Optional, Union
+from collections.abc import Iterable
+from typing import Union
 
 import networkx as nx
 
@@ -10,7 +11,7 @@ class GraphIncorp:
         graphs: Iterable[nx.Graph],
     ):
         self._graphs = list(graphs)
-        self._last_result: Optional[list[tuple[str, bool]]] = None
+        self._last_result: list[tuple[str, bool]] | None = None
 
     @classmethod
     def with_graphs(cls, graphs: Iterable[nx.Graph]):
