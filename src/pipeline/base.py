@@ -14,6 +14,7 @@ from flask import Response, jsonify
 from munch import Munch, unmunchify
 from werkzeug.datastructures import FileStorage
 
+from src.common.parsing import string_conformity
 from src.common.threads import StoppableThread
 from src.pipeline.status import ProcessStatus, StepsName, add_status_to_running_process
 
@@ -171,10 +172,8 @@ class BaseUtil(ABC):
             _inter = set(base_config.keys()).intersection(self.necessary_config_keys)
             if not len(_inter) == len(self.necessary_config_keys):
                 raise KeyError(f"Missing necessary config values: '{_inter}'.")
-        base_config["corpus_name"] = (
-            process_name.lower()
-            if process_name is not None
-            else base_config["corpus_name"].lower()
+        base_config["corpus_name"] = string_conformity(
+            process_name if process_name is not None else base_config["corpus_name"]
         )
         self.config = base_config
         # ToDo: Since n_process > 1 would induce Multiprocessing and this doesn't work with the Threading approach

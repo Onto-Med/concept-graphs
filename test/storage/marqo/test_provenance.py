@@ -42,15 +42,31 @@ class FakeEmbeddingStore:
 class FakeMarqoIndex:
     def __init__(self):
         self.documents = {
+            "0": {
+                "_id": "0",
+                "documents": [{"id": "doc-a", "offsets": [[1, 2]]}],
+            },
+            "1": {
+                "_id": "1",
+                "documents": [
+                    {"id": "doc-a", "offsets": [[3, 4]]},
+                    {"id": "doc-b", "offsets": [[5, 6]]},
+                ],
+            },
+            "2": {"_id": "2", "documents": [{"id": "doc-c", "offsets": []}]},
             "42": {
                 "_id": "42",
                 "documents": [{"id": "doc-a", "offsets": [[1, 2]]}],
-            }
+            },
         }
         self.updated_documents = []
         self.deleted_documents = []
 
     def get_document(self, embedding_id):
+        if embedding_id not in self.documents:
+            from marqo.errors import MarqoWebError
+
+            raise MarqoWebError(message="missing", code="missing", error_type="missing")
         return self.documents[embedding_id]
 
     def update_documents(self, documents, client_batch_size=None):
@@ -65,6 +81,10 @@ class FakeMarqoIndex:
 class FakeMarqoEmbeddingStore(MarqoEmbeddingStore):
     def __init__(self):
         self.index = FakeMarqoIndex()
+
+    @property
+    def store_size(self) -> int:
+        return 4
 
     @property
     def marqo_index(self):
@@ -144,3 +164,45 @@ def test_embedding_store_remove_document_provenance_deletes_unreferenced_embeddi
 
     assert store.index.deleted_documents == ["42"]
     assert store.index.updated_documents == []
+
+
+def test_embedding_store_remove_document_provenance_updates_when_references_remain():
+    store = FakeMarqoEmbeddingStore()
+
+    assert store.remove_document_provenance("1", "doc-a", delete_if_unreferenced=True)
+
+    assert store.index.deleted_documents == []
+    assert store.index.updated_documents == [
+        {"_id": "1", "documents": [{"id": "doc-b", "offsets": [[5, 6]]}]}
+    ]
+    assert store.index.documents["1"]["documents"] == [
+        {"id": "doc-b", "offsets": [[5, 6]]}
+    ]
+
+
+def test_embedding_store_finds_embedding_ids_for_document():
+    store = FakeMarqoEmbeddingStore()
+
+    assert store.find_embedding_ids_for_document("doc-a") == ["0", "1"]
+    assert store.find_embedding_ids_for_document("doc-c") == ["2"]
+    assert store.find_embedding_ids_for_document("missing") == []
+
+
+def test_embedding_store_removes_document_provenance_from_all_matches():
+    store = FakeMarqoEmbeddingStore()
+
+    result = store.remove_document_provenance_from_all(
+        "doc-a", delete_if_unreferenced=True
+    )
+
+    assert result == {"matched": ["0", "1"], "updated": ["0", "1"], "failed": []}
+    assert store.index.deleted_documents == ["0"]
+    assert store.index.updated_documents == [
+        {"_id": "1", "documents": [{"id": "doc-b", "offsets": [[5, 6]]}]}
+    ]
+
+
+def test_embedding_store_remove_document_provenance_returns_false_for_missing_id():
+    store = FakeMarqoEmbeddingStore()
+
+    assert not store.remove_document_provenance("missing", "doc-a")

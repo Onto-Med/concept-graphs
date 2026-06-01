@@ -1,6 +1,6 @@
 services:
   concept-graphs-api:
-    image: imise/top/concept-graphs-api:0.9.6
+    image: imise/top/concept-graphs-api:1.0.0
     restart: unless-stopped
     ports:
       - 9007:9007

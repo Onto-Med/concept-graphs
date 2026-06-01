@@ -67,7 +67,7 @@ def test_delete_document_from_concept_graphs_updates_graph_and_vectorstore(tmp_p
         process_name=process,
         vectorstore_server={"client_url": "http://example.test", "index_name": "idx"},
         delete_unreferenced_embeddings=True,
-        embedding_store_cls="test.test_document_deletion.FakeDeleteEmbeddingStore",
+        embedding_store_cls="test.pipeline.test_document_deletion.FakeDeleteEmbeddingStore",
     )
 
     assert status == HTTPResponses.OK
