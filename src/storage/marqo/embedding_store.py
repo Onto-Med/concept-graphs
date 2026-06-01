@@ -48,7 +48,11 @@ class MarqoEmbeddingStore(EmbeddingStore):
         self.index_settings.update(index_settings)
 
     def _doc_representation(
-        self, did: Union[str, int], vec: Union[list, np.ndarray], cont: Optional[str]
+        self,
+        did: Union[str, int],
+        vec: Union[list, np.ndarray],
+        cont: Optional[str],
+        metadata: Optional[dict] = None,
     ) -> dict:
         _d = {
             "_id": str(did),
@@ -58,6 +62,8 @@ class MarqoEmbeddingStore(EmbeddingStore):
                 "vector": vec.tolist() if isinstance(vec, np.ndarray) else vec
             },
         }
+        if metadata:
+            _d.update(metadata)
         return _d
 
     @staticmethod
@@ -145,17 +151,21 @@ class MarqoEmbeddingStore(EmbeddingStore):
         _field = "graph_cluster"
 
         def _check_id_iter(_):
-            if isinstance(check_id, Iterable):
+            if isinstance(check_id, Iterable) and not isinstance(check_id, str):
                 return enumerate(check_id)
             return [(0, check_id)]
 
         _additions = []
         _retained = []
-        _docs_to_add = []
         _max = 0
         for i, _cid in _check_id_iter(check_id):
             _max += 1
             _cid = str(_cid)
+            try:
+                _current_doc = self.marqo_index.get_document(_cid)
+            except MarqoWebError:
+                logging.warning("Id doesn't exist '%s'.", _cid)
+                continue
             # returns the added vector and the next similar;
             # if the embeddings are nearly the same (float scores are turned to int) the new one will be deleted
             _rec_result = self.marqo_index.recommend(
@@ -180,18 +190,22 @@ class MarqoEmbeddingStore(EmbeddingStore):
                     _additions.append(
                         (
                             i,
-                            _that,
-                        )
-                        if _that.get("_id") == _cid
-                        else (
-                            i,
-                            _this,
+                            _current_doc,
                         )
                     )
         _documents = [
-            self._doc_representation(
-                did=i, vec=self.get_embedding(d[1]["_id"]), cont=d[1]["phrase"]
-            )
+            {
+                **self._doc_representation(
+                    did=i, vec=self.get_embedding(d[1]["_id"]), cont=d[1]["phrase"]
+                ),
+                **{
+                    k: v
+                    for k, v in d[1].items()
+                    if not k.startswith("_")
+                    and k not in {"phrase", self._vector_name, "graph_cluster"}
+                },
+                "graph_cluster": d[1].get("graph_cluster", []),
+            }
             for i, d in enumerate(_additions)
         ]
         self.delete_embeddings([x for _, x in _check_id_iter(check_id)])
@@ -359,6 +373,29 @@ class MarqoEmbeddingStore(EmbeddingStore):
             logging.error(e)
         return None
 
+    @staticmethod
+    def _merge_document_provenance(
+        existing_documents: list[dict], new_documents: Iterable[dict]
+    ) -> list[dict]:
+        merged_documents = [dict(document) for document in existing_documents]
+        documents_by_id = {
+            document.get("id"): document
+            for document in merged_documents
+            if document.get("id") is not None
+        }
+        for new_document in new_documents:
+            document_id = new_document.get("id")
+            if document_id is None or document_id not in documents_by_id:
+                merged_documents.append(dict(new_document))
+                if document_id is not None:
+                    documents_by_id[document_id] = merged_documents[-1]
+                continue
+            existing_offsets = documents_by_id[document_id].setdefault("offsets", [])
+            for offset in new_document.get("offsets", []):
+                if offset not in existing_offsets:
+                    existing_offsets.append(offset)
+        return merged_documents
+
     def update_embedding(self, embedding_id: str, **kwargs) -> bool:
         _doc = {"_id": embedding_id}
         _doc.update(kwargs)
@@ -371,6 +408,84 @@ class MarqoEmbeddingStore(EmbeddingStore):
         except MarqoWebError as e:
             logging.error(e)
             return False
+
+    @staticmethod
+    def _remove_document_provenance(
+        existing_documents: list[dict], document_id: str
+    ) -> list[dict]:
+        return [
+            document
+            for document in existing_documents
+            if str(document.get("id")) != str(document_id)
+        ]
+
+    def add_document_provenance(
+        self, embedding_id: str, documents: Iterable[dict]
+    ) -> bool:
+        try:
+            existing_document = self.marqo_index.get_document(str(embedding_id))
+        except MarqoWebError as e:
+            logging.error(e)
+            return False
+        merged_documents = self._merge_document_provenance(
+            existing_document.get("documents", []), documents
+        )
+        return self.update_embedding(str(embedding_id), documents=merged_documents)
+
+    def remove_document_provenance(
+        self,
+        embedding_id: str,
+        document_id: str,
+        delete_if_unreferenced: bool = False,
+    ) -> bool:
+        try:
+            existing_document = self.marqo_index.get_document(str(embedding_id))
+        except MarqoWebError as e:
+            logging.error(e)
+            return False
+        remaining_documents = self._remove_document_provenance(
+            existing_document.get("documents", []), document_id
+        )
+        if delete_if_unreferenced and len(remaining_documents) == 0:
+            return self.delete_embedding(str(embedding_id))
+        return self.update_embedding(str(embedding_id), documents=remaining_documents)
+
+    def find_embedding_ids_for_document(self, document_id: str) -> list[str]:
+        """Find vector-store entries that reference a document ID in provenance.
+
+        Marqo does not expose a project-specific manifest here, so this scans the
+        currently known numeric embedding IDs. The surrounding code already treats
+        Marqo IDs as numeric strings assigned from the current store size.
+        """
+        matching_ids = []
+        for embedding_id in [str(_id) for _id in range(self.store_size)]:
+            try:
+                document = self.marqo_index.get_document(embedding_id)
+            except MarqoWebError:
+                continue
+            if any(
+                str(doc.get("id")) == str(document_id)
+                for doc in document.get("documents", [])
+            ):
+                matching_ids.append(embedding_id)
+        return matching_ids
+
+    def remove_document_provenance_from_all(
+        self, document_id: str, delete_if_unreferenced: bool = False
+    ) -> dict[str, list[str]]:
+        embedding_ids = self.find_embedding_ids_for_document(document_id)
+        updated = []
+        failed = []
+        for embedding_id in embedding_ids:
+            if self.remove_document_provenance(
+                embedding_id,
+                document_id,
+                delete_if_unreferenced=delete_if_unreferenced,
+            ):
+                updated.append(embedding_id)
+            else:
+                failed.append(embedding_id)
+        return {"matched": embedding_ids, "updated": updated, "failed": failed}
 
     def update_embeddings(
         self, embedding_ids: list[str], values: list[dict]

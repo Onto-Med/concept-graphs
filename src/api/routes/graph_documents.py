@@ -4,9 +4,12 @@ from flask import Blueprint, jsonify, request
 
 from src.api.request_parsing import parse_document_adding_json
 from src.api.responses import HTTPResponses
-from src.common.parsing import string_conformity
+from src.common.parsing import get_bool_expression, string_conformity
 from src.common.threads import StoppableThread
-from src.pipeline.document_addition import add_documents_to_concept_graphs
+from src.pipeline.document_addition import (
+    add_documents_to_concept_graphs,
+    delete_document_from_concept_graphs,
+)
 from src.pipeline.processes import start_thread
 from src.pipeline.status import StepsName
 
@@ -19,20 +22,20 @@ def create_graph_document_blueprint(app, processes, pipeline, storage):
     def graph_document(path_arg=None):
         process = string_conformity(request.args.get("process", "default"))
         method = request.method
-        if request.headers.get("Content-Type") == "application/json":
-            content_json = parse_document_adding_json(request.get_json())
-            if content_json is None:
-                return (
-                    jsonify(error="Could not parse json provided in request."),
-                    HTTPResponses.BAD_REQUEST,
-                )
-        else:
-            return (
-                jsonify(error="Only json request body is supported."),
-                HTTPResponses.NOT_IMPLEMENTED,
-            )
 
         if method == "POST" and path_arg is not None and path_arg.lower() == "add":
+            if request.headers.get("Content-Type") == "application/json":
+                content_json = parse_document_adding_json(request.get_json())
+                if content_json is None:
+                    return (
+                        jsonify(error="Could not parse json provided in request."),
+                        HTTPResponses.BAD_REQUEST,
+                    )
+            else:
+                return (
+                    jsonify(error="Only json request body is supported."),
+                    HTTPResponses.NOT_IMPLEMENTED,
+                )
             data_proc = pipeline.active_objects.get(process, {}).get(
                 StepsName.DATA, None
             )
@@ -68,10 +71,30 @@ def create_graph_document_blueprint(app, processes, pipeline, storage):
                 HTTPResponses.OK,
             )
         if method == "DELETE" and path_arg is not None:
-            return (
-                jsonify(error="'Delete' not implemented."),
-                HTTPResponses.NOT_IMPLEMENTED,
+            request_json = request.get_json(silent=True) or {}
+            vectorstore_server = request_json.get("vectorstore_server")
+            emb_proc = pipeline.active_objects.get(process, {}).get(
+                StepsName.EMBEDDING, None
             )
+            graph_proc = pipeline.active_objects.get(process, {}).get(
+                StepsName.GRAPH, None
+            )
+            path_base = storage.file_storage_dir / process
+            result, status = delete_document_from_concept_graphs(
+                document_id=path_arg,
+                embedding_processing=emb_proc,
+                graph_processing=graph_proc,
+                storage_path=path_base,
+                process_name=process,
+                vectorstore_server=vectorstore_server,
+                remove_unreferenced_nodes=get_bool_expression(
+                    request.args.get("remove_unreferenced_nodes", True)
+                ),
+                delete_unreferenced_embeddings=get_bool_expression(
+                    request.args.get("delete_unreferenced_embeddings", False)
+                ),
+            )
+            return jsonify(result), status
 
         err_msg = f"Either method 'POST' or 'DELETE' expected, but '{method.upper()}' was given instead."
         if path_arg is None:

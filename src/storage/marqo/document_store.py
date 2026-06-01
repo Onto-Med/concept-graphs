@@ -12,6 +12,57 @@ class MarqoDocumentStore(DocumentStore):
     def __init__(self, embedding_store: MarqoEmbeddingStore):
         self._embedding_store = embedding_store
 
+    @staticmethod
+    def _document_obj(
+        document: Union[MarqoDocument, tuple[MarqoDocument, dict]], as_tuple: bool
+    ) -> MarqoDocument:
+        return document[0] if as_tuple and isinstance(document, tuple) else document
+
+    @staticmethod
+    def _additional_info(
+        document: Union[MarqoDocument, tuple[MarqoDocument, dict]], as_tuple: bool
+    ) -> dict:
+        return document[1] if as_tuple and isinstance(document, tuple) else {}
+
+    def _provenance_for_phrase(
+        self,
+        document: Union[MarqoDocument, tuple[MarqoDocument, dict]],
+        phrase_index: int,
+        as_tuple: bool,
+    ) -> dict:
+        document_obj = self._document_obj(document, as_tuple)
+        if document_obj.id is None:
+            return {}
+        additional_info = self._additional_info(document, as_tuple)
+        offsets = additional_info.get("offsets", [])
+        return {
+            "documents": [
+                {
+                    "id": document_obj.id,
+                    "offsets": offsets[phrase_index]
+                    if phrase_index < len(offsets)
+                    else [],
+                }
+            ],
+            "source": "document_addition",
+        }
+
+    def _embedding_documents(
+        self,
+        document: Union[MarqoDocument, tuple[MarqoDocument, dict]],
+        as_tuple: bool,
+    ) -> list[dict]:
+        document_obj = self._document_obj(document, as_tuple)
+        return [
+            self._embedding_store._doc_representation(
+                did=idx,
+                vec=embedding,
+                cont=phrase,
+                metadata=self._provenance_for_phrase(document, idx, as_tuple),
+            )
+            for idx, (phrase, embedding) in enumerate(document_obj.as_tuples)
+        ]
+
     def add_document(
         self,
         document: Union[MarqoDocument, tuple[MarqoDocument, dict]],
@@ -21,14 +72,19 @@ class MarqoDocumentStore(DocumentStore):
         _field = "graph_cluster"
         _last_store_id: int = self._embedding_store.store_size - 1
         _stored = self._embedding_store.store_embeddings(
-            embeddings=(
-                document[0].as_tuples
-                if as_tuple and isinstance(document, tuple)
-                else document.as_tuples
-            ),
+            embeddings=self._embedding_documents(document, as_tuple),
             check_for_same=True,
         )
         _ids = _stored.get("added", set())
+        for retained_id, retained_idx in zip(
+            _stored.get("retained", []), _stored.get("retained_idx", [])
+        ):
+            provenance = self._provenance_for_phrase(document, retained_idx, as_tuple)
+            if provenance.get("documents"):
+                self._embedding_store.add_document_provenance(
+                    retained_id, provenance["documents"]
+                )
+
         if not any(_ids):
             return {
                 "with_graph": {"added": [], "incorporated": []},

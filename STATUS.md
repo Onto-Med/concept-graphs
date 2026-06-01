@@ -29,6 +29,8 @@ Major completed work includes:
 - split of large core modules into `src/core/data`, `src/core/clustering`, and `src/core/graph`
 - split of Marqo storage helpers into `src/storage/marqo`
 - OpenAPI/Swagger UI review and cleanup
+- Marqo document provenance for vector-store document additions
+- `DELETE /graph/document/{document_id}` endpoint implementation
 - NetworkX-only pruning support
 - `binom_test` replacement with `binomtest`
 
@@ -517,6 +519,33 @@ DELETE /graph/document/<path_arg>   # returns 501 / not implemented
 
 A later cleanup can remove or fully implement/document these methods.
 
+### Marqo document provenance
+
+Completed.
+
+Document additions now store provenance metadata on Marqo vector-store entries:
+
+```json
+{
+  "documents": [{"id": "document-id", "offsets": [[0, 10]]}],
+  "source": "document_addition"
+}
+```
+
+Retained/deduplicated phrase entries are also updated with the new document provenance. Added vector-store-side tests in `test/test_marqo_provenance.py`.
+
+### Graph document deletion
+
+Completed.
+
+Implemented:
+
+```text
+DELETE /graph/document/{document_id}
+```
+
+The endpoint removes document references from serialized graph nodes and removes Marqo provenance when vector-store configuration is available. It can optionally remove unreferenced graph nodes and unreferenced vector-store entries. Added OpenAPI documentation and tests in `test/test_document_deletion.py`.
+
 ## Remaining Issues / Recommended Next Steps
 
 ### 1. Expand Ruff gradually
@@ -561,4 +590,4 @@ The major application-structure refactors are complete. The project now has a mu
 - Ruff as project formatter/linter
 - passing test suite
 
-The next best investments are expanding Ruff gradually, improving runtime/config documentation, and optionally continuing deeper decomposition of still-sizeable domain modules such as `src/core/clustering/word_embedding.py`, `src/core/data/factory.py`, and `src/storage/marqo/embedding_store.py`.
+The next best investments are expanding Ruff gradually, improving runtime/config documentation, and optionally continuing deeper decomposition of still-sizeable domain modules such as `src/core/clustering/word_embedding.py`, `src/core/data/factory.py`, `src/storage/marqo/embedding_store.py`, and `src/pipeline/document_addition.py`.

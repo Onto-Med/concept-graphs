@@ -340,7 +340,9 @@ paths:
       example: '?'
     get:
       summary: Ask the active RAG component a question
-      description: Uses the ready RAG component for the selected process to retrieve relevant document chunks and generate an answer. The question is supplied via the `q` query parameter.
+      description: Uses the ready RAG component for the selected process to retrieve
+        relevant document chunks and generate an answer. The question is supplied
+        via the `q` query parameter.
       responses:
         '200':
           description: The answer
@@ -355,7 +357,10 @@ paths:
       operationId: askRagQuestion
     post:
       summary: Ask the active RAG component a question with document filters
-      description: Uses the ready RAG component for the selected process to retrieve relevant document chunks and generate an answer. The question is supplied via the `q` query parameter; the optional JSON body can restrict retrieval to specific document IDs and set the chunk limit.
+      description: Uses the ready RAG component for the selected process to retrieve
+        relevant document chunks and generate an answer. The question is supplied
+        via the `q` query parameter; the optional JSON body can restrict retrieval
+        to specific document IDs and set the chunk limit.
       requestBody:
         required: false
         content:
@@ -464,6 +469,59 @@ paths:
       tags:
       - Status
       operationId: getRagStatus
+  /graph/document/{document_id}:
+    parameters:
+    - $ref: '#/components/parameters/process_name'
+    - name: document_id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: ID of the added document to remove from graph/vector-store provenance.
+    delete:
+      tags:
+      - Graph documents
+      operationId: deleteGraphDocument
+      summary: Remove an added document from concept graph provenance
+      description: Removes the document references from serialized concept graphs
+        and, when vector-store provenance is available, removes the document provenance
+        from matching Marqo entries. Embedding entries can optionally be deleted when
+        no document references remain.
+      parameters:
+      - name: remove_unreferenced_nodes
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: true
+        description: Remove graph nodes that have no remaining document references
+          after deletion.
+      - name: delete_unreferenced_embeddings
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: false
+        description: Delete vector-store entries when removing this document leaves
+          no document provenance on the entry.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                vectorstore_server:
+                  type: object
+      responses:
+        '200':
+          description: Document provenance was removed.
+        '400':
+          description: Malformed request.
+        '404':
+          description: Document provenance or graph data was not found.
+        '500':
+          description: Unexpected deletion error.
 components:
   schemas:
     Status:
