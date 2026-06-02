@@ -53,7 +53,11 @@ def truncate_text(text, token_limit, highlight=None, lang: str = "en"):
     """
     truncates text to a token limit centered on the highlight text
     """
+    return truncate_text_with_offsets(text, token_limit, highlight, lang)[0]
 
+
+def truncate_text_with_offsets(text, token_limit, highlight=None, lang: str = "en"):
+    """Truncate text and return ``(snippet, start, end)`` within the input text."""
     if highlight is None:
         method: _method_literal = "start"
         center_ind = 0  # this will not be used for this start method
@@ -68,7 +72,7 @@ def truncate_text(text, token_limit, highlight=None, lang: str = "en"):
             logging.warning(
                 "Could not find highlight index in text; using text value. Might exceed token limit."
             )
-            return text
+            return text, 0, len(text)
         # get the center of the highlight in chars
         center_ind = (max(inds) - min(inds)) // 2 + min(inds)
         # now map this to tokens and get the left/right char indices to achieve token limit
@@ -76,9 +80,11 @@ def truncate_text(text, token_limit, highlight=None, lang: str = "en"):
     ind_left, ind_right = get_token_indices(
         text, token_limit, method=method, offset=center_ind, lang=lang
     )
-    trunc_text = text[min(ind_left) : max(ind_right)]
+    snippet_start = min(ind_left)
+    snippet_end = max(ind_right)
+    trunc_text = text[snippet_start:snippet_end]
 
-    return trunc_text
+    return trunc_text, snippet_start, snippet_end
 
 
 def get_token_indices(
@@ -160,12 +166,17 @@ def extract_text_from_highlights(
         highlight_text = list(highlight_list[0].values())[0]
         text = hit.get(highlight_key, "")
 
+        snippet_start_in_chunk = 0
+        snippet_end_in_chunk = len(text)
         if truncate:
             text = " ".join(text.split())
             highlight_text = " ".join(highlight_text.split())
-            text = truncate_text(text, token_limit, highlight_text, lang)
+            text, snippet_start_in_chunk, snippet_end_in_chunk = (
+                truncate_text_with_offsets(text, token_limit, highlight_text, lang)
+            )
 
         highlight_offsets = find_highlight_index_in_text(text, highlight_text)
+        chunk_start = hit.get("chunk_start")
         hit_metadata = {
             k: hit.get(k)
             for k in hit.keys()
@@ -174,6 +185,8 @@ def extract_text_from_highlights(
         hit_metadata.update(
             {
                 "retrieved_snippet": text,
+                "retrieved_snippet_start": snippet_start_in_chunk,
+                "retrieved_snippet_end": snippet_end_in_chunk,
                 "highlight": highlight_text,
                 "highlight_field": highlight_key,
                 "highlight_start": None
@@ -183,6 +196,15 @@ def extract_text_from_highlights(
                 if highlight_offsets is None
                 else highlight_offsets[1],
                 "offset_unit": "retrieved_snippet_char",
+                "document_highlight_start": None
+                if highlight_offsets is None or chunk_start is None
+                else chunk_start + snippet_start_in_chunk + highlight_offsets[0],
+                "document_highlight_end": None
+                if highlight_offsets is None or chunk_start is None
+                else chunk_start + snippet_start_in_chunk + highlight_offsets[1],
+                "document_offset_unit": "document_char"
+                if chunk_start is not None
+                else None,
                 "retrieved_snippet_index": ind,
             }
         )

@@ -52,6 +52,16 @@ def initialize_chunk_vectorstore(
                     "type": "int",
                     "features": ["filter"],
                 },
+                {
+                    "name": "chunk_start",
+                    "type": "int",
+                    "features": ["filter"],
+                },
+                {
+                    "name": "chunk_end",
+                    "type": "int",
+                    "features": ["filter"],
+                },
                 {"name": "text", "type": "text", "features": ["lexical_search"]},
             ],
             "tensorFields": ["text"],
@@ -187,10 +197,22 @@ def fill_chunk_vectorstore(process: str, rag, storage, pipeline, **kwargs) -> bo
                 for key in _split_options.get("keep_metadata", [])
                 if key in metadata
             }
+            chunk_offsets = metadata.get("chunk_offsets", [])
             for chunk_index, chunk in enumerate(chunk_group):
+                chunk_start, chunk_end = (
+                    chunk_offsets[chunk_index]
+                    if chunk_index < len(chunk_offsets)
+                    else (None, None)
+                )
+                chunk_metadata = {"chunk_index": chunk_index}
+                if chunk_start is not None:
+                    chunk_metadata["chunk_start"] = chunk_start
+                if chunk_end is not None:
+                    chunk_metadata["chunk_end"] = chunk_end
                 chunks.append(
                     dict(
-                        {_field: chunk, "chunk_index": chunk_index},
+                        {_field: chunk},
+                        **chunk_metadata,
                         **kept_metadata,
                     )
                 )
