@@ -21,6 +21,20 @@ def no_source_answer(language: str | None = None) -> str:
     return "No source I can find."
 
 
+def _clean_answer(answer: Any) -> Any:
+    """Remove common prompt-echo tails while keeping the generated answer."""
+    content = getattr(answer, "content", answer)
+    if not isinstance(content, str):
+        return answer
+
+    text = content.strip()
+    for marker in ["=========", "\nFRAGE:", "\nQUESTION:", "\nQUELLEN:", "\nSOURCES:"]:
+        marker_index = text.find(marker)
+        if marker_index > 0:
+            return text[:marker_index].strip()
+    return text
+
+
 class RAG:
     def __init__(self, chatter: Chatter | str, language: str | None = None):
         self._language = language
@@ -210,21 +224,11 @@ class RAG:
             document.page_content for document in documents.values()
         )
         try:
-            chain = self._prompt | self._initialized_chatter.bind(
-                stop=[
-                    "=========",
-                    "QUESTION:",
-                    "FRAGE:",
-                    "SOURCES:",
-                    "QUELLEN:",
-                    "ANSWER:",
-                    "ANTWORT:",
-                ]
-            )
-            return True, chain.invoke(
+            answer = (self._prompt | self._initialized_chatter).invoke(
                 {"summaries": summaries, "question": question},
                 return_only_outputs=True,
             )
+            return True, _clean_answer(answer)
         except (LangChainException, RuntimeError, ValueError, TypeError) as e:
             logging.warning("RAG invocation failed: %s", e)
             return False, e
