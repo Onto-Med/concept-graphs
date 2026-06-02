@@ -1,4 +1,5 @@
 import logging
+import os
 import pathlib
 
 import flask
@@ -15,7 +16,15 @@ from src.pipeline.processes import populate_running_processes
 
 
 def configure_logging(logging_setup_tuples: list[tuple] | None = None) -> None:
-    """Configure application logging defaults."""
+    """Configure application logging defaults.
+
+    ``LOG_LEVEL`` controls application/root logging and defaults to ``INFO`` so
+    operational messages such as RAG indexing progress are visible in container
+    logs. Noisy dependency loggers are still kept at warning level by default.
+    """
+    log_level_name = os.getenv("LOG_LEVEL", "INFO").upper()
+    log_level = getattr(logging, log_level_name, logging.INFO)
+
     if logging_setup_tuples is None:
         logging_setup_tuples = [
             ("werkzeug", logging.WARN),
@@ -26,9 +35,11 @@ def configure_logging(logging_setup_tuples: list[tuple] | None = None) -> None:
         logging.getLogger(logger_name).setLevel(level)
 
     root_logger = logging.getLogger()
+    root_logger.setLevel(log_level)
     root_logger.propagate = False
     if root_logger.hasHandlers():
         root_logger.handlers.clear()
+    flask.logging.default_handler.setLevel(log_level)
     root_logger.addHandler(flask.logging.default_handler)
 
 

@@ -8,6 +8,7 @@ from typing import cast
 
 from marqo.errors import MarqoError
 
+from src.common.parsing import string_conformity
 from src.pipeline.load_utils import FactoryLoader
 from src.pipeline.status import StepsName
 from src.rag.embedding_stores.base import ChunkEmbeddingStore
@@ -20,8 +21,11 @@ def initialize_chunk_vectorstore(
     chunk_store: str = "src.rag.embedding_stores.marqo.MarqoChunkEmbeddingStore",
     force_init: bool = False,
 ):
+    process_name = string_conformity(process_name)
     if config is None:
         config = {"index_settings": None}
+    else:
+        config = dict(config)
     if config.get("index_settings", None) is None or len(config["index_settings"]) == 0:
         config["index_settings"] = {
             "type": "structured",
@@ -47,15 +51,37 @@ def initialize_chunk_vectorstore(
             ],
             "tensorFields": ["text"],
         }
+    index_name = f"{process_name}_rag"
+    url = config.pop("url", "http://localhost")
+    port = config.pop("port", 8882)
+    logging.info(
+        "[initialize_chunk_vectorstore] Initializing RAG vector store index='%s' url='%s' port=%s force_init=%s",
+        index_name,
+        url,
+        port,
+        force_init,
+    )
     chunk_store: ChunkEmbeddingStore = cast(
         ChunkEmbeddingStore, locate(chunk_store)
     ).from_config(
-        index_name=f"{process_name}_rag",
-        url=config.pop("url", "http://localhost"),
-        port=config.pop("port", 8882),
+        index_name=index_name,
+        url=url,
+        port=port,
         force_init=force_init,
         **config,
     )
+    try:
+        logging.info(
+            "[initialize_chunk_vectorstore] RAG vector store index='%s' filled=%s",
+            index_name,
+            chunk_store.is_filled(),
+        )
+    except Exception as exc:
+        logging.warning(
+            "[initialize_chunk_vectorstore] Could not inspect RAG vector store index='%s': %s",
+            index_name,
+            exc,
+        )
     return chunk_store
 
 
@@ -67,6 +93,10 @@ def fill_chunk_vectorstore(process: str, rag, storage, pipeline, **kwargs) -> bo
     :param kwargs: e.g. splitter=splitter-config-dict
     :return:
     """
+    process = string_conformity(process)
+    logging.info(
+        "[fill_chunk_vectorstore] Starting RAG indexing for process '%s'.", process
+    )
     _splitter_class = PreprocessedSpacyTextSplitter
     _split_options = {
         "doc_metadata_key": kwargs.get("splitter", {}).pop(
@@ -91,8 +121,15 @@ def fill_chunk_vectorstore(process: str, rag, storage, pipeline, **kwargs) -> bo
         return False
     if not _rag.initializing:
         _rag.initializing = True
+        data_path = str(pathlib.Path(storage.file_storage_dir, process).resolve())
+        logging.info(
+            "[fill_chunk_vectorstore] Loading DATA object for process '%s' from '%s'. Active pipeline keys: %s",
+            process,
+            data_path,
+            list(pipeline.active_objects.keys()),
+        )
         data_obj = FactoryLoader.with_active_objects(
-            str(pathlib.Path(storage.file_storage_dir, process).resolve()),
+            data_path,
             process,
             pipeline.active_objects,
             StepsName.DATA,
@@ -105,6 +142,12 @@ def fill_chunk_vectorstore(process: str, rag, storage, pipeline, **kwargs) -> bo
             logging.error("[fill_chunk_vectorstore] %s", error)
             _rag.mark_not_ready(error)
             return False
+        processed_docs = getattr(data_obj, "processed_docs", None)
+        logging.info(
+            "[fill_chunk_vectorstore] Loaded DATA object type=%s processed_docs=%s",
+            type(data_obj).__name__,
+            "missing" if processed_docs is None else len(processed_docs),
+        )
         splitter = _splitter_class(**_splitter_options)
 
         try:
@@ -117,6 +160,11 @@ def fill_chunk_vectorstore(process: str, rag, storage, pipeline, **kwargs) -> bo
         _documents = splitter.split_preprocessed_sentences(
             data_obj.processed_docs, **_split_options
         )
+        logging.info(
+            "[fill_chunk_vectorstore] Split process '%s' into %s document chunk groups.",
+            process,
+            len(_documents),
+        )
         _field = "text"
         chunks = [
             dict(
@@ -126,6 +174,11 @@ def fill_chunk_vectorstore(process: str, rag, storage, pipeline, **kwargs) -> bo
             for t in _documents
             for d in t[0]
         ]
+        logging.info(
+            "[fill_chunk_vectorstore] Prepared %s chunks for RAG index '%s'.",
+            len(chunks),
+            getattr(_rag.vectorstore, "index_name", f"{process}_rag"),
+        )
         if not chunks:
             error = f"No RAG chunks were produced for process '{process}'."
             logging.error("[fill_chunk_vectorstore] %s", error)
@@ -136,6 +189,11 @@ def fill_chunk_vectorstore(process: str, rag, storage, pipeline, **kwargs) -> bo
             chunks,
             # _field,
         )
+        logging.info(
+            "[fill_chunk_vectorstore] Submitted %s chunks to RAG index '%s'.",
+            len(chunks),
+            getattr(_rag.vectorstore, "index_name", f"{process}_rag"),
+        )
 
         if not _rag.vectorstore.is_filled():
             error = f"RAG vector store for process '{process}' is still empty after filling."
@@ -143,6 +201,11 @@ def fill_chunk_vectorstore(process: str, rag, storage, pipeline, **kwargs) -> bo
             _rag.mark_not_ready(error)
             return False
 
+        logging.info(
+            "[fill_chunk_vectorstore] Finished RAG indexing for process '%s'. vectorstore_filled=True document_count=%s",
+            process,
+            getattr(_rag.vectorstore, "document_count", lambda: "unknown")(),
+        )
         _rag.mark_ready()
         return True
     else:

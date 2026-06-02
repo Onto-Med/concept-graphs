@@ -18,6 +18,13 @@ class MarqoChunkEmbeddingStore(ChunkEmbeddingStore):
         self._index_name: str = index_name
         self._config: dict = config if config is not None else {}
 
+    @property
+    def index_name(self) -> str:
+        return self._index_name
+
+    def document_count(self) -> int:
+        return self._client.index(self._index_name).get_stats()["numberOfDocuments"]
+
     def _init_index(self):
         self._client.create_index(
             index_name=self._index_name, settings_dict=self._config
@@ -51,7 +58,7 @@ class MarqoChunkEmbeddingStore(ChunkEmbeddingStore):
         return _store
 
     def is_filled(self) -> bool:
-        return self._client.index(self._index_name).get_stats()["numberOfDocuments"] > 0
+        return self.document_count() > 0
 
     def reset_index(self, with_settings: dict[str, Any] | None = None) -> None:
         _settings = (

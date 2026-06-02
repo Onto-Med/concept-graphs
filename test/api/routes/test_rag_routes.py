@@ -99,14 +99,20 @@ def test_rag_init_keeps_active_rag_per_process(monkeypatch, tmp_path):
     assert client.get("/status/rag?process=corpus_a").json == {
         "active": True,
         "error": None,
+        "initializing": False,
         "name": "corpus_a",
+        "vectorstore_document_count": None,
         "vectorstore_filled": True,
+        "vectorstore_index": None,
     }
     assert client.get("/status/rag?process=corpus_b").json == {
         "active": True,
         "error": None,
+        "initializing": False,
         "name": "corpus_b",
+        "vectorstore_document_count": None,
         "vectorstore_filled": True,
+        "vectorstore_index": None,
     }
 
 
