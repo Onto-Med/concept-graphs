@@ -48,9 +48,23 @@ def create_status_blueprint(app, rag):
         process = string_conformity(request.args.get("process", "default"))
         active_rag = rag.active_by_process.get(process)
         if active_rag is not None:
-            return jsonify(active=active_rag.ready, name=process, error=None), int(
-                HTTPResponses.OK
-            )
+            try:
+                vectorstore_filled = active_rag.vectorstore.is_filled()
+            except Exception as exc:
+                vectorstore_filled = False
+                error = f"Could not inspect RAG vector store: {exc}"
+            else:
+                error = active_rag.error
+                if active_rag.ready and not vectorstore_filled:
+                    error = (
+                        "RAG component is marked ready, but its vector store is empty."
+                    )
+            return jsonify(
+                active=active_rag.ready and vectorstore_filled,
+                name=process,
+                error=error,
+                vectorstore_filled=vectorstore_filled,
+            ), int(HTTPResponses.OK)
         err_string = "The RAG component is not initialized for this process."
         return jsonify(active=False, name=process, error=err_string), int(
             HTTPResponses.NOT_FOUND

@@ -14,6 +14,13 @@ from src.rag.embedding_stores.marqo import MarqoChunkEmbeddingStore
 from src.rag.marqo_rag_utils import extract_text_from_highlights
 
 
+def no_source_answer(language: str | None = None) -> str:
+    """Return a deterministic answer for RAG requests without source documents."""
+    if language == "de":
+        return "Keine Quelle die ich finden kann."
+    return "No source I can find."
+
+
 class RAG:
     def __init__(self, chatter: Chatter | str, language: str | None = None):
         self._language = language
@@ -184,10 +191,19 @@ class RAG:
     def build(self) -> Runnable:
         return self._prompt | self._initialized_chatter
 
+    def no_source_answer(self) -> str:
+        """Return a deterministic answer for missing retrieved documents."""
+        return no_source_answer(self.language)
+
     def build_and_invoke(
         self, question: str, documents: dict[str, Document] | None = None
     ):
         documents = self.documents if documents is None else documents
+        if not documents:
+            logging.warning(
+                "No RAG source documents available; skipping LLM invocation."
+            )
+            return True, self.no_source_answer()
         try:
             return True, (self._prompt | self._initialized_chatter).invoke(
                 {"summaries": documents.values(), "question": question},

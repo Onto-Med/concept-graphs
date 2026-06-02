@@ -98,9 +98,12 @@ def fill_chunk_vectorstore(process: str, rag, storage, pipeline, **kwargs) -> bo
             StepsName.DATA,
         )
         if data_obj is None:
-            logging.error(
-                f"[fill_chunk_vectorstore] Data object not initialized for process '{process}'. See logs for more information."
+            error = (
+                f"Data object not initialized for process '{process}'. "
+                "Run/load the pipeline data step before initializing RAG."
             )
+            logging.error("[fill_chunk_vectorstore] %s", error)
+            _rag.mark_not_ready(error)
             return False
         splitter = _splitter_class(**_splitter_options)
 
@@ -115,20 +118,32 @@ def fill_chunk_vectorstore(process: str, rag, storage, pipeline, **kwargs) -> bo
             data_obj.processed_docs, **_split_options
         )
         _field = "text"
+        chunks = [
+            dict(
+                {_field: d},
+                **{k: t[1][k] for k in _split_options.get("keep_metadata", [])},
+            )
+            for t in _documents
+            for d in t[0]
+        ]
+        if not chunks:
+            error = f"No RAG chunks were produced for process '{process}'."
+            logging.error("[fill_chunk_vectorstore] %s", error)
+            _rag.mark_not_ready(error)
+            return False
+
         _rag.vectorstore.add_chunks(
-            [
-                dict(
-                    {_field: d},
-                    **{k: t[1][k] for k in _split_options.get("keep_metadata", [])},
-                )
-                for t in _documents
-                for d in t[0]
-            ],
+            chunks,
             # _field,
         )
 
-        _rag.initializing = False
-        _rag.switch_readiness()
+        if not _rag.vectorstore.is_filled():
+            error = f"RAG vector store for process '{process}' is still empty after filling."
+            logging.error("[fill_chunk_vectorstore] %s", error)
+            _rag.mark_not_ready(error)
+            return False
+
+        _rag.mark_ready()
         return True
     else:
         logging.warning("[fill_chunk_vectorstore] Already initializing")

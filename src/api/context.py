@@ -16,9 +16,22 @@ class ActiveRAG:
     process: str
     ready: bool = False
     initializing: bool = False
+    error: str | None = None
+
+    def mark_ready(self) -> None:
+        self.ready = True
+        self.initializing = False
+        self.error = None
+
+    def mark_not_ready(self, error: str | None = None) -> None:
+        self.ready = False
+        self.initializing = False
+        self.error = error
 
     def switch_readiness(self):
         self.ready = not self.ready
+        if self.ready:
+            self.error = None
 
 
 @dataclass

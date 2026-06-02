@@ -17,8 +17,7 @@ import networkx as nx
 import numpy as np
 from scipy.stats import binomtest
 
-logger = logging.getLogger()
-logger.setLevel("DEBUG")
+logger = logging.getLogger(__name__)
 
 # clip log of binomtest p-values to this value.
 MAX_NEG_LOG = np.log(np.finfo(np.float64).max)
@@ -152,19 +151,12 @@ class MLF:
                 )
                 d["significance"] = None
 
-        try:
-            max_sig = max(
-                [s for s in graph.edges(data=True) if s is not None],
-                key=lambda edge: edge[2].get("significance", 0.0),
-                default=(
-                    0,
-                    0,
-                    {"significance": 0.0},
-                ),
-            )[2]["significance"]
-        except TypeError as te:  # ToDo: there were case where TypeErrors were thrown (comparison btw. 'NoneType') but I thought I made sure no 'NoneType' was allowed in the list...
-            logging.error(f"{te}\n-->\t{graph.edges(data=True)}")
-            max_sig = 0.0
+        valid_significances = [
+            d["significance"]
+            for _, _, d in graph.edges(data=True)
+            if d.get("significance") is not None
+        ]
+        max_sig = max(valid_significances, default=0.0)
         for _, _, d in graph.edges(data=True):
             if d["significance"] is None:
                 d["significance"] = max_sig
@@ -327,6 +319,18 @@ class MLF:
     #         raise(ValueError('The graph must be given as a, igraph.Graph, a DataFrame or a list of 3-tuples'))
 
 
+def _as_binomial_count(value, name: str) -> int:
+    """Convert weighted graph counts to the integer counts required by binomtest."""
+    if value < 0:
+        raise ValueError(f"{name} must be non-negative")
+    count = int(round(value))
+    if not np.isclose(value, count):
+        logger.debug(
+            "Rounded non-integer binomial count %s=%s to %s", name, value, count
+        )
+    return count
+
+
 def _pvalue_undirected(w, ku, kv, q):
     """
     Compute the pvalue for the undirected edge null model.
@@ -338,10 +342,15 @@ def _pvalue_undirected(w, ku, kv, q):
     @keyparamword q: total incident weight of all vertices divided by two. Similar to the total number of edges in the graph.
     """
     if not all(v is not None for v in [w, ku, kv, q]):
-        raise ValueError
+        raise ValueError("binomial inputs must not be None")
+    if q <= 0:
+        raise ValueError("total edge weight must be positive")
 
+    k = _as_binomial_count(w, "w")
+    n = _as_binomial_count(q, "q")
     p = ku * kv * 1.0 / q / q / 2.0
-    return binomtest(k=w, n=q, p=p, alternative="greater")
+    p = min(max(p, 0.0), 1.0)
+    return binomtest(k=k, n=n, p=p, alternative="greater").pvalue
 
 
 def _pvalue_directed(w_uv, ku_out, kv_in, q):
@@ -355,7 +364,12 @@ def _pvalue_directed(w_uv, ku_out, kv_in, q):
     @param q: Total sum of all edge weights in the graph.
     """
     if not all(v is not None for v in [w_uv, ku_out, kv_in, q]):
-        raise ValueError
+        raise ValueError("binomial inputs must not be None")
+    if q <= 0:
+        raise ValueError("total edge weight must be positive")
 
+    k = _as_binomial_count(w_uv, "w_uv")
+    n = _as_binomial_count(q, "q")
     p = 1.0 * ku_out * kv_in / q / q / 1.0
-    return binomtest(k=w_uv, n=q, p=p, alternative="greater")
+    p = min(max(p, 0.0), 1.0)
+    return binomtest(k=k, n=n, p=p, alternative="greater").pvalue
