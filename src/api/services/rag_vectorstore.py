@@ -157,22 +157,35 @@ def fill_chunk_vectorstore(process: str, rag, storage, pipeline, **kwargs) -> bo
                 "[fill_chunk_vectorstore] Could not reset vectorstore: %s", e
             )
 
-        _documents = splitter.split_preprocessed_sentences(
-            data_obj.processed_docs, **_split_options
-        )
+        try:
+            documents = list(
+                splitter.split_preprocessed_sentences(
+                    data_obj.processed_docs, **_split_options
+                )
+            )
+        except (AttributeError, TypeError, ValueError) as exc:
+            error = f"Could not split processed documents for RAG process '{process}': {exc}"
+            logging.error("[fill_chunk_vectorstore] %s", error)
+            _rag.mark_not_ready(error)
+            return False
+
         logging.info(
             "[fill_chunk_vectorstore] Split process '%s' into %s document chunk groups.",
             process,
-            len(_documents),
+            len(documents),
         )
         _field = "text"
         chunks = [
             dict(
-                {_field: d},
-                **{k: t[1][k] for k in _split_options.get("keep_metadata", [])},
+                {_field: chunk},
+                **{
+                    key: metadata.get(key)
+                    for key in _split_options.get("keep_metadata", [])
+                    if key in metadata
+                },
             )
-            for t in _documents
-            for d in t[0]
+            for chunk_group, metadata in documents
+            for chunk in chunk_group
         ]
         logging.info(
             "[fill_chunk_vectorstore] Prepared %s chunks for RAG index '%s'.",
