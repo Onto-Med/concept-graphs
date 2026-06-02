@@ -47,6 +47,11 @@ def initialize_chunk_vectorstore(
                     "type": "text",
                     "features": ["lexical_search", "filter"],
                 },
+                {
+                    "name": "chunk_index",
+                    "type": "int",
+                    "features": ["filter"],
+                },
                 {"name": "text", "type": "text", "features": ["lexical_search"]},
             ],
             "tensorFields": ["text"],
@@ -175,18 +180,20 @@ def fill_chunk_vectorstore(process: str, rag, storage, pipeline, **kwargs) -> bo
             len(documents),
         )
         _field = "text"
-        chunks = [
-            dict(
-                {_field: chunk},
-                **{
-                    key: metadata.get(key)
-                    for key in _split_options.get("keep_metadata", [])
-                    if key in metadata
-                },
-            )
-            for chunk_group, metadata in documents
-            for chunk in chunk_group
-        ]
+        chunks = []
+        for chunk_group, metadata in documents:
+            kept_metadata = {
+                key: metadata.get(key)
+                for key in _split_options.get("keep_metadata", [])
+                if key in metadata
+            }
+            for chunk_index, chunk in enumerate(chunk_group):
+                chunks.append(
+                    dict(
+                        {_field: chunk, "chunk_index": chunk_index},
+                        **kept_metadata,
+                    )
+                )
         logging.info(
             "[fill_chunk_vectorstore] Prepared %s chunks for RAG index '%s'.",
             len(chunks),

@@ -158,15 +158,37 @@ def extract_text_from_highlights(
         highlight_list = hit[ResultsFields.highlights]
         highlight_key = list(highlight_list[0].keys())[0]
         highlight_text = list(highlight_list[0].values())[0]
-        text = hit.pop(highlight_key)
+        text = hit.get(highlight_key, "")
 
         if truncate:
             text = " ".join(text.split())
             highlight_text = " ".join(highlight_text.split())
             text = truncate_text(text, token_limit, highlight_text, lang)
 
+        highlight_offsets = find_highlight_index_in_text(text, highlight_text)
+        hit_metadata = {
+            k: hit.get(k)
+            for k in hit.keys()
+            if not k.startswith("_") and k != highlight_key
+        }
+        hit_metadata.update(
+            {
+                "retrieved_snippet": text,
+                "highlight": highlight_text,
+                "highlight_field": highlight_key,
+                "highlight_start": None
+                if highlight_offsets is None
+                else highlight_offsets[0],
+                "highlight_end": None
+                if highlight_offsets is None
+                else highlight_offsets[1],
+                "offset_unit": "retrieved_snippet_char",
+                "retrieved_snippet_index": ind,
+            }
+        )
+
         texts.append(text)
         highlights.append(highlight_text)
-        metadata.append({k: hit.get(k) for k in hit.keys() if not k.startswith("_")})
+        metadata.append(hit_metadata)
 
     return highlights, texts, metadata
