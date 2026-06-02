@@ -115,8 +115,9 @@ class RAG:
         """
         _templates = {
             "en": """
-                Given the following extracted parts of several different documents ("SOURCES") and a question ("QUESTION"), create a final answer one paragraph long. 
-                Don't try to make up an answer and use the text in the SOURCES only for the answer. If you don't know the answer, just say that you don't know. 
+                Given the following extracted parts of several different documents ("SOURCES") and a question ("QUESTION"), create a final answer one paragraph long.
+                Use only the SOURCES. Do not make up an answer. If you don't know the answer, say that you don't know.
+                Output only the final answer. Do not repeat the question, sources, separators, or instructions. Do not include analysis.
                 QUESTION: {question}
                 =========
                 SOURCES:
@@ -126,8 +127,9 @@ class RAG:
                 """,
             "de": """
                 Gegeben sind die folgenden Teile verschiedener Dokumente ("QUELLEN") und eine Frage ("FRAGE"), erstelle eine kurze abschließende "ANTWORT" mit etwa einer Länge eines Absatzes.
-                Dabei sollen die "QUELLEN" individuell betrachtet werden! Referenziere in der Antwort die "QUELLEN"! Erwähne nur positive Antworten! 
-                Versuche niemals eine Antwort zu erfinden! Benutze ausschließlich die Texte aus den "QUELLEN" für die "ANTWORT". Wenn du keine "ANTWORT" hast, sage einfach, dass du es nicht weißt! 
+                Betrachte die "QUELLEN" individuell. Referenziere in der Antwort die "QUELLEN". Erwähne nur positive Antworten.
+                Erfinde niemals eine Antwort. Benutze ausschließlich die Texte aus den "QUELLEN" für die "ANTWORT". Wenn du keine "ANTWORT" hast, sage einfach, dass du es nicht weißt.
+                Gib ausschließlich die finale Antwort aus. Wiederhole nicht die Frage, Quellen, Trennzeichen oder Anweisungen. Gib keine Analyse aus.
                 FRAGE: {question}
                 =========
                 QUELLEN:
@@ -204,9 +206,23 @@ class RAG:
                 "No RAG source documents available; skipping LLM invocation."
             )
             return True, self.no_source_answer()
+        summaries = "\n\n".join(
+            document.page_content for document in documents.values()
+        )
         try:
-            return True, (self._prompt | self._initialized_chatter).invoke(
-                {"summaries": documents.values(), "question": question},
+            chain = self._prompt | self._initialized_chatter.bind(
+                stop=[
+                    "=========",
+                    "QUESTION:",
+                    "FRAGE:",
+                    "SOURCES:",
+                    "QUELLEN:",
+                    "ANSWER:",
+                    "ANTWORT:",
+                ]
+            )
+            return True, chain.invoke(
+                {"summaries": summaries, "question": question},
                 return_only_outputs=True,
             )
         except (LangChainException, RuntimeError, ValueError, TypeError) as e:
