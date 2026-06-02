@@ -6,11 +6,15 @@ services:
       - 9007:9007
     volumes:
       - results:/rest_api/tmp
+      - venv:/rest_api/.venv
+      - cache:/root/.cache
     networks:
       - concept-graphs-network
 
 volumes:
   results:
+  venv:
+  cache:
 
 networks:
   concept-graphs-network:
