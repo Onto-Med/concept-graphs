@@ -263,6 +263,19 @@ dependencies = [
 ]
 
 [package.dev-dependencies]
+llm = [
+    { name = "langchain" },
+    { name = "langchain-core" },
+    { name = "langchain-ollama" },
+    { name = "langchain-openai" },
+]
+query-expansion = [
+    { name = "langchain" },
+    { name = "langchain-core" },
+    { name = "langchain-ollama" },
+    { name = "langchain-openai" },
+    { name = "pydantic" },
+]
 rag = [
     { name = "langchain" },
     { name = "langchain-community" },
@@ -313,6 +326,19 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
+llm = [
+    { name = "langchain" },
+    { name = "langchain-core" },
+    { name = "langchain-ollama" },
+    { name = "langchain-openai" },
+]
+query-expansion = [
+    { name = "langchain" },
+    { name = "langchain-core" },
+    { name = "langchain-ollama" },
+    { name = "langchain-openai" },
+    { name = "pydantic", specifier = ">=2,<3" },
+]
 rag = [
     { name = "langchain" },
     { name = "langchain-community" },
