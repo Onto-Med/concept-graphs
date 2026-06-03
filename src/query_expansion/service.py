@@ -2,7 +2,7 @@
 
 from src.query_expansion.generator import (
     ExpansionGenerator,
-    PydanticAIExpansionGenerator,
+    LangChainExpansionGenerator,
 )
 from src.query_expansion.grounding import ground_candidate, group_grounded_candidates
 from src.query_expansion.models import (
@@ -32,13 +32,13 @@ class QueryExpansionService:
 
     The service is intentionally independent from Flask so it can be used from an
     API route, a CLI, tests, or future batch jobs. By default it uses the
-    PydanticAI-backed generator, but tests or deployments can inject any object
+    LangChain-backed generator, but tests or deployments can inject any object
     implementing the ``ExpansionGenerator`` protocol.
     """
 
     def __init__(self, generator: ExpansionGenerator | None = None):
         """Create a service with either a custom or default LLM generator."""
-        self.generator = generator or PydanticAIExpansionGenerator()
+        self.generator = generator or LangChainExpansionGenerator()
 
     def expand(
         self,

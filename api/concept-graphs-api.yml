@@ -386,6 +386,94 @@ paths:
       tags:
       - RAG
       operationId: askRagQuestionWithDocumentFilter
+  /query-expansion:
+    post:
+      summary: Generate source-grounded query-expansion candidates
+      description: Uses an LLM to generate categorized medical expansion candidates for a term, then optionally grounds them against configured terminology/ontology sources. The LLM generation step is required; grounding sources are optional. Ungrounded candidates are returned as `llm_only` unless disabled via grounding options.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QueryExpansionRequest'
+            examples:
+              ollamaWithoutGrounding:
+                summary: Ollama-backed expansion without grounding sources
+                value:
+                  term: myocardial infarction
+                  language: en
+                  categories:
+                  - synonym
+                  - medication
+                  - symptom
+                  limit_per_category: 5
+                  llm:
+                    model: llama3.1
+                    options:
+                      provider: ollama
+                      base_url: http://localhost:11434
+                  grounding:
+                    include_llm_only: true
+              localGrounding:
+                summary: Expansion grounded against a local terminology file
+                value:
+                  term: myocardial infarction
+                  language: en
+                  categories:
+                  - synonym
+                  - diagnosis
+                  llm:
+                    model: llama3.1
+                    options:
+                      provider: ollama
+                  sources:
+                  - name: local-medical-terms
+                    type: local
+                    path: conf/query-expansion/medical_terms.yml
+                  grounding:
+                    include_llm_only: true
+                    minimum_score: 0.8
+      responses:
+        '200':
+          description: Query-expansion response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryExpansionResponse'
+              examples:
+                expanded:
+                  summary: Categorized expansion response
+                  value:
+                    term: myocardial infarction
+                    language: en
+                    expansions:
+                      synonym:
+                      - term: heart attack
+                        category: synonym
+                        status: grounded
+                        confidence: 1.0
+                        evidence:
+                        - source: local-medical-terms
+                          matched_term: heart attack
+                          score: 1.0
+                          relation: exact_or_synonym
+                          source_id: C001
+                          metadata: {}
+                        rationale: Common lay term for myocardial infarction.
+                      medication:
+                      - term: aspirin
+                        category: medication
+                        status: llm_only
+                        confidence: 0.0
+                        evidence: []
+                        rationale: Medication commonly associated with myocardial infarction treatment.
+        '400':
+          description: Invalid request or query-expansion configuration
+        '500':
+          description: Unexpected query-expansion error
+      tags:
+      - Query expansion
+      operationId: expandQuery
   /status:
     parameters:
     - $ref: '#/components/parameters/process_name'
@@ -583,6 +671,212 @@ components:
       required:
       - reachable
       - message
+    ExpansionCategory:
+      type: string
+      description: Semantic category requested from/assigned by the expansion LLM.
+      enum:
+      - synonym
+      - medication
+      - diagnosis
+      - symptom
+      - procedure
+      - abbreviation
+      - broader_term
+      - narrower_term
+      - related_term
+    GroundingStatus:
+      type: string
+      description: How well a generated candidate is supported by configured sources.
+      enum:
+      - grounded
+      - partially_grounded
+      - llm_only
+      - rejected
+    QueryExpansionLLMConfig:
+      type: object
+      description: LLM configuration for the selected query-expansion generator. The default generator uses LangChain.
+      properties:
+        model:
+          type: string
+          description: Model identifier passed to the selected generator/provider.
+          example: llama3.1
+        system_prompt:
+          type: string
+          nullable: true
+          description: Optional system prompt for generators/providers that support one.
+        instructions:
+          type: string
+          nullable: true
+          description: Optional deployment/user instructions reserved for generator-specific use.
+        options:
+          type: object
+          description: Provider-specific options. For LangChain, `provider` currently supports `ollama`, `openai`, and `blablador`.
+          example:
+            provider: ollama
+            base_url: http://localhost:11434
+            temperature: 0.0
+      required:
+      - model
+    QueryExpansionSourceConfig:
+      type: object
+      description: Optional source used to ground or enrich LLM-generated candidates. Currently `type=local` is implemented.
+      properties:
+        name:
+          type: string
+          description: Human-readable source name used in evidence entries.
+          example: local-medical-terms
+        type:
+          type: string
+          description: Source adapter type.
+          example: local
+        path:
+          type: string
+          nullable: true
+          description: Path to a local YAML/JSON terminology file for `type=local`.
+          example: conf/query-expansion/medical_terms.yml
+        url:
+          type: string
+          nullable: true
+          description: Reserved for future HTTP/API-backed source adapters.
+        options:
+          type: object
+          description: Adapter-specific source options.
+      required:
+      - name
+    QueryExpansionGroundingOptions:
+      type: object
+      description: Controls how candidates are filtered after source grounding.
+      properties:
+        include_llm_only:
+          type: boolean
+          default: true
+          description: Include candidates generated by the LLM but not found in configured sources.
+        minimum_score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          default: 0.0
+          description: Minimum source score required to mark a candidate as grounded.
+        reject_below_minimum:
+          type: boolean
+          default: false
+          description: Drop candidates below `minimum_score` instead of returning them as `llm_only`.
+    QueryExpansionRequest:
+      type: object
+      properties:
+        term:
+          type: string
+          minLength: 1
+          description: Input term or query to expand.
+          example: myocardial infarction
+        language:
+          type: string
+          description: Language code used for prompting and source lookup.
+          default: en
+          example: en
+        categories:
+          type: array
+          description: Semantic expansion categories requested from the LLM.
+          items:
+            $ref: '#/components/schemas/ExpansionCategory'
+        limit_per_category:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 10
+          description: Maximum number of generated candidates per category.
+        llm:
+          $ref: '#/components/schemas/QueryExpansionLLMConfig'
+        sources:
+          type: array
+          description: Optional grounding sources. If omitted, candidates can still be returned as `llm_only`.
+          items:
+            $ref: '#/components/schemas/QueryExpansionSourceConfig'
+        grounding:
+          $ref: '#/components/schemas/QueryExpansionGroundingOptions'
+      required:
+      - term
+      - llm
+    QueryExpansionEvidence:
+      type: object
+      properties:
+        source:
+          type: string
+          description: Source name that produced the evidence.
+        matched_term:
+          type: string
+          description: Source term/synonym that matched the generated candidate.
+        score:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: Grounding confidence score assigned by the source adapter.
+        relation:
+          type: string
+          nullable: true
+          description: Source relation type, e.g. exact_or_synonym, broader, narrower.
+        source_id:
+          type: string
+          nullable: true
+          description: Optional concept/code identifier from the source.
+        metadata:
+          type: object
+          description: Additional source-specific evidence metadata.
+      required:
+      - source
+      - matched_term
+      - score
+    GroundedExpansionCandidate:
+      type: object
+      properties:
+        term:
+          type: string
+          description: Expansion term returned to the caller.
+        category:
+          $ref: '#/components/schemas/ExpansionCategory'
+        status:
+          $ref: '#/components/schemas/GroundingStatus'
+        confidence:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          description: Highest grounding evidence score, or 0 for ungrounded LLM-only terms.
+        evidence:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueryExpansionEvidence'
+        rationale:
+          type: string
+          nullable: true
+          description: Optional LLM rationale copied from the generated candidate. This is not grounding evidence.
+      required:
+      - term
+      - category
+      - status
+      - confidence
+    QueryExpansionResponse:
+      type: object
+      properties:
+        term:
+          type: string
+          description: Original input term.
+        language:
+          type: string
+          description: Request language.
+        expansions:
+          type: object
+          description: Expansion candidates grouped by requested category.
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/GroundedExpansionCandidate'
+      required:
+      - term
+      - language
+      - expansions
     RAGStatus:
       type: object
       properties:
@@ -936,5 +1230,7 @@ tags:
   description: List, inspect, stop, and delete pipeline processes.
 - name: RAG
   description: Initialize and query the retrieval augmented generation component.
+- name: Query expansion
+  description: Generate categorized LLM query expansions with optional grounding.
 - name: Status
   description: Check external services and runtime component status.
