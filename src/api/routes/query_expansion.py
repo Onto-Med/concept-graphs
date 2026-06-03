@@ -13,6 +13,31 @@ from src.query_expansion.service import QueryExpansionService
 logger = logging.getLogger(__name__)
 
 
+def _bearer_token() -> str | None:
+    authorization = request.headers.get("Authorization", "").strip()
+    if not authorization:
+        return None
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() == "bearer" and token:
+        return token.strip()
+    return authorization
+
+
+def _with_authorization_api_key(
+    expansion_request: QueryExpansionRequest,
+) -> QueryExpansionRequest:
+    token = _bearer_token()
+    if token is None or expansion_request.llm.options.get("api_key"):
+        return expansion_request
+    llm_options = dict(expansion_request.llm.options)
+    llm_options["api_key"] = token
+    return expansion_request.model_copy(
+        update={
+            "llm": expansion_request.llm.model_copy(update={"options": llm_options})
+        }
+    )
+
+
 def create_query_expansion_blueprint():
     """Create the query-expansion blueprint."""
     blueprint = Blueprint("query_expansion_routes", __name__)
@@ -24,7 +49,9 @@ def create_query_expansion_blueprint():
                 HTTPResponses.BAD_REQUEST
             )
         try:
-            expansion_request = QueryExpansionRequest.model_validate(request.json)
+            expansion_request = _with_authorization_api_key(
+                QueryExpansionRequest.model_validate(request.json)
+            )
             service = QueryExpansionService(generator=LangChainExpansionGenerator())
             response = service.expand(expansion_request)
         except ValidationError as exc:

@@ -389,7 +389,21 @@ paths:
   /query-expansion:
     post:
       summary: Generate source-grounded query-expansion candidates
-      description: Uses an LLM to generate categorized medical expansion candidates for a term, then optionally grounds them against configured terminology/ontology sources. The LLM generation step is required; grounding sources are optional. Ungrounded candidates are returned as `llm_only` unless disabled via grounding options.
+      description: >-
+        Uses an LLM to generate categorized medical expansion candidates for a term,
+        then optionally grounds them against configured terminology/ontology sources.
+        The LLM generation step is required; grounding sources are optional.
+        Ungrounded candidates are returned as `llm_only` unless disabled via grounding
+        options. Provider API keys can be supplied either as `llm.options.api_key`
+        or preferably via the `Authorization: Bearer <token>` header.
+      parameters:
+      - name: Authorization
+        in: header
+        required: false
+        schema:
+          type: string
+          example: Bearer blablador-api-token
+        description: Optional provider API token. If `llm.options.api_key` is omitted, a bearer token from this header is passed to the LLM provider as `api_key`.
       requestBody:
         required: true
         content:
@@ -412,6 +426,24 @@ paths:
                     options:
                       provider: ollama
                       base_url: http://localhost:11434
+                  grounding:
+                    include_llm_only: true
+              blabladorWithAuthorizationHeader:
+                summary: Blablador-backed expansion using Authorization header for the API key
+                value:
+                  term: Myokardinfarkt
+                  language: de
+                  categories:
+                  - synonym
+                  - medication
+                  - symptom
+                  limit_per_category: 5
+                  llm:
+                    model: alias-fast
+                    options:
+                      provider: blablador
+                      base_url: https://api.helmholtz-blablador.fz-juelich.de/v1/
+                      temperature: 0.0
                   grounding:
                     include_llm_only: true
               localGrounding:
