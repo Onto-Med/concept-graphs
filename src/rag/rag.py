@@ -12,6 +12,7 @@ from langchain_core.runnables import Runnable
 from src.rag.chatters.base import Chatter
 from src.rag.embedding_stores.marqo import MarqoChunkEmbeddingStore
 from src.rag.marqo_rag_utils import extract_text_from_highlights
+from src.rag.prompts import resolve_rag_prompt_config
 
 
 def no_source_answer(language: str | None = None) -> str:
@@ -121,53 +122,19 @@ class RAG:
     def with_prompt(
         self, lang: str = "en", prompt_template_config: dict[str, Any] | None = None
     ) -> "RAG":
-        """
+        """Configure the RAG answer prompt.
 
-        :param lang:
-        :param prompt_template_config: {templates: {language: template_str}, input_variables: variables_list}
-        :return:
+        Defaults are loaded from ``conf/rag/localization/{language}.yml``.
+        ``prompt_template_config`` remains backwards compatible with the previous
+        request-body shape: ``{templates: {language: template_str}, input_variables: variables_list}``.
+        It may also contain ``profile`` and/or a direct ``template`` override.
         """
-        _templates = {
-            "en": """
-                Given the following extracted parts of several different documents ("SOURCES") and a question ("QUESTION"), create a final answer one paragraph long.
-                Use only the SOURCES. Do not make up an answer. If you don't know the answer, say that you don't know.
-                Output only the final answer. Do not repeat the question, sources, separators, or instructions. Do not include analysis.
-                QUESTION: {question}
-                =========
-                SOURCES:
-                {summaries}
-                =========
-                ANSWER:
-                """,
-            "de": """
-                Gegeben sind die folgenden Teile verschiedener Dokumente ("QUELLEN") und eine Frage ("FRAGE"), erstelle eine kurze abschließende "ANTWORT" mit etwa einer Länge eines Absatzes.
-                Betrachte die "QUELLEN" individuell. Referenziere in der Antwort die "QUELLEN". Erwähne nur positive Antworten.
-                Erfinde niemals eine Antwort. Benutze ausschließlich die Texte aus den "QUELLEN" für die "ANTWORT". Wenn du keine "ANTWORT" hast, sage einfach, dass du es nicht weißt.
-                Gib ausschließlich die finale Antwort aus. Wiederhole nicht die Frage, Quellen, Trennzeichen oder Anweisungen. Gib keine Analyse aus.
-                FRAGE: {question}
-                =========
-                QUELLEN:
-                {summaries}
-                =========
-                ANTWORT:
-                """,
-        }
-        if prompt_template_config is None or not prompt_template_config.get(
-            "templates", None
-        ):
-            templates = _templates
-        else:
-            templates = prompt_template_config.get("templates")
-
+        prompt_config = resolve_rag_prompt_config(
+            self.get_rag_language(lang), prompt_template_config
+        )
         self._prompt = PromptTemplate(
-            template=templates.get(
-                self.get_rag_language(lang), _templates.get(self.get_rag_language(lang))
-            ),
-            input_variables=(
-                ["summaries", "question"]
-                if prompt_template_config is None
-                else prompt_template_config.get("input_variables")
-            ),
+            template=prompt_config.template,
+            input_variables=prompt_config.input_variables,
         )
         return self
 

@@ -1215,9 +1215,16 @@ components:
               example: http://localhost
     RAGPromptTemplate:
       properties:
+        profile:
+          type: string
+          description: Prompt profile loaded from `conf/rag/localization/{profile}.yml`.
+          example: en
+        template:
+          type: string
+          description: Direct template override. Built-in variables are `{question}` and `{summaries}`.
         templates:
           type: object
-          description: Keys are language codes and values are the respective prompts
+          description: Legacy inline templates. Keys are language codes and values are the respective prompts.
           properties:
             en:
               type: string
@@ -1229,7 +1236,8 @@ components:
             surrounded by curly brackets).
           items:
             type: string
-      example: {}
+      example:
+        profile: en
     RAGConfiguration:
       properties:
         api_key:

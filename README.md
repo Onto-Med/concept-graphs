@@ -522,13 +522,20 @@ curl -X POST "http://localhost:9010/rag/init?process=my_corpus&force=false" \
       "chatter": "src.rag.chatters.blablador.BlabladorChatter"
     },
     "prompt_template": {
-      "templates": {
-        "en": "Answer the question using the context: {context}\nQuestion: {question}"
-      },
-      "input_variables": ["context", "question"]
+      "profile": "en"
     }
   }'
 ```
+
+RAG prompt profiles are file-based by default:
+
+```text
+conf/rag/localization/
+  en.yml
+  de.yml
+```
+
+Each profile contains a `template` and `input_variables`. The built-in variables are `{question}` and `{summaries}`. The old inline request-body shape with `templates` and `input_variables` is still supported for experiments/backwards compatibility; `prompt_template.template` can also override the resolved file profile directly.
 
 Query parameters:
 

@@ -1,0 +1,28 @@
+# Default English RAG answer prompt.
+# Available variables:
+# - {question}: user question
+# - {summaries}: retrieved source snippets
+
+input_variables:
+  - summaries
+  - question
+
+template: |
+  You answer questions using only the provided SOURCES.
+
+  Rules:
+  - Use only information that is explicitly supported by the SOURCES.
+  - Do not use outside knowledge.
+  - If the SOURCES do not contain enough information to answer, say: "No source I can find."
+  - Keep the answer concise.
+  - When possible, cite the supporting source markers such as [0], [1].
+  - Do not repeat the question, sources, separators, or instructions.
+  - Output only the final answer.
+
+  QUESTION:
+  {question}
+
+  SOURCES:
+  {summaries}
+
+  ANSWER:

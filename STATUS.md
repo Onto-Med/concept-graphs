@@ -43,7 +43,7 @@ Problems addressed:
 ```text
 main.py                         # Flask app factory entrypoint
 api/                            # Swagger UI assets + OpenAPI spec
-conf/                           # default pipeline and query-expansion configs
+conf/                           # default pipeline, RAG, and query-expansion configs
 src/
   api/                          # routes, request parsing, services, pipeline route support
   common/                       # shared small helpers
@@ -51,7 +51,7 @@ src/
   nlp/negation/                 # project-owned negation code
   pipeline/                     # pipeline utilities, status, document add/delete workflows
   pruning/                      # graph pruning algorithms
-  rag/                          # RAG orchestration, chatters, chunk stores
+  rag/                          # RAG orchestration, chatters, chunk stores, prompt loading
   query_expansion/              # LLM query expansion, grounding, prompt profiles
   storage/                      # storage interfaces and Marqo implementations
 test/                           # grouped test suite + fixtures/scripts
@@ -91,6 +91,15 @@ StorageContext        # file storage directory
 RagContext            # per-process active RAG components
 AppContext            # composed application context
 ```
+
+RAG prompt profiles now live in:
+
+```text
+conf/rag/localization/en.yml
+conf/rag/localization/de.yml
+```
+
+Inline `prompt_template` overrides remain supported for backwards compatibility and experiments.
 
 RAG runtime state is now per process/corpus:
 
