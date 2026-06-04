@@ -132,6 +132,82 @@ Typical API URL in Docker setups:
 http://localhost:9007
 ```
 
+### Providing extra localized prompt profiles in Docker
+
+Prompt profiles are normal YAML files below `conf/`:
+
+```text
+conf/rag/localization/<profile>.yml
+conf/query-expansion/localization/<profile>.yml
+```
+
+When using the production image, do **not** bind-mount the whole project over `/rest_api`. Instead, mount only the additional profile file or profile directory into the matching `conf/` subdirectory.
+
+Example custom RAG profile file on the host:
+
+```text
+./local-conf/rag/localization/fr.yml
+```
+
+```yaml
+input_variables:
+  - summaries
+  - question
+
+template: |
+  Réponds à la question à partir des SOURCES fournies.
+  Réponds toujours en français.
+
+  QUESTION:
+  {question}
+
+  SOURCES:
+  {summaries}
+
+  RÉPONSE FINALE EN FRANÇAIS:
+```
+
+Compose example:
+
+```yaml
+services:
+  concept-graphs-api:
+    image: ghcr.io/onto-med/concept-graphs/concept-graphs-api:1.0.0
+    volumes:
+      - ./local-conf/rag/localization/fr.yml:/rest_api/conf/rag/localization/fr.yml:ro
+      - ./local-conf/query-expansion/localization/fr.yml:/rest_api/conf/query-expansion/localization/fr.yml:ro
+```
+
+`docker run` example:
+
+```bash
+docker run --rm -p 9007:9007 \
+  -v "$PWD/local-conf/rag/localization/fr.yml:/rest_api/conf/rag/localization/fr.yml:ro" \
+  ghcr.io/onto-med/concept-graphs/concept-graphs-api:1.0.0
+```
+
+Use the mounted profile by passing the profile/language in the request, for example:
+
+```json
+{
+  "language": "fr",
+  "prompt_template": {
+    "profile": "fr"
+  }
+}
+```
+
+For query expansion, use:
+
+```json
+{
+  "language": "fr",
+  "prompt": {
+    "profile": "fr"
+  }
+}
+```
+
 ---
 
 ## Processes and storage
