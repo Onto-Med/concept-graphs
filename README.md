@@ -527,6 +527,24 @@ curl -X POST "http://localhost:9010/rag/init?process=my_corpus&force=false" \
   }'
 ```
 
+Provider-specific OpenAI-compatible request options can be forwarded through the chatter config with `extra_body`, for example to disable model-specific thinking/reasoning when the provider supports it:
+
+```json
+{
+  "chatter": {
+    "model": "alias-fast",
+    "temperature": 0.0,
+    "extra_body": {
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      }
+    }
+  }
+}
+```
+
+The exact `extra_body` shape is provider/model-specific.
+
 RAG prompt profiles are file-based by default:
 
 ```text

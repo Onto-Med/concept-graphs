@@ -15,5 +15,6 @@ class BlabladorChatter(Chatter):
             model=kwargs.get("model", "alias-fast"),
             temperature=kwargs.get("temperature", 0.7),
             api_key=SecretStr(kwargs.get("api_key", "")),
+            extra_body=kwargs.get("extra_body"),
             # max_tokens=-1
         )

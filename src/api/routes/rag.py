@@ -57,7 +57,10 @@ def create_rag_blueprint(rag, processes, storage, pipeline):
                         chatter=chatter,
                         language=config.language,
                         **config.chatter,
-                    ).with_prompt(prompt_template_config=config.prompt_template),
+                    ).with_prompt(
+                        lang=config.language,
+                        prompt_template_config=config.prompt_template,
+                    ),
                     vectorstore=vector_store,
                     process=process,
                 )

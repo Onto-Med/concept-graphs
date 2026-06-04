@@ -1245,6 +1245,7 @@ components:
           example: ''
         chatter:
           type: object
+          description: Chatter configuration. For OpenAI-compatible chatters such as Blablador, provider-specific options can be forwarded via `extra_body`.
         language:
           type: string
           example: en

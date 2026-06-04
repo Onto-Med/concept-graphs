@@ -11,14 +11,16 @@ DEFAULT_INPUT_VARIABLES = ["summaries", "question"]
 
 FALLBACK_TEMPLATES = {
     "en": """
-        You answer questions using only the provided SOURCES.
+        Answer the question using only the provided SOURCES.
+        The answer language is English. Always answer in English.
 
         Rules:
         - Use only information that is explicitly supported by the SOURCES.
         - Do not use outside knowledge.
-        - If the SOURCES do not contain enough information to answer, say: "No source I can find."
+        - If the SOURCES do not contain enough information to answer, say exactly: "No source I can find."
         - Keep the answer concise.
         - When possible, cite the supporting source markers such as [0], [1].
+        - Do not output chain-of-thought, analysis, reasoning steps, or internal deliberation.
         - Do not repeat the question, sources, separators, or instructions.
         - Output only the final answer.
 
@@ -28,17 +30,19 @@ FALLBACK_TEMPLATES = {
         SOURCES:
         {summaries}
 
-        ANSWER:
+        FINAL ANSWER IN ENGLISH:
         """,
     "de": """
         Beantworte die Frage ausschließlich anhand der bereitgestellten QUELLEN.
+        Die Antwortsprache ist Deutsch. Antworte immer auf Deutsch.
 
         Regeln:
         - Verwende nur Informationen, die ausdrücklich durch die QUELLEN gestützt werden.
         - Nutze kein externes Wissen.
-        - Wenn die QUELLEN keine ausreichende Antwort enthalten, sage: "Keine Quelle die ich finden kann."
+        - Wenn die QUELLEN keine ausreichende Antwort enthalten, sage exakt: "Keine Quelle die ich finden kann."
         - Antworte kurz und präzise.
         - Verweise, wenn möglich, auf die stützenden Quellenmarker wie [0], [1].
+        - Gib keine Gedankenkette, Analyse, Begründungsschritte oder internen Überlegungen aus.
         - Wiederhole nicht die Frage, Quellen, Trennzeichen oder Anweisungen.
         - Gib ausschließlich die finale Antwort aus.
 
@@ -48,7 +52,7 @@ FALLBACK_TEMPLATES = {
         QUELLEN:
         {summaries}
 
-        ANTWORT:
+        FINALE ANTWORT AUF DEUTSCH:
         """,
 }
 
