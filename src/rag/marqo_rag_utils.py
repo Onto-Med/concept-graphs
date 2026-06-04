@@ -161,21 +161,43 @@ def extract_text_from_highlights(
     texts = []
     metadata = []
     for ind, hit in enumerate(res):
-        highlight_list = hit[ResultsFields.highlights]
-        highlight_key = list(highlight_list[0].keys())[0]
-        highlight_text = list(highlight_list[0].values())[0]
+        highlight_list = hit.get(ResultsFields.highlights) or []
+        if highlight_list:
+            highlight_key = list(highlight_list[0].keys())[0]
+            highlight_text = list(highlight_list[0].values())[0]
+        else:
+            logging.warning(
+                "RAG vector-store hit at index %s did not contain highlights; using full text field.",
+                ind,
+            )
+            highlight_key = "text" if "text" in hit else None
+            if highlight_key is None:
+                highlight_key = next(
+                    (
+                        key
+                        for key, value in hit.items()
+                        if not key.startswith("_") and isinstance(value, str)
+                    ),
+                    "text",
+                )
+            highlight_text = ""
+
         text = hit.get(highlight_key, "")
 
         snippet_start_in_chunk = 0
         snippet_end_in_chunk = len(text)
-        if truncate:
+        if truncate and text:
             text = " ".join(text.split())
             highlight_text = " ".join(highlight_text.split())
             text, snippet_start_in_chunk, snippet_end_in_chunk = (
                 truncate_text_with_offsets(text, token_limit, highlight_text, lang)
             )
 
-        highlight_offsets = find_highlight_index_in_text(text, highlight_text)
+        highlight_offsets = (
+            find_highlight_index_in_text(text, highlight_text)
+            if highlight_text
+            else None
+        )
         chunk_start = hit.get("chunk_start")
         hit_metadata = {
             k: hit.get(k)
