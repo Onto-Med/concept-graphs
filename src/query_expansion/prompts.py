@@ -51,7 +51,7 @@ def build_generation_prompt_from_profile(request: QueryExpansionRequest) -> str:
         language_name=language_name,
         limit_per_category=request.limit_per_category,
         categories_json=json.dumps(category_descriptions, ensure_ascii=False),
-        schema_instruction=SCHEMA_INSTRUCTION,
+        schema_instruction=profile.get("schema_instruction", SCHEMA_INSTRUCTION),
     )
 
 

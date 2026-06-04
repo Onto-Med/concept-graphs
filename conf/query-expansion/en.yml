@@ -1,14 +1,22 @@
 language_name: English
+schema_instruction: |
+  Return valid JSON only.
+  The JSON field names MUST remain exactly:
+  "candidates", "term", "category", "rationale".
+  Do not translate or rename JSON field names.
+  Schema:
+  {"candidates": [{"term": "...", "category": "...", "rationale": "..."}]}
+  The output is validated as an ExpansionGeneration Pydantic model.
 prompt_template: |
   Generate medical query-expansion candidates for the provided term.
 
   Term: {term}
   Candidate language: {language_name} ({language})
   Limit per category: {limit_per_category}
-  Categories: {categories_json}
+  Allowed category IDs: {categories_json}
 
   Important instructions:
-  - Use exactly one of the requested category IDs for each candidate.
+  - Use exactly one of the allowed category IDs for each candidate.
   - Prefer candidates in the requested language.
   - Standard abbreviations, drug names, and international medical terms may remain unchanged.
   - The optional rationale field is a short LLM explanation, not source evidence.
