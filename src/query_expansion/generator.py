@@ -5,8 +5,8 @@ import re
 from collections.abc import Callable
 from typing import Any, Protocol
 
-from src.query_expansion.categories import CATEGORY_DESCRIPTIONS
 from src.query_expansion.models import ExpansionGeneration, QueryExpansionRequest
+from src.query_expansion.prompts import build_generation_prompt_from_profile
 
 
 class ExpansionGenerator(Protocol):
@@ -132,20 +132,5 @@ def _extract_json_payload(value: Any) -> dict[str, Any]:
 
 
 def build_generation_prompt(request: QueryExpansionRequest) -> str:
-    """Build the prompt used by the LLM expansion generator."""
-    category_descriptions = {
-        category: CATEGORY_DESCRIPTIONS.get(category, category)
-        for category in request.categories
-    }
-    return (
-        "Generate query-expansion candidates for the provided term. "
-        "Return only candidates that are useful for search/query expansion. "
-        "Group each candidate by one of the requested categories.\n\n"
-        f"Term: {request.term}\n"
-        f"Language: {request.language}\n"
-        f"Limit per category: {request.limit_per_category}\n"
-        f"Categories: {json.dumps(category_descriptions, ensure_ascii=False)}\n\n"
-        "Return JSON matching this schema exactly: "
-        '{"candidates": [{"term": "...", "category": "...", "rationale": "..."}]}. '
-        "The output is validated as an ExpansionGeneration Pydantic model."
-    )
+    """Build the localized/customized prompt used by the LLM generator."""
+    return build_generation_prompt_from_profile(request)

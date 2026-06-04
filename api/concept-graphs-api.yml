@@ -802,6 +802,24 @@ components:
           type: boolean
           default: false
           description: Drop candidates below `minimum_score` instead of returning them as `llm_only`.
+    QueryExpansionPromptConfig:
+      type: object
+      description: Optional prompt profile/template/category-description overrides. Defaults are loaded from `conf/query-expansion/{language}.yml`.
+      properties:
+        profile:
+          type: string
+          nullable: true
+          description: Prompt profile/language file to load, e.g. `de` or `en`. Defaults to request language.
+          example: de
+        template:
+          type: string
+          nullable: true
+          description: Optional prompt template override. Supports `{term}`, `{language}`, `{language_name}`, `{limit_per_category}`, `{categories_json}`, and `{schema_instruction}`.
+        category_descriptions:
+          type: object
+          description: Optional localized/custom category descriptions keyed by stable category ID.
+          additionalProperties:
+            type: string
     QueryExpansionRequest:
       type: object
       properties:
@@ -835,6 +853,8 @@ components:
             $ref: '#/components/schemas/QueryExpansionSourceConfig'
         grounding:
           $ref: '#/components/schemas/QueryExpansionGroundingOptions'
+        prompt:
+          $ref: '#/components/schemas/QueryExpansionPromptConfig'
       required:
       - term
       - llm

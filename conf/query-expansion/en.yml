@@ -1,0 +1,27 @@
+language_name: English
+prompt_template: |
+  Generate medical query-expansion candidates for the provided term.
+
+  Term: {term}
+  Candidate language: {language_name} ({language})
+  Limit per category: {limit_per_category}
+  Categories: {categories_json}
+
+  Important instructions:
+  - Use exactly one of the requested category IDs for each candidate.
+  - Prefer candidates in the requested language.
+  - Standard abbreviations, drug names, and international medical terms may remain unchanged.
+  - The optional rationale field is a short LLM explanation, not source evidence.
+  - Return only structured output matching the ExpansionGeneration schema.
+
+  {schema_instruction}
+category_descriptions:
+  synonym: Synonyms, near-synonyms, spelling variants, or lay terms.
+  medication: Medications or drug classes associated with the input term.
+  diagnosis: Diagnoses or diagnostic entities associated with the input term.
+  symptom: Symptoms, signs, or clinical findings associated with the input term.
+  procedure: Procedures, interventions, diagnostics, or treatments associated with the input term.
+  abbreviation: Common abbreviations or expanded forms.
+  broader_term: Broader parent concepts.
+  narrower_term: Narrower child concepts.
+  related_term: Other clinically or semantically related terms.

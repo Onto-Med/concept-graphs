@@ -81,6 +81,28 @@ class GroundingOptions(BaseModel):
     )
 
 
+class PromptConfig(BaseModel):
+    """Prompt customization for query expansion.
+
+    Defaults are loaded from ``conf/query-expansion/{language}.yml``. Request
+    values can override the selected template or category descriptions for
+    experimentation without changing the API category IDs.
+    """
+
+    profile: str | None = Field(
+        default=None,
+        description="Prompt profile/language file to load, e.g. 'de' or 'en'. Defaults to request.language.",
+    )
+    template: str | None = Field(
+        default=None,
+        description="Optional prompt template override. Supports {term}, {language}, {language_name}, {limit_per_category}, {categories_json}, and {schema_instruction}.",
+    )
+    category_descriptions: dict[ExpansionCategory, str] = Field(
+        default_factory=dict,
+        description="Optional category description overrides keyed by stable category ID.",
+    )
+
+
 class LLMConfig(BaseModel):
     """Configuration for the LLM used as primary expansion generator.
 
@@ -131,6 +153,10 @@ class QueryExpansionRequest(BaseModel):
     grounding: GroundingOptions = Field(
         default_factory=GroundingOptions,
         description="Grounding and post-filtering behavior.",
+    )
+    prompt: PromptConfig = Field(
+        default_factory=PromptConfig,
+        description="Optional prompt profile/template/category-description overrides.",
     )
 
     @field_validator("term")
