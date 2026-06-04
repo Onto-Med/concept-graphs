@@ -4,6 +4,7 @@ from src.api.routes.artifacts import create_artifact_blueprint
 from src.api.routes.graph_documents import create_graph_document_blueprint
 from src.api.routes.pipeline import create_pipeline_blueprint
 from src.api.routes.processes import create_process_blueprint
+from src.api.routes.query_expansion import create_query_expansion_blueprint
 from src.api.routes.rag import create_rag_blueprint
 from src.api.routes.static import create_static_blueprint
 from src.api.routes.status import create_status_blueprint
@@ -49,6 +50,7 @@ def register_routes(app_context):
             app_context.pipeline,
         )
     )
+    app_context.app.register_blueprint(create_query_expansion_blueprint())
     app_context.app.register_blueprint(
         create_status_blueprint(app_context.app, app_context.rag)
     )

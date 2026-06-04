@@ -1,0 +1,35 @@
+language_name: Deutsch
+schema_instruction: |
+  Gib ausschließlich valides JSON zurück.
+  Die JSON-Feldnamen MÜSSEN exakt unverändert bleiben:
+  "candidates", "term", "category", "rationale".
+  Übersetze oder benenne diese JSON-Feldnamen nicht um.
+  Schema:
+  {"candidates": [{"term": "...", "category": "...", "rationale": "..."}]}
+  Die Ausgabe wird als ExpansionGeneration-Pydantic-Modell validiert.
+prompt_template: |
+  Erzeuge medizinische Query-Expansion-Kandidaten für den angegebenen Begriff.
+
+  Begriff: {term}
+  Sprache der Kandidaten: {language_name} ({language})
+  Maximal pro Kategorie: {limit_per_category}
+  Erlaubte Kategorie-IDs: {categories_json}
+
+  Wichtige Anweisungen:
+  - Verwende für jeden Kandidaten exakt eine der erlaubten Kategorie-IDs.
+  - Gib Kandidaten bevorzugt auf Deutsch aus.
+  - Standardabkürzungen, Wirkstoffnamen und internationale medizinische Begriffe dürfen unverändert bleiben.
+  - Das optionale Feld rationale ist eine kurze LLM-Begründung, keine Quellen- oder Terminologie-Evidenz.
+  - Gib ausschließlich die strukturierte Ausgabe passend zum ExpansionGeneration-Schema zurück.
+
+  {schema_instruction}
+category_descriptions:
+  synonym: Synonyme, sehr ähnliche Begriffe, Schreibvarianten oder laienverständliche Bezeichnungen.
+  medication: Medikamente, Wirkstoffe oder Medikamentengruppen, die mit dem Eingabebegriff verbunden sind.
+  diagnosis: Diagnosen oder diagnostische Entitäten, die mit dem Eingabebegriff verbunden sind.
+  symptom: Symptome, Zeichen oder klinische Befunde, die mit dem Eingabebegriff verbunden sind.
+  procedure: Prozeduren, Interventionen, Diagnostik oder Behandlungen, die mit dem Eingabebegriff verbunden sind.
+  abbreviation: Häufige Abkürzungen oder ausgeschriebene Formen.
+  broader_term: Übergeordnete Oberbegriffe.
+  narrower_term: Spezifischere Unterbegriffe.
+  related_term: Andere klinisch oder semantisch verwandte Begriffe.

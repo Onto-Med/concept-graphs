@@ -1,0 +1,45 @@
+# Example local terminology source for POST /query-expansion grounding.
+#
+# Matching is currently exact after lowercasing and whitespace normalization.
+# A generated candidate is compared against each entry's `term` and `synonyms`.
+#
+# `category` / `categories` are optional. If omitted, the entry can ground a
+# candidate from any category. If present, only candidates with one of those
+# stable category IDs are grounded. Category IDs are not translated.
+
+terms:
+  - id: C001
+    term: Myokardinfarkt
+    synonyms:
+      - Herzinfarkt
+      - MI
+      - myocardial infarction
+    category: diagnosis
+    source_system: example-local-terminology
+
+  - id: C002
+    term: Aspirin
+    synonyms:
+      - Acetylsalicylsäure
+      - ASS
+      - acetylsalicylic acid
+    category: medication
+    source_system: example-local-terminology
+
+  - id: C003
+    term: Brustschmerz
+    synonyms:
+      - Thoraxschmerz
+      - chest pain
+    categories:
+      - symptom
+      - related_term
+    source_system: example-local-terminology
+
+  - id: C004
+    term: Koronarangiographie
+    synonyms:
+      - Herzkatheteruntersuchung
+      - coronary angiography
+    category: procedure
+    source_system: example-local-terminology

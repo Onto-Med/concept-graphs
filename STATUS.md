@@ -2,13 +2,13 @@
 
 ## Current status
 
-The project has been refactored from a script-heavy/prototype layout into a package-oriented Flask API with an app factory, Blueprints, grouped runtime context, focused service modules, OpenAPI documentation, and a substantially broader test suite.
+The project has been refactored from a script-heavy/prototype layout into a package-oriented Flask API with an app factory, Blueprints, grouped runtime context, focused service modules, OpenAPI documentation, RAG/query-expansion support, and a substantially broader test suite.
 
 Current validation:
 
 ```text
 ruff: all checks passed
-pytest: 52 passed
+pytest: 66 passed
 ```
 
 ## Where it came from
@@ -43,7 +43,7 @@ Problems addressed:
 ```text
 main.py                         # Flask app factory entrypoint
 api/                            # Swagger UI assets + OpenAPI spec
-conf/                           # default pipeline configs
+conf/                           # default pipeline, RAG, and query-expansion configs
 src/
   api/                          # routes, request parsing, services, pipeline route support
   common/                       # shared small helpers
@@ -51,7 +51,8 @@ src/
   nlp/negation/                 # project-owned negation code
   pipeline/                     # pipeline utilities, status, document add/delete workflows
   pruning/                      # graph pruning algorithms
-  rag/                          # RAG orchestration, chatters, chunk stores
+  rag/                          # RAG orchestration, chatters, chunk stores, prompt loading
+  query_expansion/              # LLM query expansion, grounding, prompt profiles
   storage/                      # storage interfaces and Marqo implementations
 test/                           # grouped test suite + fixtures/scripts
 experiments/                    # former evaluation/run scripts
@@ -91,6 +92,15 @@ RagContext            # per-process active RAG components
 AppContext            # composed application context
 ```
 
+RAG prompt profiles now live in:
+
+```text
+conf/rag/localization/en.yml
+conf/rag/localization/de.yml
+```
+
+Inline `prompt_template` overrides remain supported for backwards compatibility and experiments.
+
 RAG runtime state is now per process/corpus:
 
 ```python
@@ -115,6 +125,7 @@ graph_documents.py     # document add/status/delete
 pipeline.py            # pipeline start/configuration
 processes.py           # process list/status/stop/delete
 rag.py                 # RAG init/question
+query_expansion.py     # LLM query expansion
 status.py              # document-server and RAG status
 static.py              # Swagger UI/static docs
 ```
@@ -194,6 +205,47 @@ Document addition currently updates graph/vector-store state only:
 | Existing processed data pickle | no |
 | External document index server | no |
 
+## Query expansion
+
+Implemented initial LLM-first query expansion:
+
+```text
+POST /query-expansion
+```
+
+Package layout:
+
+```text
+src/query_expansion/
+  categories.py
+  models.py
+  prompts.py
+  generator.py
+  grounding.py
+  service.py
+  sources/
+```
+
+Current behavior:
+
+- default generator uses LangChain
+- Pydantic validates structured LLM output
+- PydanticAI generator remains available for future/custom use
+- fixed stable category IDs are used for API compatibility
+- optional local YAML/JSON grounding source is implemented
+- HTTP source adapter is still placeholder-level
+- provider API keys can be supplied via request headers such as `Authorization: Bearer ...` or `X-LLM-API-Key`
+
+Prompt profiles live in:
+
+```text
+conf/query-expansion/localization/en.yml
+conf/query-expansion/localization/de.yml
+conf/query-expansion/grounding/medical_terms.example.yml
+```
+
+Prompt templates and category descriptions can be overridden per request while keeping category IDs stable.
+
 ## OpenAPI / Swagger
 
 Swagger UI assets live in:
@@ -210,12 +262,13 @@ api/concept-graphs-api.yml
 
 Recent updates:
 
-- version updated to `1.0.0`
+- version updated to `1.1.0`
 - endpoints reviewed against Flask route registrations
 - tags and operation IDs added
 - schema `required` usage cleaned up
 - RAG question descriptions added
 - `DELETE /graph/document/{document_id}` documented
+- `POST /query-expansion` documented with request/response schemas and examples
 - Swagger UI options improved
 
 Static/documentation routes (`/`, `/openapi`, static files) are intentionally excluded from business API parity.
@@ -253,6 +306,7 @@ test/
   pipeline/
   pruning/
   rag/
+  query_expansion/
   storage/marqo/
   data/
 ```
@@ -268,11 +322,12 @@ Current coverage includes:
 - document deletion workflow
 - core data/graph/clustering behavior
 - NetworkX pruning behavior
+- query-expansion service, prompt, and API-route behavior
 
 Current result:
 
 ```text
-52 passed
+66 passed
 ```
 
 ## Tooling and style
@@ -307,6 +362,7 @@ uv run --no-sync pytest -q
 - renamed RAG modules to lowercase Pythonic module names
 - replaced deprecated `scipy.stats.binom_test` with `binomtest`
 - pruning support is now explicitly NetworkX-only
+- RAG chunk metadata now includes retrieved snippets and document-character offsets when available
 - broad exception handling narrowed; remaining broad catches are intentional route/workflow/process safety nets
 
 ## Remaining recommended work

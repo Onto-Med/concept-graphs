@@ -1,0 +1,28 @@
+# Default German RAG answer prompt.
+# Available variables:
+# - {question}: user question
+# - {summaries}: retrieved source snippets
+
+input_variables:
+  - summaries
+  - question
+
+template: |
+  Beantworte die Frage ausschließlich anhand der bereitgestellten QUELLEN.
+
+  Regeln:
+  - Verwende nur Informationen, die ausdrücklich durch die QUELLEN gestützt werden.
+  - Nutze kein externes Wissen.
+  - Wenn die QUELLEN keine ausreichende Antwort enthalten, sage: "Keine Quelle die ich finden kann."
+  - Antworte kurz und präzise.
+  - Verweise, wenn möglich, auf die stützenden Quellenmarker wie [0], [1].
+  - Wiederhole nicht die Frage, Quellen, Trennzeichen oder Anweisungen.
+  - Gib ausschließlich die finale Antwort aus.
+
+  FRAGE:
+  {question}
+
+  QUELLEN:
+  {summaries}
+
+  ANTWORT:

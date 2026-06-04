@@ -5,9 +5,10 @@ from src.api.context import ActiveRAG
 
 
 class FakeVectorStore:
-    def __init__(self, process="default", filled=True):
+    def __init__(self, process="default", filled=True, chunks=None):
         self.process = process
         self.filled = filled
+        self.chunks = chunks
         self.chunk_requests = []
 
     def is_filled(self):
@@ -17,6 +18,8 @@ class FakeVectorStore:
         self.chunk_requests.append(
             {"question": question, "filter_by": filter_by, "limit": limit}
         )
+        if self.chunks is not None:
+            return self.chunks
         return [{"text": f"chunk for {self.process}"}]
 
 
@@ -96,12 +99,20 @@ def test_rag_init_keeps_active_rag_per_process(monkeypatch, tmp_path):
     assert client.get("/status/rag?process=corpus_a").json == {
         "active": True,
         "error": None,
+        "initializing": False,
         "name": "corpus_a",
+        "vectorstore_document_count": None,
+        "vectorstore_filled": True,
+        "vectorstore_index": None,
     }
     assert client.get("/status/rag?process=corpus_b").json == {
         "active": True,
         "error": None,
+        "initializing": False,
         "name": "corpus_b",
+        "vectorstore_document_count": None,
+        "vectorstore_filled": True,
+        "vectorstore_index": None,
     }
 
 
@@ -145,6 +156,25 @@ def test_rag_question_uses_selected_process_without_mutating_rag(monkeypatch, tm
     assert rag_b.invocations[0]["question"] == "question"
     assert rag_a.documents is None
     assert rag_b.documents is None
+
+
+def test_rag_question_returns_no_source_answer_when_retrieval_is_empty(tmp_path):
+    app = _app(tmp_path)
+    rag_context = app.extensions["concept_graphs_context"].rag
+    rag_instance = FakeRAG(language="de", answer="should-not-be-called")
+    vector_store = FakeVectorStore(process="corpus", chunks=[])
+    rag_context.active_by_process["corpus"] = ActiveRAG(
+        rag=rag_instance, vectorstore=vector_store, process="corpus", ready=True
+    )
+
+    response = app.test_client().get("/rag/question?process=corpus&q=question")
+
+    assert response.status_code == 200
+    assert response.json == {
+        "answer": "Keine Quelle die ich finden kann.",
+        "info": "{}",
+    }
+    assert rag_instance.invocations == []
 
 
 def test_rag_question_returns_not_found_for_uninitialized_process(tmp_path):

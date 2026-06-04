@@ -1,6 +1,6 @@
 [project]
 name = "concept-graphs"
-version = "1.0.0"
+version = "1.1.0"
 description = ""
 authors = [
     { name = "Franz Matthies", email = "franz.matthies@imise.uni-leipzig.de" },
@@ -60,13 +60,20 @@ Repository = "https://github.com/Onto-Med/concept-graphs"
 vectorstore = [
     "marqo==3.18.0",
 ]
-rag = [
+llm = [
     "langchain",
     "langchain-core",
-    "langchain-community",
-    "langchain-text-splitters",
     "langchain-openai",
     "langchain-ollama",
+]
+rag = [
+    { include-group = "llm" },
+    "langchain-community",
+    "langchain-text-splitters",
+]
+query-expansion = [
+    { include-group = "llm" },
+    "pydantic>=2,<3",
 ]
 test = [
     "ruff>=0.14.0",
@@ -77,6 +84,7 @@ package = false
 default-groups = [
     "vectorstore",
     "rag",
+    "query-expansion",
 ]
 
 [tool.pytest.ini_options]

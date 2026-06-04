@@ -12,6 +12,28 @@ from langchain_core.runnables import Runnable
 from src.rag.chatters.base import Chatter
 from src.rag.embedding_stores.marqo import MarqoChunkEmbeddingStore
 from src.rag.marqo_rag_utils import extract_text_from_highlights
+from src.rag.prompts import resolve_rag_prompt_config
+
+
+def no_source_answer(language: str | None = None) -> str:
+    """Return a deterministic answer for RAG requests without source documents."""
+    if language == "de":
+        return "Keine Quelle die ich finden kann."
+    return "No source I can find."
+
+
+def _clean_answer(answer: Any) -> Any:
+    """Remove common prompt-echo tails while keeping the generated answer."""
+    content = getattr(answer, "content", answer)
+    if not isinstance(content, str):
+        return answer
+
+    text = content.strip()
+    for marker in ["=========", "\nFRAGE:", "\nQUESTION:", "\nQUELLEN:", "\nSOURCES:"]:
+        marker_index = text.find(marker)
+        if marker_index > 0:
+            return text[:marker_index].strip()
+    return text
 
 
 class RAG:
@@ -100,51 +122,19 @@ class RAG:
     def with_prompt(
         self, lang: str = "en", prompt_template_config: dict[str, Any] | None = None
     ) -> "RAG":
-        """
+        """Configure the RAG answer prompt.
 
-        :param lang:
-        :param prompt_template_config: {templates: {language: template_str}, input_variables: variables_list}
-        :return:
+        Defaults are loaded from ``conf/rag/localization/{language}.yml``.
+        ``prompt_template_config`` remains backwards compatible with the previous
+        request-body shape: ``{templates: {language: template_str}, input_variables: variables_list}``.
+        It may also contain ``profile`` and/or a direct ``template`` override.
         """
-        _templates = {
-            "en": """
-                Given the following extracted parts of several different documents ("SOURCES") and a question ("QUESTION"), create a final answer one paragraph long. 
-                Don't try to make up an answer and use the text in the SOURCES only for the answer. If you don't know the answer, just say that you don't know. 
-                QUESTION: {question}
-                =========
-                SOURCES:
-                {summaries}
-                =========
-                ANSWER:
-                """,
-            "de": """
-                Gegeben sind die folgenden Teile verschiedener Dokumente ("QUELLEN") und eine Frage ("FRAGE"), erstelle eine kurze abschließende "ANTWORT" mit etwa einer Länge eines Absatzes.
-                Dabei sollen die "QUELLEN" individuell betrachtet werden! Referenziere in der Antwort die "QUELLEN"! Erwähne nur positive Antworten! 
-                Versuche niemals eine Antwort zu erfinden! Benutze ausschließlich die Texte aus den "QUELLEN" für die "ANTWORT". Wenn du keine "ANTWORT" hast, sage einfach, dass du es nicht weißt! 
-                FRAGE: {question}
-                =========
-                QUELLEN:
-                {summaries}
-                =========
-                ANTWORT:
-                """,
-        }
-        if prompt_template_config is None or not prompt_template_config.get(
-            "templates", None
-        ):
-            templates = _templates
-        else:
-            templates = prompt_template_config.get("templates")
-
+        prompt_config = resolve_rag_prompt_config(
+            self.get_rag_language(lang), prompt_template_config
+        )
         self._prompt = PromptTemplate(
-            template=templates.get(
-                self.get_rag_language(lang), _templates.get(self.get_rag_language(lang))
-            ),
-            input_variables=(
-                ["summaries", "question"]
-                if prompt_template_config is None
-                else prompt_template_config.get("input_variables")
-            ),
+            template=prompt_config.template,
+            input_variables=prompt_config.input_variables,
         )
         return self
 
@@ -184,15 +174,28 @@ class RAG:
     def build(self) -> Runnable:
         return self._prompt | self._initialized_chatter
 
+    def no_source_answer(self) -> str:
+        """Return a deterministic answer for missing retrieved documents."""
+        return no_source_answer(self.language)
+
     def build_and_invoke(
         self, question: str, documents: dict[str, Document] | None = None
     ):
         documents = self.documents if documents is None else documents
+        if not documents:
+            logging.warning(
+                "No RAG source documents available; skipping LLM invocation."
+            )
+            return True, self.no_source_answer()
+        summaries = "\n\n".join(
+            document.page_content for document in documents.values()
+        )
         try:
-            return True, (self._prompt | self._initialized_chatter).invoke(
-                {"summaries": documents.values(), "question": question},
+            answer = (self._prompt | self._initialized_chatter).invoke(
+                {"summaries": summaries, "question": question},
                 return_only_outputs=True,
             )
+            return True, _clean_answer(answer)
         except (LangChainException, RuntimeError, ValueError, TypeError) as e:
             logging.warning("RAG invocation failed: %s", e)
             return False, e

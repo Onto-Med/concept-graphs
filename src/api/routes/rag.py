@@ -20,7 +20,7 @@ from src.common.parsing import (
 )
 from src.common.threads import StoppableThread
 from src.rag.marqo_rag_utils import extract_text_from_highlights
-from src.rag.rag import RAG
+from src.rag.rag import RAG, no_source_answer
 
 
 def create_rag_blueprint(rag, processes, storage, pipeline):
@@ -74,7 +74,7 @@ def create_rag_blueprint(rag, processes, storage, pipeline):
                     return jsonify("Starting initializing RAG component."), int(
                         HTTPResponses.OK
                     )
-                rag.active_by_process[process].switch_readiness()
+                rag.active_by_process[process].mark_ready()
                 return jsonify("Initialized RAG component."), int(HTTPResponses.OK)
             return jsonify(
                 f"Wrong content type '{request.headers.get('Content-Type')}'; need 'application/json'"
@@ -107,17 +107,25 @@ def create_rag_blueprint(rag, processes, storage, pipeline):
             if not question:
                 return jsonify("No question supplied."), int(HTTPResponses.BAD_REQUEST)
 
+            chunks = active_rag.vectorstore.get_chunks(
+                question,
+                filter_by={"doc_id": doc_ids} if len(doc_ids) > 0 else None,
+                limit=doc_part_limit,
+            )
+            if not chunks:
+                logging.warning(
+                    "RAG vector store returned no chunks for process '%s'.", process
+                )
+                return jsonify(
+                    answer=no_source_answer(language),
+                    info=json.dumps({}, ensure_ascii=False),
+                ), int(HTTPResponses.OK)
+
             documents = list(
                 zip(
                     *itemgetter(1, -1)(
                         extract_text_from_highlights(
-                            active_rag.vectorstore.get_chunks(
-                                question,
-                                filter_by=(
-                                    {"doc_id": doc_ids} if len(doc_ids) > 0 else None
-                                ),
-                                limit=doc_part_limit,
-                            ),
+                            chunks,
                             token_limit=150,
                             lang=language,
                         )
@@ -125,6 +133,16 @@ def create_rag_blueprint(rag, processes, storage, pipeline):
                 )
             )
             rag_documents = active_rag.rag.documents_from(documents, concat_by="doc_id")
+            if not rag_documents:
+                logging.warning(
+                    "RAG chunk extraction produced no source documents for process '%s'.",
+                    process,
+                )
+                return jsonify(
+                    answer=no_source_answer(language),
+                    info=json.dumps({}, ensure_ascii=False),
+                ), int(HTTPResponses.OK)
+
             success, answer = active_rag.rag.build_and_invoke(
                 question, documents=rag_documents
             )
