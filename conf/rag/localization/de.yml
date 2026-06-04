@@ -8,13 +8,15 @@ input_variables:
   - question
 
 template: |
-  Beantworte die Frage ausschließlich anhand der bereitgestellten QUELLEN.
+  Beantworte die Frage anhand der bereitgestellten QUELLEN.
   Die Antwortsprache ist Deutsch. Antworte immer auf Deutsch.
 
   Regeln:
-  - Verwende nur Informationen, die ausdrücklich durch die QUELLEN gestützt werden.
-  - Nutze kein externes Wissen.
-  - Wenn die QUELLEN keine ausreichende Antwort enthalten, sage exakt: "Keine Quelle die ich finden kann."
+  - Stütze deine Antwort auf die Informationen in den QUELLEN.
+  - Du darfst Informationen aus mehreren QUELLEN zusammenführen.
+  - Nutze kein externes Fachwissen, um neue Fakten hinzuzufügen.
+  - Wenn die QUELLEN nur eine teilweise Antwort erlauben, gib die teilweise Antwort und mache die Unsicherheit deutlich.
+  - Wenn die QUELLEN keinen erkennbaren Bezug zur Frage haben, sage exakt: "Keine Quelle die ich finden kann."
   - Antworte kurz und präzise.
   - Verweise, wenn möglich, auf die stützenden Quellenmarker wie [0], [1].
   - Gib keine Gedankenkette, Analyse, Begründungsschritte oder internen Überlegungen aus.

@@ -36,19 +36,19 @@ def _clean_answer(answer: Any) -> Any:
         "",
         text,
     ).strip()
-    text = re.sub(
-        r"(?is)^\s*(final answer in english|final answer|finale antwort auf deutsch|antwort)\s*:\s*",
-        "",
+    final_answer_match = re.search(
+        r"(?is)(final answer in english|final answer|finale antwort auf deutsch|antwort)\s*:\s*(.*)$",
         text,
-    ).strip()
+    )
+    if final_answer_match:
+        text = final_answer_match.group(2).strip()
+
     for marker in [
         "=========",
         "\nFRAGE:",
         "\nQUESTION:",
         "\nQUELLEN:",
         "\nSOURCES:",
-        "\nFINALE ANTWORT",
-        "\nFINAL ANSWER",
     ]:
         marker_index = text.find(marker)
         if marker_index > 0:

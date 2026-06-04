@@ -11,13 +11,15 @@ DEFAULT_INPUT_VARIABLES = ["summaries", "question"]
 
 FALLBACK_TEMPLATES = {
     "en": """
-        Answer the question using only the provided SOURCES.
+        Answer the question using the provided SOURCES.
         The answer language is English. Always answer in English.
 
         Rules:
-        - Use only information that is explicitly supported by the SOURCES.
-        - Do not use outside knowledge.
-        - If the SOURCES do not contain enough information to answer, say exactly: "No source I can find."
+        - Base your answer on the information in the SOURCES.
+        - You may combine information from multiple SOURCES.
+        - Do not use outside knowledge to add new facts.
+        - If the SOURCES only support a partial answer, give the partial answer and make the uncertainty clear.
+        - If the SOURCES have no recognizable relation to the question, say exactly: "No source I can find."
         - Keep the answer concise.
         - When possible, cite the supporting source markers such as [0], [1].
         - Do not output chain-of-thought, analysis, reasoning steps, or internal deliberation.
@@ -33,13 +35,15 @@ FALLBACK_TEMPLATES = {
         FINAL ANSWER IN ENGLISH:
         """,
     "de": """
-        Beantworte die Frage ausschließlich anhand der bereitgestellten QUELLEN.
+        Beantworte die Frage anhand der bereitgestellten QUELLEN.
         Die Antwortsprache ist Deutsch. Antworte immer auf Deutsch.
 
         Regeln:
-        - Verwende nur Informationen, die ausdrücklich durch die QUELLEN gestützt werden.
-        - Nutze kein externes Wissen.
-        - Wenn die QUELLEN keine ausreichende Antwort enthalten, sage exakt: "Keine Quelle die ich finden kann."
+        - Stütze deine Antwort auf die Informationen in den QUELLEN.
+        - Du darfst Informationen aus mehreren QUELLEN zusammenführen.
+        - Nutze kein externes Fachwissen, um neue Fakten hinzuzufügen.
+        - Wenn die QUELLEN nur eine teilweise Antwort erlauben, gib die teilweise Antwort und mache die Unsicherheit deutlich.
+        - Wenn die QUELLEN keinen erkennbaren Bezug zur Frage haben, sage exakt: "Keine Quelle die ich finden kann."
         - Antworte kurz und präzise.
         - Verweise, wenn möglich, auf die stützenden Quellenmarker wie [0], [1].
         - Gib keine Gedankenkette, Analyse, Begründungsschritte oder internen Überlegungen aus.
