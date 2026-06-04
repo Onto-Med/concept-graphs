@@ -9,7 +9,7 @@ import yaml
 from src.query_expansion.categories import CATEGORY_DESCRIPTIONS, ExpansionCategory
 from src.query_expansion.models import QueryExpansionRequest
 
-DEFAULT_PROMPT_DIR = Path("conf/query-expansion")
+DEFAULT_PROMPT_DIR = Path("conf/query-expansion/localization")
 DEFAULT_LANGUAGE = "en"
 SCHEMA_INSTRUCTION = (
     "Return JSON matching this schema exactly: "

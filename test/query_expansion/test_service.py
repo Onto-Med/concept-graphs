@@ -107,6 +107,32 @@ terms:
     assert response.expansions["symptom"][0].status == GroundingStatus.LLM_ONLY
 
 
+def test_local_grounding_respects_optional_category_metadata(tmp_path):
+    source_file = tmp_path / "terms.yaml"
+    source_file.write_text(
+        """
+terms:
+  - id: C001
+    term: aspirin
+    category: medication
+  - id: C002
+    term: fatigue
+    categories: [symptom, related_term]
+"""
+    )
+    source = LocalTerminologySource("local", source_file)
+
+    assert source.ground(
+        GeneratedExpansionCandidate(term="aspirin", category="medication")
+    )
+    assert not source.ground(
+        GeneratedExpansionCandidate(term="aspirin", category="symptom")
+    )
+    assert source.ground(
+        GeneratedExpansionCandidate(term="fatigue", category="symptom")
+    )
+
+
 def test_query_expansion_service_can_exclude_llm_only_candidates(tmp_path):
     source_file = tmp_path / "terms.yaml"
     source_file.write_text("terms: []")

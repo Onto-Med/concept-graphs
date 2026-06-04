@@ -14,7 +14,7 @@ def test_build_generation_prompt_uses_german_profile():
 
     assert "Erzeuge medizinische Query-Expansion-Kandidaten" in prompt
     assert "Sprache der Kandidaten: Deutsch (de)" in prompt
-    assert "Angeforderte Kategorie-IDs" in prompt
+    assert "Erlaubte Kategorie-IDs" in prompt
     assert "synonym" in prompt
     assert "Medikamente" in prompt
     assert "JSON-Feldnamen MÜSSEN exakt unverändert bleiben" in prompt

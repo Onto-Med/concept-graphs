@@ -84,7 +84,7 @@ class GroundingOptions(BaseModel):
 class PromptConfig(BaseModel):
     """Prompt customization for query expansion.
 
-    Defaults are loaded from ``conf/query-expansion/{language}.yml``. Request
+    Defaults are loaded from ``conf/query-expansion/localization/{language}.yml``. Request
     values can override the selected template or category descriptions for
     experimentation without changing the API category IDs.
     """

@@ -60,11 +60,33 @@ class LocalTerminologySource(ExpansionSource):
             return [entry for entry in data if isinstance(entry, dict)]
         return []
 
+    @staticmethod
+    def _entry_categories(entry: dict[str, Any]) -> set[str]:
+        """Return explicit stable category IDs configured for an entry.
+
+        If an entry does not declare a category, it can ground candidates from any
+        category for backwards compatibility. If it declares ``category`` or
+        ``categories``, only candidates with one of those exact category IDs are
+        grounded.
+        """
+        categories = entry.get("categories", entry.get("category"))
+        if categories is None:
+            return set()
+        if isinstance(categories, str):
+            return {categories}
+        if isinstance(categories, list):
+            return {category for category in categories if isinstance(category, str)}
+        return set()
+
     def ground(self, candidate: GeneratedExpansionCandidate) -> list[GroundingEvidence]:
         """Return exact/synonym matches for a generated candidate."""
         candidate_term = self._normalize(candidate.term)
         evidence = []
         for entry in self.entries:
+            entry_categories = self._entry_categories(entry)
+            if entry_categories and candidate.category not in entry_categories:
+                continue
+
             terms = [entry.get("term", "")]
             terms.extend(entry.get("synonyms", []) or [])
             normalized_terms = {self._normalize(term): term for term in terms if term}

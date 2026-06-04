@@ -16,7 +16,7 @@ A corpus is processed through a pipeline:
 5. **Optional integration**: write graph-cluster metadata to an external vector store.
 6. **Optional RAG**: initialize retrieval-augmented generation over processed document chunks.
 
-The API also supports process management, graph inspection, adding documents to existing graphs, deleting added document provenance, and asking questions through RAG.
+The API also supports process management, graph inspection, adding documents to existing graphs, deleting added document provenance, asking questions through RAG, and LLM-based query expansion.
 
 The implementation is based on the Concept Graphs approach described in the references.
 
@@ -580,6 +580,143 @@ Successful response:
 
 ---
 
+## Query expansion
+
+The API can generate categorized LLM query-expansion candidates and optionally ground them against terminology/source files.
+
+Endpoint:
+
+```text
+POST /query-expansion
+```
+
+The default implementation uses LangChain and validates the LLM output with Pydantic models. A PydanticAI generator remains available for future/custom use, but is not the default runtime path.
+
+Supported built-in categories are stable API identifiers:
+
+```text
+synonym
+medication
+diagnosis
+symptom
+procedure
+abbreviation
+broader_term
+narrower_term
+related_term
+```
+
+Prompt profiles live in:
+
+```text
+conf/query-expansion/localization/
+  en.yml
+  de.yml
+```
+
+The profile is selected from `prompt.profile` or, if omitted, from `language`. Prompt templates and category descriptions can also be overridden per request.
+
+### Blablador example
+
+Prefer passing provider tokens through a header instead of the JSON body:
+
+```bash
+curl -X POST "http://localhost:9010/query-expansion" \
+  -H "Content-Type: application/json" \
+  -H "X-LLM-API-Key: YOUR_BLABLADOR_API_KEY" \
+  -d '{
+    "term": "Myokardinfarkt",
+    "language": "de",
+    "categories": ["synonym", "medication", "symptom"],
+    "limit_per_category": 5,
+    "llm": {
+      "model": "alias-fast",
+      "options": {
+        "provider": "blablador",
+        "base_url": "https://api.helmholtz-blablador.fz-juelich.de/v1/",
+        "temperature": 0.0
+      }
+    },
+    "grounding": {
+      "include_llm_only": true
+    }
+  }'
+```
+
+Accepted API-key headers include:
+
+```text
+Authorization: Bearer <token>
+X-LLM-API-Key: <token>
+X-API-Key: <token>
+X-Blablador-API-Key: <token>
+```
+
+### Prompt override example
+
+```json
+{
+  "term": "Myokardinfarkt",
+  "language": "de",
+  "categories": ["synonym"],
+  "llm": {
+    "model": "alias-fast",
+    "options": {
+      "provider": "blablador"
+    }
+  },
+  "prompt": {
+    "profile": "de",
+    "category_descriptions": {
+      "synonym": "Synonyme, laienverständliche Begriffe und häufige Schreibvarianten."
+    }
+  }
+}
+```
+
+Grounding sources are optional. Currently implemented source type:
+
+```json
+{
+  "name": "local-medical-terms",
+  "type": "local",
+  "path": "conf/query-expansion/grounding/medical_terms.example.yml"
+}
+```
+
+Local grounding loads YAML or JSON and exact-matches generated candidates against each entry's `term` and `synonyms` after lowercasing and whitespace normalization. Optional `category` / `categories` metadata restricts grounding to matching stable category IDs.
+
+Example YAML:
+
+```yaml
+terms:
+  - id: C001
+    term: Myokardinfarkt
+    synonyms:
+      - Herzinfarkt
+      - MI
+    category: diagnosis
+
+  - id: C002
+    term: Aspirin
+    synonyms:
+      - ASS
+      - Acetylsalicylsäure
+    category: medication
+
+  - id: C003
+    term: Brustschmerz
+    synonyms:
+      - Thoraxschmerz
+    categories:
+      - symptom
+      - related_term
+```
+
+If `category` / `categories` is omitted, the entry can ground candidates from any category. Ungrounded candidates are returned with status `llm_only` unless disabled via grounding options.
+
+---
+
 ## Fixture generation for tests
 
 A helper script can run the pipeline on a folder of documents and write fixtures:
@@ -625,6 +762,7 @@ Main endpoint groups:
 | Processes | `GET /processes`, `GET /status`, `GET /processes/{process}/stop`, `DELETE /processes/{process}/delete` |
 | Status | `POST /status/document-server`, `GET /status/rag` |
 | RAG | `POST /rag/init`, `GET/POST /rag/question` |
+| Query expansion | `POST /query-expansion` |
 
 Documentation/static routes such as `/`, `/openapi`, and static files are intentionally not considered business API endpoints.
 
