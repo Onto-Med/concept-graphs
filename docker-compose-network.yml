@@ -1,6 +1,6 @@
 services:
   concept-graphs-api:
-    image: imise/top/concept-graphs-api:1.0.1
+    image: ghcr.io/onto-med/concept-graphs/concept-graphs-api:1.1.0
     restart: unless-stopped
     ports:
       - 9007:9007
