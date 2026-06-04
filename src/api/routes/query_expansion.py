@@ -13,8 +13,8 @@ from src.query_expansion.service import QueryExpansionService
 logger = logging.getLogger(__name__)
 
 
-def _bearer_token() -> str | None:
-    authorization = request.headers.get("Authorization", "").strip()
+def _token_from_authorization_value(value: str | None) -> str | None:
+    authorization = (value or "").strip()
     if not authorization:
         return None
     scheme, _, token = authorization.partition(" ")
@@ -23,10 +23,35 @@ def _bearer_token() -> str | None:
     return authorization
 
 
+def _provider_api_key_from_headers() -> str | None:
+    """Read provider API keys from auth/proxy-friendly headers.
+
+    Some reverse proxies need explicit configuration to forward the standard
+    ``Authorization`` header, so we also accept dedicated API-key headers.
+    """
+    for header_name in (
+        "Authorization",
+        "X-Authorization",
+        "X-Forwarded-Authorization",
+    ):
+        if token := _token_from_authorization_value(request.headers.get(header_name)):
+            return token
+
+    for environ_name in ("HTTP_AUTHORIZATION", "REDIRECT_HTTP_AUTHORIZATION"):
+        if token := _token_from_authorization_value(request.environ.get(environ_name)):
+            return token
+
+    for header_name in ("X-API-Key", "X-LLM-API-Key", "X-Blablador-API-Key"):
+        if token := request.headers.get(header_name, "").strip():
+            return token
+
+    return None
+
+
 def _with_authorization_api_key(
     expansion_request: QueryExpansionRequest,
 ) -> QueryExpansionRequest:
-    token = _bearer_token()
+    token = _provider_api_key_from_headers()
     if token is None or expansion_request.llm.options.get("api_key"):
         return expansion_request
     llm_options = dict(expansion_request.llm.options)

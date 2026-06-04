@@ -394,16 +394,24 @@ paths:
         then optionally grounds them against configured terminology/ontology sources.
         The LLM generation step is required; grounding sources are optional.
         Ungrounded candidates are returned as `llm_only` unless disabled via grounding
-        options. Provider API keys can be supplied either as `llm.options.api_key`
-        or preferably via the `Authorization: Bearer <token>` header.
+        options. Provider API keys can be supplied either as `llm.options.api_key`,
+        via the `Authorization: Bearer <token>` header, or via proxy-friendly
+        headers such as `X-LLM-API-Key`.
       parameters:
       - name: Authorization
         in: header
         required: false
         schema:
           type: string
-          example: Bearer blablador-api-token
+          example: Your Bearer API Token (OpenAI, Blablador, Ollama, ...)
         description: Optional provider API token. If `llm.options.api_key` is omitted, a bearer token from this header is passed to the LLM provider as `api_key`.
+      - name: X-LLM-API-Key
+        in: header
+        required: false
+        schema:
+          type: string
+          example: blablador-api-token
+        description: Optional proxy-friendly alternative to the Authorization header for provider API keys.
       requestBody:
         required: true
         content:
