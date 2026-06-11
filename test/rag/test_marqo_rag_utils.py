@@ -43,6 +43,26 @@ def test_extract_text_from_highlights_adds_snippet_offsets_and_metadata():
     ]
 
 
+def test_extract_text_from_highlights_uses_raw_chunk_offsets_before_display_truncation():
+    highlights, texts, metadata = extract_text_from_highlights(
+        [
+            {
+                "text": "Alpha   beta inflammation gamma.",
+                "doc_id": "doc-1",
+                "chunk_start": 100,
+                "_highlights": [{"text": "inflammation"}],
+            }
+        ],
+        truncate=True,
+    )
+
+    assert highlights == ["inflammation"]
+    assert texts == ["Alpha   beta inflammation gamma."]
+    assert metadata[0]["highlight_start"] == 13
+    assert metadata[0]["document_highlight_start"] == 113
+    assert metadata[0]["document_highlight_end"] == 125
+
+
 def test_extract_text_from_highlights_handles_empty_highlights():
     highlights, texts, metadata = extract_text_from_highlights(
         [
