@@ -182,17 +182,28 @@ def extract_text_from_highlights(
                 )
             highlight_text = ""
 
-        text = hit.get(highlight_key, "")
+        raw_text = hit.get(highlight_key, "")
+        raw_highlight_text = highlight_text
+        chunk_highlight_offsets = (
+            find_highlight_index_in_text(raw_text, raw_highlight_text)
+            if raw_highlight_text
+            else None
+        )
 
         snippet_start_in_chunk = 0
-        snippet_end_in_chunk = len(text)
-        if truncate and text:
-            text = " ".join(text.split())
-            highlight_text = " ".join(highlight_text.split())
+        snippet_end_in_chunk = len(raw_text)
+        text = raw_text
+        if truncate and raw_text:
             text, snippet_start_in_chunk, snippet_end_in_chunk = (
-                truncate_text_with_offsets(text, token_limit, highlight_text, lang)
+                truncate_text_with_offsets(
+                    raw_text,
+                    token_limit,
+                    raw_highlight_text if raw_highlight_text else None,
+                    lang,
+                )
             )
 
+        highlight_text = raw_highlight_text
         highlight_offsets = (
             find_highlight_index_in_text(text, highlight_text)
             if highlight_text
@@ -219,11 +230,11 @@ def extract_text_from_highlights(
                 else highlight_offsets[1],
                 "offset_unit": "retrieved_snippet_char",
                 "document_highlight_start": None
-                if highlight_offsets is None or chunk_start is None
-                else chunk_start + snippet_start_in_chunk + highlight_offsets[0],
+                if chunk_highlight_offsets is None or chunk_start is None
+                else chunk_start + chunk_highlight_offsets[0],
                 "document_highlight_end": None
-                if highlight_offsets is None or chunk_start is None
-                else chunk_start + snippet_start_in_chunk + highlight_offsets[1],
+                if chunk_highlight_offsets is None or chunk_start is None
+                else chunk_start + chunk_highlight_offsets[1],
                 "document_offset_unit": "document_char"
                 if chunk_start is not None
                 else None,
