@@ -1,7 +1,7 @@
 [![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-46a2f1.svg)](https://docs.astral.sh/ruff/)  
 Docker Image: 
 ``
-docker pull ghcr.io/onto-med/concept-graphs/concept-graphs-api:1.0.0
+docker pull ghcr.io/onto-med/concept-graphs/concept-graphs-api:1.1.1
 ``
 # Concept Graphs
 
