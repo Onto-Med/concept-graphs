@@ -1,7 +1,7 @@
 [![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-46a2f1.svg)](https://docs.astral.sh/ruff/)  
 Docker Image: 
 ``
-docker pull ghcr.io/onto-med/concept-graphs/concept-graphs-api:1.1.1
+docker pull ghcr.io/onto-med/concept-graphs/concept-graphs-api:1.1.2
 ``
 # Concept Graphs
 
@@ -172,7 +172,7 @@ Compose example:
 ```yaml
 services:
   concept-graphs-api:
-    image: ghcr.io/onto-med/concept-graphs/concept-graphs-api:1.0.0
+    image: ghcr.io/onto-med/concept-graphs/concept-graphs-api:1.1.2
     volumes:
       - ./local-conf/rag/localization/fr.yml:/rest_api/conf/rag/localization/fr.yml:ro
       - ./local-conf/query-expansion/localization/fr.yml:/rest_api/conf/query-expansion/localization/fr.yml:ro
@@ -183,7 +183,7 @@ services:
 ```bash
 docker run --rm -p 9007:9007 \
   -v "$PWD/local-conf/rag/localization/fr.yml:/rest_api/conf/rag/localization/fr.yml:ro" \
-  ghcr.io/onto-med/concept-graphs/concept-graphs-api:1.0.0
+  ghcr.io/onto-med/concept-graphs/concept-graphs-api:1.1.2
 ```
 
 Use the mounted profile by passing the profile/language in the request, for example:
@@ -892,6 +892,19 @@ uv run --group test ruff format .
 uv run --group test ruff check .
 uv run --no-sync python -m compileall -q main.py src test
 uv run --no-sync pytest -q
+```
+
+Synchronize project/API/Docker version references with:
+
+```bash
+uv run --no-sync python -m src.scripts.set_version 1.2.0
+```
+
+Preview or check without writing:
+
+```bash
+uv run --no-sync python -m src.scripts.set_version 1.2.0 --dry-run
+uv run --no-sync python -m src.scripts.set_version 1.2.0 --check
 ```
 
 ---

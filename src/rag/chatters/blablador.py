@@ -1,5 +1,5 @@
 from langchain_core.language_models import BaseLLM
-from langchain_openai import OpenAI
+from langchain_openai import ChatOpenAI
 from pydantic import SecretStr
 
 from src.rag.chatters.base import Chatter
@@ -10,7 +10,7 @@ class BlabladorChatter(Chatter):
 
     @classmethod
     def with_kwargs(cls, **kwargs) -> BaseLLM:
-        return OpenAI(
+        return ChatOpenAI(
             base_url=kwargs.get("base_url", cls.base_url),
             model=kwargs.get("model", "alias-fast"),
             temperature=kwargs.get("temperature", 0.7),
