@@ -78,6 +78,9 @@ query-expansion = [
 test = [
     "ruff>=0.14.0",
 ]
+ai = [
+    "pydantic-ai>=0.0.51",
+]
 
 [tool.uv]
 package = false
