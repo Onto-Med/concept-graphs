@@ -246,6 +246,15 @@ conf/query-expansion/grounding/medical_terms.example.yml
 
 Prompt templates and category descriptions can be overridden per request while keeping category IDs stable.
 
+Current design position:
+
+- keep categories as the default control mechanism for medical TOP-FW/SON query expansion
+- treat a fully category-free prompt as an experiment rather than the default path
+- evaluate small ontology-style profiles as the likely next improvement: categories plus relation hints between them
+- if non-medical SONs become relevant, consider moving allowed category IDs from hardcoded code constants into domain-specific profiles with runtime validation
+
+See `okf/concept-graphs-architecture/operations/future-work.md` for the query-expansion roadmap and ontology-profile direction.
+
 ## OpenAPI / Swagger
 
 Swagger UI assets live in:
@@ -262,7 +271,7 @@ api/concept-graphs-api.yml
 
 Recent updates:
 
-- version updated to `1.1.0`
+- version updated to `1.1.2`
 - endpoints reviewed against Flask route registrations
 - tags and operation IDs added
 - schema `required` usage cleaned up
@@ -366,6 +375,12 @@ uv run --no-sync pytest -q
 - broad exception handling narrowed; remaining broad catches are intentional route/workflow/process safety nets
 
 ## Remaining recommended work
+
+For roadmap-level items, especially query-expansion category/mini-ontology/domain-profile work, see:
+
+```text
+okf/concept-graphs-architecture/operations/future-work.md
+```
 
 1. Continue optional Ruff expansion:
    - `B` bugbear-style checks
