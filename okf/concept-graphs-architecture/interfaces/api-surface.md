@@ -12,6 +12,9 @@ sources:
   - id: routes
     resource: /src/api/routes/
     title: Flask route modules
+  - id: qe-route
+    resource: /src/api/routes/query_expansion.py
+    title: Query expansion route module
   - id: openapi
     resource: /api/concept-graphs-api.yml
     title: OpenAPI specification
@@ -27,11 +30,12 @@ sources:
 | Processes | `GET /processes`, `GET /status`, stop/delete endpoints | `src/api/routes/processes.py` |
 | Status | `POST /status/document-server`, `GET /status/rag` | `src/api/routes/status.py` |
 | RAG | `POST /rag/init`, `GET/POST /rag/question` | `src/api/routes/rag.py` |
+| Query expansion | `POST /query-expansion` | `src/api/routes/query_expansion.py` |
 | Static docs | `/`, `/openapi`, static assets | `src/api/routes/static.py` |
 
 # Request conventions
 
-Most endpoints use `process` as a query parameter, normalized through common parsing helpers. Pipeline requests accept JSON or multipart form data. RAG and graph-document addition expect JSON bodies for their main operations.[^readme]
+Most corpus-bound endpoints use `process` as a query parameter, normalized through common parsing helpers. Pipeline requests accept JSON or multipart form data. RAG, graph-document addition, and query expansion expect JSON bodies for their main operations. Query expansion can receive provider API keys from auth/API-key headers rather than the JSON body.[^readme]
 
 # Response conventions
 

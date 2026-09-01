@@ -27,4 +27,6 @@ This bundle documents the architecture, working model, and modules of the Concep
 # Operations
 
 * [Artifacts and storage](operations/artifacts-and-storage.md) - Process directories, serialized artifacts, active objects, and cache loading.
+* [Prompt profiles](operations/prompt-profiles.md) - File-based localized prompt profiles for RAG and query expansion.
+* [Version management](operations/version-management.md) - Scripted project/API/Docker version synchronization.
 * [Testing and validation](operations/testing-and-validation.md) - Test layout and standard validation commands.

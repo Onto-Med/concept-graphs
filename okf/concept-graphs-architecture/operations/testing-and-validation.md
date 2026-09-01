@@ -37,16 +37,16 @@ Ask the user before running the full test suite if it may be long-running in the
 
 Tests live under `test/`, outside the production package. Current groups include:
 
-* `test/api/` for app factory, route, OpenAPI, configuration, and pipeline-support tests,
+* `test/api/` for app factory, route, OpenAPI, configuration, and pipeline-support tests, including query-expansion route tests,
 * `test/core/` for data, graph, and corpus clustering behavior,
 * `test/pipeline/` for document deletion and legacy utility behavior,
 * `test/pruning/` for graph pruning,
-* `test/query_expansion/` for query expansion service behavior,
-* `test/rag/` for RAG context behavior,
+* `test/query_expansion/` for query expansion service and prompt-generation behavior,
+* `test/rag/` for RAG context, chatter, prompt, text-splitter, and Marqo utility behavior,
 * `test/storage/marqo/` for Marqo provenance behavior.
 
 # Tooling
 
-`pyproject.toml` configures Python `>=3.11,<3.12`, `uv`, pytest `pythonpath = ["."]`, and Ruff formatting/linting with rule groups `E`, `F`, `I`, and `UP`.[^pyproject]
+`pyproject.toml` configures Python `>=3.11,<3.12`, `uv`, pytest `pythonpath = ["."]`, and Ruff formatting/linting with rule groups `E`, `F`, `I`, and `UP`. The merged branch reports `66 passed` in `STATUS.md`.[^pyproject]
 
 [^pyproject]: Project tool configuration
