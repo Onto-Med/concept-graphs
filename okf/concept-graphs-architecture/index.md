@@ -30,3 +30,4 @@ This bundle documents the architecture, working model, and modules of the Concep
 * [Prompt profiles](operations/prompt-profiles.md) - File-based localized prompt profiles for RAG and query expansion.
 * [Version management](operations/version-management.md) - Scripted project/API/Docker version synchronization.
 * [Testing and validation](operations/testing-and-validation.md) - Test layout and standard validation commands.
+* [Future work](operations/future-work.md) - Recommended next steps, including query-expansion mini-ontology direction.
