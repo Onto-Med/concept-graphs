@@ -1,7 +1,7 @@
 [![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-46a2f1.svg)](https://docs.astral.sh/ruff/)  
 Docker Image: 
 ``
-docker pull ghcr.io/onto-med/concept-graphs/concept-graphs-api:1.0.0
+docker pull ghcr.io/onto-med/concept-graphs/concept-graphs-api:1.1.2
 ``
 # Concept Graphs
 
@@ -130,6 +130,82 @@ Typical API URL in Docker setups:
 
 ```text
 http://localhost:9007
+```
+
+### Providing extra localized prompt profiles in Docker
+
+Prompt profiles are normal YAML files below `conf/`:
+
+```text
+conf/rag/localization/<profile>.yml
+conf/query-expansion/localization/<profile>.yml
+```
+
+When using the production image, do **not** bind-mount the whole project over `/rest_api`. Instead, mount only the additional profile file or profile directory into the matching `conf/` subdirectory.
+
+Example custom RAG profile file on the host:
+
+```text
+./local-conf/rag/localization/fr.yml
+```
+
+```yaml
+input_variables:
+  - summaries
+  - question
+
+template: |
+  Réponds à la question à partir des SOURCES fournies.
+  Réponds toujours en français.
+
+  QUESTION:
+  {question}
+
+  SOURCES:
+  {summaries}
+
+  RÉPONSE FINALE EN FRANÇAIS:
+```
+
+Compose example:
+
+```yaml
+services:
+  concept-graphs-api:
+    image: ghcr.io/onto-med/concept-graphs/concept-graphs-api:1.1.2
+    volumes:
+      - ./local-conf/rag/localization/fr.yml:/rest_api/conf/rag/localization/fr.yml:ro
+      - ./local-conf/query-expansion/localization/fr.yml:/rest_api/conf/query-expansion/localization/fr.yml:ro
+```
+
+`docker run` example:
+
+```bash
+docker run --rm -p 9007:9007 \
+  -v "$PWD/local-conf/rag/localization/fr.yml:/rest_api/conf/rag/localization/fr.yml:ro" \
+  ghcr.io/onto-med/concept-graphs/concept-graphs-api:1.1.2
+```
+
+Use the mounted profile by passing the profile/language in the request, for example:
+
+```json
+{
+  "language": "fr",
+  "prompt_template": {
+    "profile": "fr"
+  }
+}
+```
+
+For query expansion, use:
+
+```json
+{
+  "language": "fr",
+  "prompt": {
+    "profile": "fr"
+  }
+}
 ```
 
 ---
@@ -527,6 +603,24 @@ curl -X POST "http://localhost:9010/rag/init?process=my_corpus&force=false" \
   }'
 ```
 
+Provider-specific OpenAI-compatible request options can be forwarded through the chatter config with `extra_body`, for example to disable model-specific thinking/reasoning when the provider supports it:
+
+```json
+{
+  "chatter": {
+    "model": "alias-fast",
+    "temperature": 0.0,
+    "extra_body": {
+      "chat_template_kwargs": {
+        "enable_thinking": false
+      }
+    }
+  }
+}
+```
+
+The exact `extra_body` shape is provider/model-specific.
+
 RAG prompt profiles are file-based by default:
 
 ```text
@@ -798,6 +892,19 @@ uv run --group test ruff format .
 uv run --group test ruff check .
 uv run --no-sync python -m compileall -q main.py src test
 uv run --no-sync pytest -q
+```
+
+Synchronize project/API/Docker version references with:
+
+```bash
+uv run --no-sync python -m src.scripts.set_version 1.2.0
+```
+
+Preview or check without writing:
+
+```bash
+uv run --no-sync python -m src.scripts.set_version 1.2.0 --dry-run
+uv run --no-sync python -m src.scripts.set_version 1.2.0 --check
 ```
 
 ---

@@ -30,7 +30,8 @@ class FakeRAG:
         self.documents = None
         self.invocations = []
 
-    def with_prompt(self, prompt_template_config=None):
+    def with_prompt(self, lang="en", prompt_template_config=None):
+        self.prompt_language = lang
         self.prompt_template_config = prompt_template_config
         return self
 

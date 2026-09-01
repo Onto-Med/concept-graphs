@@ -1,4 +1,5 @@
 import logging
+import re
 from collections import defaultdict
 from operator import itemgetter
 from pydoc import locate
@@ -29,7 +30,26 @@ def _clean_answer(answer: Any) -> Any:
         return answer
 
     text = content.strip()
-    for marker in ["=========", "\nFRAGE:", "\nQUESTION:", "\nQUELLEN:", "\nSOURCES:"]:
+    text = re.sub(r"(?is)<think>.*?</think>", "", text).strip()
+    text = re.sub(
+        r"(?is)^\s*(thinking|analysis|reasoning)\s*:\s*.*?(final answer|antwort)\s*:\s*",
+        "",
+        text,
+    ).strip()
+    final_answer_match = re.search(
+        r"(?is)(final answer in english|final answer|finale antwort auf deutsch|antwort)\s*:\s*(.*)$",
+        text,
+    )
+    if final_answer_match:
+        text = final_answer_match.group(2).strip()
+
+    for marker in [
+        "=========",
+        "\nFRAGE:",
+        "\nQUESTION:",
+        "\nQUELLEN:",
+        "\nSOURCES:",
+    ]:
         marker_index = text.find(marker)
         if marker_index > 0:
             return text[:marker_index].strip()
