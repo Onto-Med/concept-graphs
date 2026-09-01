@@ -16,4 +16,6 @@ Key entry points:
 - API surface: `okf/concept-graphs-architecture/interfaces/api-surface.md`
 - Module docs: `okf/concept-graphs-architecture/modules/`
 - Artifact/storage notes: `okf/concept-graphs-architecture/operations/artifacts-and-storage.md`
+- Prompt profiles: `okf/concept-graphs-architecture/operations/prompt-profiles.md`
+- Version management: `okf/concept-graphs-architecture/operations/version-management.md`
 - Testing/validation: `okf/concept-graphs-architecture/operations/testing-and-validation.md`
