@@ -21,6 +21,7 @@ This bundle documents the architecture, working model, and modules of the Concep
 * [Storage package](modules/storage.md) - Storage abstractions and Marqo implementations.
 * [RAG package](modules/rag.md) - Retrieval-augmented generation orchestration, chatters, and chunk vector stores.
 * [Query expansion package](modules/query-expansion.md) - LLM-generated and source-grounded terminology expansion.
+* [GUI package](modules/gui.md) - Optional Streamlit client for pipeline operation, graph inspection, RAG, and query expansion.
 * [NLP negation package](modules/nlp-negation.md) - Project-owned NegEx/negspacy-style negation support.
 * [Pruning package](modules/pruning.md) - NetworkX graph pruning algorithms.
 

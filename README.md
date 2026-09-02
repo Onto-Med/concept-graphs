@@ -45,6 +45,12 @@ uv run --group test ruff check .
 uv run --no-sync pytest -q
 ```
 
+Install GUI extras when you want to use the Streamlit frontend:
+
+```bash
+uv sync --group gui
+```
+
 ---
 
 ## Running locally
@@ -67,6 +73,14 @@ Swagger UI / OpenAPI UI:
 http://localhost:9010/
 http://localhost:9010/openapi
 ```
+
+Start the optional Streamlit GUI in a second shell:
+
+```bash
+uv run --group gui streamlit run src/gui/app.py
+```
+
+The GUI lets you configure the API base URL from its sidebar.
 
 The OpenAPI document lives at:
 

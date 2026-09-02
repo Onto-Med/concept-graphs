@@ -33,10 +33,11 @@ Concept Graphs processes a text corpus into concept-level graph artifacts. It ex
 
 The software is organized around four layers:
 
-1. **HTTP/API layer**: [API package](modules/api.md) registers Flask Blueprints and delegates business logic to services and workflows.
-2. **Workflow layer**: [Pipeline package](modules/pipeline.md) coordinates long-running pipeline steps, process status, background threads, and serialized artifacts.
-3. **Domain layer**: [Core package](modules/core.md) performs preprocessing, embeddings, clustering, graph creation, graph simplification, graph incorporation, and metrics.
-4. **External integration layer**: [Storage](modules/storage.md), [RAG](modules/rag.md), and [query expansion](modules/query-expansion.md) adapt Marqo/vector stores, prompt profiles, and LLM/chat backends.
+1. **GUI layer**: [GUI package](modules/gui.md) optionally provides a Streamlit client for operating a running API instance.
+2. **HTTP/API layer**: [API package](modules/api.md) registers Flask Blueprints and delegates business logic to services and workflows.
+3. **Workflow layer**: [Pipeline package](modules/pipeline.md) coordinates long-running pipeline steps, process status, background threads, and serialized artifacts.
+4. **Domain layer**: [Core package](modules/core.md) performs preprocessing, embeddings, clustering, graph creation, graph simplification, graph incorporation, and metrics.
+5. **External integration layer**: [Storage](modules/storage.md), [RAG](modules/rag.md), and [query expansion](modules/query-expansion.md) adapt Marqo/vector stores, prompt profiles, and LLM/chat backends.
 
 # End-to-end data product
 
