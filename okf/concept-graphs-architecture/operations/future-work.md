@@ -34,7 +34,7 @@ Recommended direction:
    Compare current category-based prompting against a general no-category prompt and a category-plus-mini-ontology prompt. Track quality, coverage, duplicates, hallucinations, and grounding rate.
 
 3. **Use mini-ontologies as a likely next improvement.**
-   A mini-ontology should add relation hints between categories/concepts, not necessarily replace categories. For example, a medical profile can define categories such as symptom, diagnosis, medication, and procedure, plus relations such as `symptom may_indicate diagnosis` or `diagnosis treated_by medication`.
+   A mini-ontology should add relation hints between categories/concepts, not necessarily replace categories. For example, a medical profile can define categories such as symptom, diagnosis, medication, and procedure, plus relations such as `symptom may_indicate diagnosis` or `diagnosis treated_by medication`. See [Query-expansion query modes](query-expansion-query-modes.md) for a proposed mapping from relations to Elasticsearch-style query logic.
 
 4. **Move toward domain profiles if non-medical SONs matter.**
    At the moment, allowed category IDs are fixed in code. Prompt profiles can override category descriptions, but they cannot introduce arbitrary new category IDs without code changes. If the project needs non-medical SONs, promote categories into domain-specific profiles and validate request/LLM output against the selected profile at runtime.

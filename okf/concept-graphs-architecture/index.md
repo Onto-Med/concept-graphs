@@ -32,3 +32,4 @@ This bundle documents the architecture, working model, and modules of the Concep
 * [Version management](operations/version-management.md) - Scripted project/API/Docker version synchronization.
 * [Testing and validation](operations/testing-and-validation.md) - Test layout and standard validation commands.
 * [Future work](operations/future-work.md) - Recommended next steps, including query-expansion mini-ontology direction.
+* [Query-expansion query modes](operations/query-expansion-query-modes.md) - Proposed mapping from ontology relations to Elasticsearch-style query logic.
