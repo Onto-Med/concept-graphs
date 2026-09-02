@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-09-02
+* **Design note**: Added `operations/query-expansion-query-modes.md` with proposed Elasticsearch-style query modes for relation-aware/mini-ontology query expansion.
+
 ## 2026-09-01
 * **Creation**: Added optional `src.gui` Streamlit frontend notes, documenting its thin-client API role and four tabs for pipeline, graph inspection, RAG, and query expansion.
 * **Update**: Added future-work notes for query expansion: keep categories as default, evaluate category-free prompts as an experiment, test category-plus-mini-ontology profiles, and consider runtime-configurable domain category profiles for non-medical SONs.
