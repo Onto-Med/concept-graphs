@@ -1,5 +1,8 @@
 # Bundle Update Log
 
+## 2026-09-03
+* **Update**: Added backend-neutral query-expansion relation vocabulary and response model fields for optional semantic `concepts`/`relations`; clarified that search-engine-specific query construction is outside `src.query_expansion`.
+
 ## 2026-09-02
 * **Design note**: Added `operations/query-expansion-query-modes.md` with proposed Elasticsearch-style query modes for relation-aware/mini-ontology query expansion.
 

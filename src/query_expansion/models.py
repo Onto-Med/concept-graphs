@@ -23,6 +23,7 @@ from src.query_expansion.categories import (
     DEFAULT_EXPANSION_CATEGORIES,
     ExpansionCategory,
 )
+from src.query_expansion.relations import QueryExpansionRelation
 
 
 class GroundingStatus(StrEnum):
@@ -250,6 +251,49 @@ class GroundedExpansionCandidate(BaseModel):
     )
 
 
+class ExpansionConcept(BaseModel):
+    """Backend-neutral concept group produced by query expansion.
+
+    Concepts group labels/terms that should be interpreted as one semantic unit.
+    They are safe for downstream consumers to translate into search, RAG, or UI
+    behavior without coupling this package to a concrete search engine.
+    """
+
+    id: str = Field(description="Stable concept identifier within this response.")
+    label: str = Field(description="Preferred human-readable concept label.")
+    category: ExpansionCategory = Field(description="Primary semantic category.")
+    terms: list[str] = Field(
+        default_factory=list,
+        description="Terms, synonyms, variants, or labels belonging to this concept.",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional source- or generator-specific concept metadata.",
+    )
+
+
+class ExpansionSemanticRelation(BaseModel):
+    """Backend-neutral semantic relation between expansion concepts."""
+
+    source_concept_id: str = Field(description="Source concept ID in this response.")
+    relation: QueryExpansionRelation = Field(description="Stable semantic relation ID.")
+    target_concept_id: str = Field(description="Target concept ID in this response.")
+    confidence: float = Field(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description="Confidence in the semantic relation, if available.",
+    )
+    evidence: list[GroundingEvidence] = Field(
+        default_factory=list,
+        description="Optional grounding/source evidence supporting the relation.",
+    )
+    metadata: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Optional source- or generator-specific relation metadata.",
+    )
+
+
 class QueryExpansionResponse(BaseModel):
     """Response returned by the query-expansion service/API."""
 
@@ -257,4 +301,12 @@ class QueryExpansionResponse(BaseModel):
     language: str = Field(description="Request language.")
     expansions: dict[ExpansionCategory, list[GroundedExpansionCandidate]] = Field(
         description="Expansion candidates grouped by requested category."
+    )
+    concepts: list[ExpansionConcept] = Field(
+        default_factory=list,
+        description="Optional backend-neutral semantic concept groups.",
+    )
+    relations: list[ExpansionSemanticRelation] = Field(
+        default_factory=list,
+        description="Optional backend-neutral semantic relations between concepts.",
     )

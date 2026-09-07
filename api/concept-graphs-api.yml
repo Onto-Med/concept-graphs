@@ -917,6 +917,72 @@ components:
       - category
       - status
       - confidence
+    QueryExpansionRelation:
+      type: string
+      description: Backend-neutral semantic relation between expansion concepts.
+      enum:
+      - equivalent_to
+      - related_to
+      - may_indicate
+      - treated_by
+      - investigated_by
+      - broader_than
+      - narrower_than
+    ExpansionConcept:
+      type: object
+      description: Backend-neutral concept group produced by query expansion.
+      properties:
+        id:
+          type: string
+          description: Stable concept identifier within this response.
+        label:
+          type: string
+          description: Preferred human-readable concept label.
+        category:
+          $ref: '#/components/schemas/ExpansionCategory'
+        terms:
+          type: array
+          description: Terms, synonyms, variants, or labels belonging to this concept.
+          items:
+            type: string
+        metadata:
+          type: object
+          description: Optional source- or generator-specific concept metadata.
+      required:
+      - id
+      - label
+      - category
+    ExpansionSemanticRelation:
+      type: object
+      description: Backend-neutral semantic relation between expansion concepts. It does not encode search-engine methods or executable query DSL.
+      properties:
+        source_concept_id:
+          type: string
+          description: Source concept ID in this response.
+        relation:
+          $ref: '#/components/schemas/QueryExpansionRelation'
+        target_concept_id:
+          type: string
+          description: Target concept ID in this response.
+        confidence:
+          type: number
+          format: float
+          minimum: 0.0
+          maximum: 1.0
+          default: 0.0
+          description: Confidence in the semantic relation, if available.
+        evidence:
+          type: array
+          description: Optional grounding/source evidence supporting the relation.
+          items:
+            $ref: '#/components/schemas/QueryExpansionEvidence'
+        metadata:
+          type: object
+          description: Optional source- or generator-specific relation metadata.
+      required:
+      - source_concept_id
+      - relation
+      - target_concept_id
     QueryExpansionResponse:
       type: object
       properties:
@@ -933,6 +999,16 @@ components:
             type: array
             items:
               $ref: '#/components/schemas/GroundedExpansionCandidate'
+        concepts:
+          type: array
+          description: Optional backend-neutral semantic concept groups.
+          items:
+            $ref: '#/components/schemas/ExpansionConcept'
+        relations:
+          type: array
+          description: Optional backend-neutral semantic relations between concepts.
+          items:
+            $ref: '#/components/schemas/ExpansionSemanticRelation'
       required:
       - term
       - language
