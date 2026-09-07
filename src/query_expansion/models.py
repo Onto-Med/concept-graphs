@@ -23,7 +23,11 @@ from src.query_expansion.categories import (
     DEFAULT_EXPANSION_CATEGORIES,
     ExpansionCategory,
 )
-from src.query_expansion.relations import QueryExpansionRelation
+from src.query_expansion.relations import (
+    MEDICAL_RELATION_DEFINITIONS,
+    QueryExpansionRelation,
+    RelationDefinition,
+)
 
 
 class GroundingStatus(StrEnum):
@@ -159,6 +163,22 @@ class QueryExpansionRequest(BaseModel):
         default_factory=PromptConfig,
         description="Optional prompt profile/template/category-description overrides.",
     )
+    relations: list[QueryExpansionRelation] = Field(
+        default_factory=lambda: [
+            relation.id for relation in MEDICAL_RELATION_DEFINITIONS
+        ],
+        description="Semantic relation IDs the LLM may use in this request.",
+    )
+    relation_definitions: list[RelationDefinition] = Field(
+        default_factory=lambda: [
+            relation.model_copy(deep=True)
+            for relation in MEDICAL_RELATION_DEFINITIONS
+        ],
+        description=(
+            "Allowed backend-neutral relation definitions connecting categories. "
+            "These define the request mini-ontology, not search behavior."
+        ),
+    )
 
     @field_validator("term")
     @classmethod
@@ -192,18 +212,6 @@ class GeneratedExpansionCandidate(BaseModel):
     def strip_candidate_term(cls, value: str) -> str:
         """Normalize accidental surrounding whitespace in generated candidates."""
         return value.strip()
-
-
-class ExpansionGeneration(BaseModel):
-    """Structured LLM output model for PydanticAI.
-
-    A PydanticAI agent should return this object. The service will then ground
-    each candidate against configured sources.
-    """
-
-    candidates: list[GeneratedExpansionCandidate] = Field(
-        default_factory=list, description="LLM-generated expansion candidates."
-    )
 
 
 class GroundingEvidence(BaseModel):
@@ -291,6 +299,27 @@ class ExpansionSemanticRelation(BaseModel):
     metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Optional source- or generator-specific relation metadata.",
+    )
+
+
+class ExpansionGeneration(BaseModel):
+    """Structured LLM output model for generated semantic expansion.
+
+    Generators may return only candidates, as in the original MVP, or may also
+    propose backend-neutral concepts and semantic relations. The service grounds
+    candidates and validates concepts/relations against the request mini-ontology.
+    """
+
+    candidates: list[GeneratedExpansionCandidate] = Field(
+        default_factory=list, description="LLM-generated expansion candidates."
+    )
+    concepts: list[ExpansionConcept] = Field(
+        default_factory=list,
+        description="LLM-proposed backend-neutral concept groups.",
+    )
+    relations: list[ExpansionSemanticRelation] = Field(
+        default_factory=list,
+        description="LLM-proposed backend-neutral semantic relations.",
     )
 
 

@@ -60,6 +60,8 @@ Built-in stable category IDs include `synonym`, `medication`, `diagnosis`, `symp
 
 `relations.py` defines backend-neutral medical relation IDs such as `equivalent_to`, `related_to`, `may_indicate`, `treated_by`, `investigated_by`, `broader_than`, and `narrower_than`. These relations describe semantic structure only and intentionally do not reference search-engine methods, backend DSLs, boosts, or proximity settings.
 
+Requests may restrict the semantic mini-ontology with `relations` and `relation_definitions`. The LLM may propose candidates, concepts, and relations, but `QueryExpansionService` validates generated concepts/relations against requested categories, requested relation IDs, known concept IDs, and allowed source/target category connections before returning them.
+
 # Source adapters
 
 `source_from_config()` currently implements local YAML/JSON terminology sources. Local grounding exact-matches generated candidates against an entry's `term` and `synonyms`, and optional `category` / `categories` metadata can restrict which stable category IDs an entry grounds. HTTP source scaffolding exists under `sources/http.py`, but `service.py` raises `NotImplementedError` for unsupported source types.
