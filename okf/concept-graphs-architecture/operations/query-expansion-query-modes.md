@@ -16,9 +16,9 @@ sources:
 
 # Purpose
 
-For ontology-style query expansion, categories produce term groups and relations decide how those groups should be combined into a downstream Elasticsearch-like query.
+This note is retained as historical design context. The current direction is stricter: `src.query_expansion` should return backend-neutral semantic JSON only, with categories, concepts, and relations. It should not define search-engine methods or create Elasticsearch-like query plans.
 
-This is proposed future work; the current implementation returns categorized expansion candidates but does not yet emit relation-aware query plans.
+Downstream applications may still translate semantic relation output into Elasticsearch-like queries, but that translation belongs outside the query-expansion package.
 
 # Core idea
 

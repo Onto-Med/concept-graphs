@@ -24,6 +24,9 @@ sources:
   - id: grounding
     resource: /src/query_expansion/grounding.py
     title: Grounding helpers
+  - id: relations
+    resource: /src/query_expansion/relations.py
+    title: Backend-neutral semantic relation vocabulary
   - id: sources
     resource: /src/query_expansion/sources/
     title: Grounding source adapters
@@ -31,7 +34,7 @@ sources:
 
 # Responsibility
 
-`src.query_expansion` generates related terms for a query and grounds generated candidates against configured terminology sources.
+`src.query_expansion` generates related terms for a query and grounds generated candidates against configured terminology sources. It returns backend-neutral JSON only; search engines or RAG callers translate that semantic output into their own query behavior outside this package.
 
 # Flow
 
@@ -51,9 +54,11 @@ sources:
 
 Prompt profiles live under `conf/query-expansion/localization/` and are loaded by `prompts.py`. The profile is selected from `request.prompt.profile` or the request language, with English fallback. Requests can override the template or per-category descriptions while keeping stable category IDs. See [Prompt profiles](/operations/prompt-profiles.md).
 
-# Categories
+# Categories and relations
 
 Built-in stable category IDs include `synonym`, `medication`, `diagnosis`, `symptom`, `procedure`, `abbreviation`, `broader_term`, `narrower_term`, and `related_term`.
+
+`relations.py` defines backend-neutral medical relation IDs such as `equivalent_to`, `related_to`, `may_indicate`, `treated_by`, `investigated_by`, `broader_than`, and `narrower_than`. These relations describe semantic structure only and intentionally do not reference search-engine methods, backend DSLs, boosts, or proximity settings.
 
 # Source adapters
 
@@ -61,7 +66,7 @@ Built-in stable category IDs include `synonym`, `medication`, `diagnosis`, `symp
 
 # API integration
 
-`src/api/routes/query_expansion.py` exposes `POST /query-expansion`. It validates `QueryExpansionRequest`, injects provider API keys from headers such as `Authorization: Bearer ...`, `X-LLM-API-Key`, or `X-API-Key` when not present in LLM options, runs `QueryExpansionService(generator=LangChainExpansionGenerator())`, and returns the Pydantic response as JSON.[^route]
+`src/api/routes/query_expansion.py` exposes `POST /query-expansion`. It validates `QueryExpansionRequest`, injects provider API keys from headers such as `Authorization: Bearer ...`, `X-LLM-API-Key`, or `X-API-Key` when not present in LLM options, runs `QueryExpansionService(generator=LangChainExpansionGenerator())`, and returns the Pydantic response as JSON. The response preserves categorized `expansions` and can also carry optional semantic `concepts` and `relations` for downstream query construction.[^route]
 
 [^service]: QueryExpansionService
 [^route]: Query-expansion API route
