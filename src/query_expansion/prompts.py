@@ -13,7 +13,10 @@ DEFAULT_PROMPT_DIR = Path("conf/query-expansion/localization")
 DEFAULT_LANGUAGE = "en"
 SCHEMA_INSTRUCTION = (
     "Return JSON matching this schema exactly: "
-    '{"candidates": [{"term": "...", "category": "...", "rationale": "..."}]}. '
+    '{"candidates": [{"term": "...", "category": "...", "rationale": "..."}], '
+    '"concepts": [{"id": "...", "label": "...", "category": "...", '
+    '"terms": ["..."]}], "relations": [{"source_concept_id": "...", '
+    '"relation": "...", "target_concept_id": "...", "confidence": 0.0}]}. '
     "The output is validated as an ExpansionGeneration Pydantic model."
 )
 
@@ -23,8 +26,12 @@ Term: {term}
 Candidate language: {language_name} ({language})
 Limit per category: {limit_per_category}
 Categories: {categories_json}
+Relations and allowed category connections: {relations_json}
 
-Use exactly one of the requested category IDs for each candidate.
+Use exactly one of the requested category IDs for each candidate and concept.
+Use only the listed relation IDs, and only between concepts with allowed source
+and target categories.
+Concept terms must be the original term or generated candidate terms.
 Return only structured output.
 
 {schema_instruction}
@@ -51,6 +58,7 @@ def build_generation_prompt_from_profile(request: QueryExpansionRequest) -> str:
         language_name=language_name,
         limit_per_category=request.limit_per_category,
         categories_json=json.dumps(category_descriptions, ensure_ascii=False),
+        relations_json=json.dumps(_relation_definitions(request), ensure_ascii=False),
         schema_instruction=profile.get("schema_instruction", SCHEMA_INSTRUCTION),
     )
 
@@ -65,6 +73,19 @@ def _load_prompt_profile(profile_name: str) -> dict[str, Any]:
         return {}
     with path.open(encoding="utf-8") as file:
         return yaml.safe_load(file) or {}
+
+
+def _relation_definitions(request: QueryExpansionRequest) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": definition.id,
+            "source_categories": list(definition.source_categories),
+            "target_categories": list(definition.target_categories),
+            "description": definition.description,
+        }
+        for definition in request.relation_definitions
+        if definition.id in request.relations
+    ]
 
 
 def _category_descriptions(

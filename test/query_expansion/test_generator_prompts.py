@@ -18,7 +18,8 @@ def test_build_generation_prompt_uses_german_profile():
     assert "synonym" in prompt
     assert "Medikamente" in prompt
     assert "JSON-Feldnamen MÜSSEN exakt unverändert bleiben" in prompt
-    assert '"candidates", "term", "category", "rationale"' in prompt
+    assert '"candidates", "term", "category", "rationale", "concepts", "relations"' in prompt
+    assert "may_indicate" in prompt
 
 
 def test_build_generation_prompt_accepts_request_template_override():

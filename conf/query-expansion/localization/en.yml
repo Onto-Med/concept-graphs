@@ -2,10 +2,10 @@ language_name: English
 schema_instruction: |
   Return valid JSON only.
   The JSON field names MUST remain exactly:
-  "candidates", "term", "category", "rationale".
+  "candidates", "term", "category", "rationale", "concepts", "relations".
   Do not translate or rename JSON field names.
   Schema:
-  {"candidates": [{"term": "...", "category": "...", "rationale": "..."}]}
+  {"candidates": [{"term": "...", "category": "...", "rationale": "..."}], "concepts": [{"id": "...", "label": "...", "category": "...", "terms": ["..."]}], "relations": [{"source_concept_id": "...", "relation": "...", "target_concept_id": "...", "confidence": 0.0}]}
   The output is validated as an ExpansionGeneration Pydantic model.
 prompt_template: |
   Generate medical query-expansion candidates for the provided term.
@@ -14,9 +14,12 @@ prompt_template: |
   Candidate language: {language_name} ({language})
   Limit per category: {limit_per_category}
   Allowed category IDs: {categories_json}
+  Allowed relations and category connections: {relations_json}
 
   Important instructions:
-  - Use exactly one of the allowed category IDs for each candidate.
+  - Use exactly one of the allowed category IDs for each candidate and concept.
+  - Use only listed relation IDs, and only between concepts with allowed source and target categories.
+  - Concept terms must be the original term or generated candidate terms.
   - Prefer candidates in the requested language.
   - Standard abbreviations, drug names, and international medical terms may remain unchanged.
   - The optional rationale field is a short LLM explanation, not source evidence.

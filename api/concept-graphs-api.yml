@@ -820,6 +820,28 @@ components:
           description: Optional localized/custom category descriptions keyed by stable category ID.
           additionalProperties:
             type: string
+    QueryExpansionRelationDefinition:
+      type: object
+      description: Backend-neutral relation definition connecting allowed source/target categories.
+      properties:
+        id:
+          $ref: '#/components/schemas/QueryExpansionRelation'
+        source_categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExpansionCategory'
+        target_categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExpansionCategory'
+        description:
+          type: string
+          description: Human-readable semantic meaning of the relation.
+      required:
+      - id
+      - source_categories
+      - target_categories
+      - description
     QueryExpansionRequest:
       type: object
       properties:
@@ -855,6 +877,16 @@ components:
           $ref: '#/components/schemas/QueryExpansionGroundingOptions'
         prompt:
           $ref: '#/components/schemas/QueryExpansionPromptConfig'
+        relations:
+          type: array
+          description: Semantic relation IDs the LLM may use in this request.
+          items:
+            $ref: '#/components/schemas/QueryExpansionRelation'
+        relation_definitions:
+          type: array
+          description: Allowed backend-neutral relation definitions connecting categories. These define the request mini-ontology, not search behavior.
+          items:
+            $ref: '#/components/schemas/QueryExpansionRelationDefinition'
       required:
       - term
       - llm

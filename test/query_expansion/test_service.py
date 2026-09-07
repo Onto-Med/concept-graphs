@@ -1,6 +1,8 @@
 from src.query_expansion.generator import LangChainExpansionGenerator
 from src.query_expansion.models import (
+    ExpansionConcept,
     ExpansionGeneration,
+    ExpansionSemanticRelation,
     GeneratedExpansionCandidate,
     GroundingOptions,
     GroundingStatus,
@@ -47,6 +49,51 @@ class FakeGenerator:
                     term="unverified", category="symptom", rationale="test"
                 ),
             ]
+        )
+
+
+class FakeSemanticGenerator:
+    def generate(self, request):
+        return ExpansionGeneration(
+            candidates=[
+                GeneratedExpansionCandidate(term="abdominal pain", category="symptom"),
+                GeneratedExpansionCandidate(term="appendicitis", category="diagnosis"),
+                GeneratedExpansionCandidate(term="aspirin", category="medication"),
+            ],
+            concepts=[
+                ExpansionConcept(
+                    id="c1",
+                    label="abdominal pain",
+                    category="symptom",
+                    terms=["Bauchschmerzen", "abdominal pain"],
+                ),
+                ExpansionConcept(
+                    id="c2",
+                    label="appendicitis",
+                    category="diagnosis",
+                    terms=["appendicitis"],
+                ),
+                ExpansionConcept(
+                    id="c3",
+                    label="aspirin",
+                    category="medication",
+                    terms=["aspirin"],
+                ),
+            ],
+            relations=[
+                ExpansionSemanticRelation(
+                    source_concept_id="c1",
+                    relation="may_indicate",
+                    target_concept_id="c2",
+                    confidence=0.8,
+                ),
+                ExpansionSemanticRelation(
+                    source_concept_id="c1",
+                    relation="treated_by",
+                    target_concept_id="c3",
+                    confidence=0.8,
+                ),
+            ],
         )
 
 
@@ -131,6 +178,25 @@ terms:
     assert source.ground(
         GeneratedExpansionCandidate(term="fatigue", category="symptom")
     )
+
+
+def test_query_expansion_service_validates_generated_concepts_and_relations():
+    request = QueryExpansionRequest(
+        term="Bauchschmerzen",
+        categories=["symptom", "diagnosis", "medication"],
+        relations=["may_indicate"],
+        llm=LLMConfig(model="test-model"),
+    )
+
+    response = QueryExpansionService(generator=FakeSemanticGenerator()).expand(
+        request, sources=[]
+    )
+
+    assert [concept.id for concept in response.concepts] == ["c1", "c2", "c3"]
+    assert len(response.relations) == 1
+    assert response.relations[0].relation == "may_indicate"
+    assert response.relations[0].source_concept_id == "c1"
+    assert response.relations[0].target_concept_id == "c2"
 
 
 def test_query_expansion_service_can_exclude_llm_only_candidates(tmp_path):
