@@ -36,9 +36,9 @@ def test_query_expansion_profiles_route_lists_profiles(tmp_path):
 
     assert response.status_code == 200
     names = {profile["name"] for profile in response.json["profiles"]}
-    assert {"en", "de"}.issubset(names)
+    assert {"medical-en", "medical-de"}.issubset(names)
     english = next(
-        profile for profile in response.json["profiles"] if profile["name"] == "en"
+        profile for profile in response.json["profiles"] if profile["name"] == "medical-en"
     )
     assert "synonym" in {category["id"] for category in english["categories"]}
     assert english["default_categories"]
@@ -46,12 +46,20 @@ def test_query_expansion_profiles_route_lists_profiles(tmp_path):
 
 def test_query_expansion_profile_route_returns_profile_metadata(tmp_path):
     app = create_app(file_storage_dir=str(tmp_path), logging_setup_tuples=[])
+    response = app.test_client().get("/query-expansion/profiles/medical-de")
+
+    assert response.status_code == 200
+    assert response.json["name"] == "medical-de"
+    assert response.json["language_name"] == "Deutsch"
+    assert "symptom" in {category["id"] for category in response.json["categories"]}
+
+
+def test_query_expansion_profile_route_accepts_language_shorthand(tmp_path):
+    app = create_app(file_storage_dir=str(tmp_path), logging_setup_tuples=[])
     response = app.test_client().get("/query-expansion/profiles/de")
 
     assert response.status_code == 200
-    assert response.json["name"] == "de"
-    assert response.json["language_name"] == "Deutsch"
-    assert "symptom" in {category["id"] for category in response.json["categories"]}
+    assert response.json["name"] == "medical-de"
 
 
 def test_query_expansion_profile_route_404s_for_unknown_profile(tmp_path):

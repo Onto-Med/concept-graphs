@@ -416,7 +416,7 @@ paths:
         required: true
         schema:
           type: string
-        description: Domain profile name, e.g. `en` or `de`.
+        description: Domain profile name, e.g. `medical-en` or `medical-de`; language shorthands such as `de` resolve to matching built-in medical profiles.
       responses:
         '200':
           description: Query-expansion domain profile metadata
@@ -879,8 +879,8 @@ components:
         profile:
           type: string
           nullable: true
-          description: Domain profile/language file to load, e.g. `de` or `en`. Defaults to request language.
-          example: de
+          description: Domain profile/language file to load, e.g. `medical-de` or `medical-en`. Language shorthands such as `de` resolve to matching built-in medical profiles. Defaults to request language.
+          example: medical-de
         template:
           type: string
           nullable: true
