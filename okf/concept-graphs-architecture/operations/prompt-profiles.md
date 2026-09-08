@@ -36,9 +36,10 @@ Query-expansion domain prompt profiles live in:
 
 ```text
 conf/query-expansion/profiles/<profile>.yml
+# examples: medical-en.yml, medical-de.yml
 ```
 
-`src/query_expansion/prompts.py` loads the requested profile from `conf/query-expansion/profiles/` or the English fallback and formats the generation prompt with `{term}`, `{language}`, `{language_name}`, `{limit_per_category}`, `{categories_json}`, `{relations_json}`, and `{schema_instruction}`. Query-expansion profiles are domain profiles: their `category_descriptions` define the runtime category vocabulary, and optional `default_categories` define which categories are used when a request omits `categories`. `src/query_expansion/categories.py` remains only the built-in medical fallback for profiles without category metadata. Requests may override the full template or descriptions for selected categories; relation definitions come from the request/default mini-ontology and are injected through `{relations_json}`. API-side profile metadata is exposed via `GET /query-expansion/profiles` and `GET /query-expansion/profiles/{profile_name}` for remote GUI/client use.[^qe-prompts]
+`src/query_expansion/prompts.py` loads the requested profile from `conf/query-expansion/profiles/` or the `medical-en` fallback and formats the generation prompt with `{term}`, `{language}`, `{language_name}`, `{limit_per_category}`, `{categories_json}`, `{relations_json}`, and `{schema_instruction}`. Built-in profile names include `medical-en` and `medical-de`; language shorthands such as `de` resolve to `medical-de` when present. Query-expansion profiles are domain profiles: their `category_descriptions` define the runtime category vocabulary, and optional `default_categories` define which categories are used when a request omits `categories`. `src/query_expansion/categories.py` remains only the built-in medical fallback for profiles without category metadata. Requests may override the full template or descriptions for selected categories; relation definitions come from the request/default mini-ontology and are injected through `{relations_json}`. API-side profile metadata is exposed via `GET /query-expansion/profiles` and `GET /query-expansion/profiles/{profile_name}` for remote GUI/client use.[^qe-prompts]
 
 # Docker/runtime note
 

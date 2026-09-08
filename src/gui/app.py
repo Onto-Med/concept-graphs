@@ -436,7 +436,12 @@ def query_expansion_tab(language: str) -> None:
     if not profile_names:
         st.warning("No query-expansion domain profiles are available from the API.")
         return
-    default_profile_index = profile_names.index(language) if language in profile_names else 0
+    preferred_profile = language if language in profile_names else f"medical-{language}"
+    default_profile_index = (
+        profile_names.index(preferred_profile)
+        if preferred_profile in profile_names
+        else 0
+    )
     profile = st.selectbox(
         "Domain profile",
         profile_names,

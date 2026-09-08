@@ -16,6 +16,7 @@ from src.query_expansion.models import QueryExpansionRequest
 DEFAULT_PROFILE_DIR = Path("conf/query-expansion/profiles")
 DEFAULT_PROMPT_DIR = DEFAULT_PROFILE_DIR
 DEFAULT_LANGUAGE = "en"
+DEFAULT_DOMAIN_PROFILE = "medical-en"
 SCHEMA_INSTRUCTION = (
     "Return JSON matching this schema exactly: "
     '{"candidates": [{"term": "...", "category": "...", "rationale": "..."}], '
@@ -72,21 +73,21 @@ def list_domain_profiles() -> list[str]:
 
 
 def load_domain_profile(profile_name: str | None) -> dict[str, Any]:
-    """Load a query-expansion domain profile with English fallback."""
-    normalized = _normalize_profile_name(profile_name or DEFAULT_LANGUAGE)
-    return _load_prompt_profile(normalized) or _load_prompt_profile(DEFAULT_LANGUAGE)
+    """Load a query-expansion domain profile with English medical fallback."""
+    resolved = _resolve_profile_name(profile_name or DEFAULT_LANGUAGE)
+    return _load_prompt_profile(resolved) or _load_prompt_profile(DEFAULT_DOMAIN_PROFILE)
 
 
 def domain_profile_metadata(profile_name: str) -> dict[str, Any]:
     """Return API/GUI-safe metadata for a query-expansion domain profile."""
-    normalized = _normalize_profile_name(profile_name)
-    profile = _load_prompt_profile(normalized)
+    resolved = _resolve_profile_name(profile_name)
+    profile = _load_prompt_profile(resolved)
     if not profile:
         raise ValueError(f"Unknown query-expansion domain profile: {profile_name}")
     categories = profile_category_descriptions(profile)
     return {
-        "name": normalized,
-        "language_name": profile.get("language_name", normalized),
+        "name": resolved,
+        "language_name": profile.get("language_name", resolved),
         "categories": [
             {"id": category, "description": description}
             for category, description in categories.items()
@@ -133,11 +134,25 @@ def request_with_profile_defaults(
 
 
 def _normalize_profile_name(profile_name: str) -> str:
-    return profile_name.lower().replace("_", "-").split("-", maxsplit=1)[0]
+    return profile_name.strip().lower().replace("_", "-")
+
+
+def _resolve_profile_name(profile_name: str) -> str:
+    normalized = _normalize_profile_name(profile_name)
+    if _profile_path(normalized).exists():
+        return normalized
+    medical_profile = f"medical-{normalized}"
+    if _profile_path(medical_profile).exists():
+        return medical_profile
+    return normalized
+
+
+def _profile_path(profile_name: str) -> Path:
+    return DEFAULT_PROMPT_DIR / f"{profile_name}.yml"
 
 
 def _load_prompt_profile(profile_name: str) -> dict[str, Any]:
-    path = DEFAULT_PROMPT_DIR / f"{profile_name}.yml"
+    path = _profile_path(profile_name)
     if not path.exists():
         return {}
     with path.open(encoding="utf-8") as file:
