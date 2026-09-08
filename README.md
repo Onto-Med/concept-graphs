@@ -731,7 +731,7 @@ conf/query-expansion/localization/
 
 The profile is selected from `prompt.profile` or, if omitted, from `language`. Prompt templates and category descriptions can also be overridden per request.
 
-The response keeps the existing `expansions` map for compatibility and can also carry semantic `concepts` and `relations`. Relations use stable medical/domain identifiers such as `equivalent_to`, `related_to`, `may_indicate`, `treated_by`, `investigated_by`, `broader_than`, and `narrower_than`. These describe meaning only; downstream clients decide how to translate them into search, RAG, or UI behavior.
+The response keeps the existing `expansions` map for compatibility and can also carry semantic `concepts` and `relations`. Relations use stable medical/domain identifiers such as `equivalent_to`, `related_to`, `may_indicate`, `treated_by`, `investigated_by`, `confirmed_by`, `broader_than`, and `narrower_than`. These describe meaning only; downstream clients decide how to translate them into search, RAG, or UI behavior.
 
 Requests may restrict the mini-ontology used by the LLM with `relations` and `relation_definitions`. The service validates generated concepts/relations against the requested categories, requested relation IDs, existing concept IDs, and allowed source/target category connections before returning them.
 

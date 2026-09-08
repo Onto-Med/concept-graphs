@@ -38,7 +38,7 @@ Query-expansion prompt profiles live in:
 conf/query-expansion/localization/<profile>.yml
 ```
 
-`src/query_expansion/prompts.py` loads the requested profile or the English fallback and formats the generation prompt with `{term}`, `{language}`, `{language_name}`, `{limit_per_category}`, `{categories_json}`, and `{schema_instruction}`. Requests may override the full template or category descriptions while preserving stable category IDs.[^qe-prompts]
+`src/query_expansion/prompts.py` loads the requested profile or the English fallback and formats the generation prompt with `{term}`, `{language}`, `{language_name}`, `{limit_per_category}`, `{categories_json}`, `{relations_json}`, and `{schema_instruction}`. Requests may override the full template or category descriptions while preserving stable category IDs; relation definitions come from the request/default mini-ontology and are injected through `{relations_json}`.[^qe-prompts]
 
 # Docker/runtime note
 

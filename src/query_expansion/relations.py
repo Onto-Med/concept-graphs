@@ -18,6 +18,7 @@ QueryExpansionRelation = Literal[
     "may_indicate",
     "treated_by",
     "investigated_by",
+    "confirmed_by",
     "broader_than",
     "narrower_than",
 ]
@@ -72,12 +73,15 @@ MEDICAL_RELATION_DEFINITIONS: tuple[RelationDefinition, ...] = (
     ),
     RelationDefinition(
         id="investigated_by",
-        source_categories=("diagnosis", "symptom"),
+        source_categories=("symptom",),
         target_categories=("procedure",),
-        description=(
-            "A diagnosis, condition, symptom, or finding may be investigated by a "
-            "procedure or test."
-        ),
+        description="A symptom, sign, or finding may be investigated by a procedure or test.",
+    ),
+    RelationDefinition(
+        id="confirmed_by",
+        source_categories=("diagnosis",),
+        target_categories=("procedure",),
+        description="A diagnosis or condition may be confirmed by a procedure or test.",
     ),
     RelationDefinition(
         id="broader_than",

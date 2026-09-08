@@ -958,6 +958,7 @@ components:
       - may_indicate
       - treated_by
       - investigated_by
+      - confirmed_by
       - broader_than
       - narrower_than
     ExpansionConcept:

@@ -23,18 +23,18 @@ This page tracks recommended next steps that are larger than immediate cleanup t
 
 # Query expansion direction
 
-The current implementation is a good medical MVP: it exposes `POST /query-expansion`, uses LLM-first generation, validates structured output with Pydantic, supports localized prompt profiles, and can ground candidates against local YAML/JSON terminology files.
+The current implementation is a medical MVP with an initial hybrid mini-ontology path: it exposes `POST /query-expansion`, uses LLM-first generation, validates structured output with Pydantic, supports localized prompt profiles, accepts category/relation constraints, can return optional semantic `concepts` and `relations`, and can ground candidates against explicitly configured local YAML/JSON terminology files.
 
 Recommended direction:
 
 1. **Keep categories as the default control mechanism.**
    Stable category IDs make the API response predictable and help prompt control, validation, grouping, and grounding. A completely category-free prompt may be useful as an experiment, but should not replace the default behavior without quality evidence.
 
-2. **Evaluate three prompt strategies.**
-   Compare current category-based prompting against a general no-category prompt and a category-plus-mini-ontology prompt. Track quality, coverage, duplicates, hallucinations, and grounding rate.
+2. **Evaluate prompt and structure strategies.**
+   Compare category-only prompting, category-plus-mini-ontology prompting, and any general no-category experiment. Track quality, coverage, duplicates, hallucinations, grounding rate, concept grouping quality, and relation validity/usefulness.
 
-3. **Use mini-ontologies as a likely next improvement.**
-   A mini-ontology should add relation hints between categories/concepts, not necessarily replace categories. For example, a medical profile can define categories such as symptom, diagnosis, medication, and procedure, plus relations such as `symptom may_indicate diagnosis` or `diagnosis treated_by medication`. Query expansion should return this as backend-neutral semantic JSON only; search-engine-specific query construction belongs outside `src.query_expansion`.
+3. **Refine mini-ontology behavior.**
+   The initial mini-ontology path lets requests select relation IDs and relation definitions connecting categories. Continue refining the default medical relation set and validation behavior. Query expansion should keep returning backend-neutral semantic JSON only; search-engine-specific query construction belongs outside `src.query_expansion`.
 
 4. **Move toward domain profiles if non-medical SONs matter.**
    At the moment, allowed category IDs are fixed in code. Prompt profiles can override category descriptions, but they cannot introduce arbitrary new category IDs without code changes. If the project needs non-medical SONs, promote categories into domain-specific profiles and validate request/LLM output against the selected profile at runtime.
