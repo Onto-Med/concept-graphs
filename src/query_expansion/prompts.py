@@ -1,4 +1,4 @@
-"""Prompt profile loading for query expansion."""
+"""Domain prompt profile loading for query expansion."""
 
 import json
 from pathlib import Path
@@ -6,10 +6,15 @@ from typing import Any
 
 import yaml
 
-from src.query_expansion.categories import CATEGORY_DESCRIPTIONS, ExpansionCategory
+from src.query_expansion.categories import (
+    CATEGORY_DESCRIPTIONS,
+    DEFAULT_EXPANSION_CATEGORIES,
+    ExpansionCategory,
+)
 from src.query_expansion.models import QueryExpansionRequest
 
-DEFAULT_PROMPT_DIR = Path("conf/query-expansion/localization")
+DEFAULT_PROFILE_DIR = Path("conf/query-expansion/profiles")
+DEFAULT_PROMPT_DIR = DEFAULT_PROFILE_DIR
 DEFAULT_LANGUAGE = "en"
 SCHEMA_INSTRUCTION = (
     "Return JSON matching this schema exactly: "
@@ -40,12 +45,8 @@ Return only structured output.
 
 def build_generation_prompt_from_profile(request: QueryExpansionRequest) -> str:
     """Build a localized/customized prompt for query expansion."""
-    profile_name = _normalize_profile_name(
-        request.prompt.profile or request.language or DEFAULT_LANGUAGE
-    )
-    profile = _load_prompt_profile(profile_name) or _load_prompt_profile(
-        DEFAULT_LANGUAGE
-    )
+    profile = load_domain_profile(request.prompt.profile or request.language)
+    request = request_with_profile_defaults(request, profile)
 
     language_name = profile.get("language_name", request.language)
     template = request.prompt.template or profile.get(
@@ -63,6 +64,74 @@ def build_generation_prompt_from_profile(request: QueryExpansionRequest) -> str:
     )
 
 
+def list_domain_profiles() -> list[str]:
+    """List available query-expansion domain profile names."""
+    if not DEFAULT_PROMPT_DIR.exists():
+        return []
+    return sorted(path.stem for path in DEFAULT_PROMPT_DIR.glob("*.yml"))
+
+
+def load_domain_profile(profile_name: str | None) -> dict[str, Any]:
+    """Load a query-expansion domain profile with English fallback."""
+    normalized = _normalize_profile_name(profile_name or DEFAULT_LANGUAGE)
+    return _load_prompt_profile(normalized) or _load_prompt_profile(DEFAULT_LANGUAGE)
+
+
+def domain_profile_metadata(profile_name: str) -> dict[str, Any]:
+    """Return API/GUI-safe metadata for a query-expansion domain profile."""
+    normalized = _normalize_profile_name(profile_name)
+    profile = _load_prompt_profile(normalized)
+    if not profile:
+        raise ValueError(f"Unknown query-expansion domain profile: {profile_name}")
+    categories = profile_category_descriptions(profile)
+    return {
+        "name": normalized,
+        "language_name": profile.get("language_name", normalized),
+        "categories": [
+            {"id": category, "description": description}
+            for category, description in categories.items()
+        ],
+        "default_categories": profile_default_categories(profile),
+    }
+
+
+def profile_category_descriptions(profile: dict[str, Any]) -> dict[str, str]:
+    """Return the category vocabulary defined by a profile or fallback defaults."""
+    descriptions = profile.get("category_descriptions", {}) or {}
+    return dict(descriptions) if descriptions else dict(CATEGORY_DESCRIPTIONS)
+
+
+def profile_default_categories(profile: dict[str, Any]) -> list[str]:
+    """Return profile default categories or built-in fallback defaults."""
+    descriptions = profile_category_descriptions(profile)
+    defaults = profile.get("default_categories") or list(DEFAULT_EXPANSION_CATEGORIES)
+    unknown_defaults = [category for category in defaults if category not in descriptions]
+    if unknown_defaults:
+        raise ValueError(
+            "Unknown query-expansion default category IDs in prompt profile: "
+            + ", ".join(sorted(unknown_defaults))
+        )
+    return list(defaults)
+
+
+def request_with_profile_defaults(
+    request: QueryExpansionRequest, profile: dict[str, Any] | None = None
+) -> QueryExpansionRequest:
+    """Apply domain-profile category defaults and validation to a request."""
+    profile = profile or load_domain_profile(request.prompt.profile or request.language)
+    descriptions = profile_category_descriptions(profile)
+    categories = list(request.categories) if request.categories else profile_default_categories(profile)
+    unknown_categories = [category for category in categories if category not in descriptions]
+    if unknown_categories:
+        raise ValueError(
+            "Unknown query-expansion category IDs for selected prompt profile: "
+            + ", ".join(sorted(set(unknown_categories)))
+        )
+    if categories == request.categories:
+        return request
+    return request.model_copy(update={"categories": categories})
+
+
 def _normalize_profile_name(profile_name: str) -> str:
     return profile_name.lower().replace("_", "-").split("-", maxsplit=1)[0]
 
@@ -76,27 +145,49 @@ def _load_prompt_profile(profile_name: str) -> dict[str, Any]:
 
 
 def _relation_definitions(request: QueryExpansionRequest) -> list[dict[str, Any]]:
-    return [
-        {
-            "id": definition.id,
-            "source_categories": list(definition.source_categories),
-            "target_categories": list(definition.target_categories),
-            "description": definition.description,
-        }
-        for definition in request.relation_definitions
-        if definition.id in request.relations
-    ]
+    selected_categories = set(request.categories)
+    definitions = []
+    for definition in request.relation_definitions:
+        if definition.id not in request.relations:
+            continue
+        source_categories = [
+            category
+            for category in definition.source_categories
+            if category in selected_categories
+        ]
+        target_categories = [
+            category
+            for category in definition.target_categories
+            if category in selected_categories
+        ]
+        if not source_categories or not target_categories:
+            continue
+        definitions.append(
+            {
+                "id": definition.id,
+                "source_categories": source_categories,
+                "target_categories": target_categories,
+                "description": definition.description,
+            }
+        )
+    return definitions
 
 
 def _category_descriptions(
     request: QueryExpansionRequest, profile: dict[str, Any]
 ) -> dict[ExpansionCategory, str]:
-    profile_descriptions = profile.get("category_descriptions", {}) or {}
+    profile_descriptions = profile_category_descriptions(profile)
     descriptions = {
         category: profile_descriptions.get(
             category, CATEGORY_DESCRIPTIONS.get(category, category)
         )
         for category in request.categories
     }
-    descriptions.update(request.prompt.category_descriptions)
+    descriptions.update(
+        {
+            category: description
+            for category, description in request.prompt.category_descriptions.items()
+            if category in request.categories
+        }
+    )
     return {category: descriptions[category] for category in request.categories}

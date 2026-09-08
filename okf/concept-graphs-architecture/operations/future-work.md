@@ -36,8 +36,8 @@ Recommended direction:
 3. **Refine mini-ontology behavior.**
    The initial mini-ontology path lets requests select relation IDs and relation definitions connecting categories. Continue refining the default medical relation set and validation behavior. Query expansion should keep returning backend-neutral semantic JSON only; search-engine-specific query construction belongs outside `src.query_expansion`.
 
-4. **Move toward domain profiles if non-medical SONs matter.**
-   At the moment, allowed category IDs are fixed in code. Prompt profiles can override category descriptions, but they cannot introduce arbitrary new category IDs without code changes. If the project needs non-medical SONs, promote categories into domain-specific profiles and validate request/LLM output against the selected profile at runtime.
+4. **Expand domain-profile support if non-medical SONs matter.**
+   Category IDs are now runtime-defined by the selected query-expansion domain profile, with `categories.py` kept as a built-in medical fallback. Future work should consider moving relation definitions and domain-specific grounding/source hints into the same profile model.
 
 5. **Improve grounding sources.**
    Local file grounding is implemented. External terminology/ontology adapters, especially HTTP/API-backed sources, remain the most important grounding extension.

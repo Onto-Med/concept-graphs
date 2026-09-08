@@ -19,10 +19,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, field_validator
 
-from src.query_expansion.categories import (
-    DEFAULT_EXPANSION_CATEGORIES,
-    ExpansionCategory,
-)
+from src.query_expansion.categories import ExpansionCategory
 from src.query_expansion.relations import (
     MEDICAL_RELATION_DEFINITIONS,
     QueryExpansionRelation,
@@ -89,18 +86,18 @@ class GroundingOptions(BaseModel):
 class PromptConfig(BaseModel):
     """Prompt customization for query expansion.
 
-    Defaults are loaded from ``conf/query-expansion/localization/{language}.yml``. Request
-    values can override the selected template or category descriptions for
-    experimentation without changing the API category IDs.
+    Defaults are loaded from the selected query-expansion domain profile under
+    ``conf/query-expansion/profiles/{profile}.yml``. Request values can
+    override the selected template or category descriptions for experimentation.
     """
 
     profile: str | None = Field(
         default=None,
-        description="Prompt profile/language file to load, e.g. 'de' or 'en'. Defaults to request.language.",
+        description="Domain profile/language file to load, e.g. 'de' or 'en'. Defaults to request.language.",
     )
     template: str | None = Field(
         default=None,
-        description="Optional prompt template override. Supports {term}, {language}, {language_name}, {limit_per_category}, {categories_json}, and {schema_instruction}.",
+        description="Optional prompt template override. Supports {term}, {language}, {language_name}, {limit_per_category}, {categories_json}, {relations_json}, and {schema_instruction}.",
     )
     category_descriptions: dict[ExpansionCategory, str] = Field(
         default_factory=dict,
@@ -141,8 +138,12 @@ class QueryExpansionRequest(BaseModel):
         default="en", description="Language code used for prompting and source lookup."
     )
     categories: list[ExpansionCategory] = Field(
-        default_factory=lambda: list(DEFAULT_EXPANSION_CATEGORIES),
-        description="Semantic expansion categories requested from the LLM.",
+        default_factory=list,
+        description=(
+            "Semantic expansion categories requested from the LLM. If omitted, "
+            "the selected domain profile's default_categories are used, falling "
+            "back to built-in medical defaults."
+        ),
     )
     limit_per_category: int = Field(
         default=10,
