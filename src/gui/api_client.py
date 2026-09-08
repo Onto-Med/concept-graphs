@@ -176,6 +176,19 @@ class ConceptGraphsClient:
             )
         )
 
+    def query_expansion_profiles(self) -> Any:
+        return self._handle(
+            requests.get(self._url("/query-expansion/profiles"), timeout=self.timeout)
+        )
+
+    def query_expansion_profile(self, profile: str) -> Any:
+        return self._handle(
+            requests.get(
+                self._url(f"/query-expansion/profiles/{profile}"),
+                timeout=self.timeout,
+            )
+        )
+
     def expand_query(
         self, payload: dict[str, Any], api_key: str | None = None, auth_header: str = "X-LLM-API-Key"
     ) -> Any:

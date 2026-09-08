@@ -30,6 +30,38 @@ class FakeQueryExpansionService:
         )
 
 
+def test_query_expansion_profiles_route_lists_profiles(tmp_path):
+    app = create_app(file_storage_dir=str(tmp_path), logging_setup_tuples=[])
+    response = app.test_client().get("/query-expansion/profiles")
+
+    assert response.status_code == 200
+    names = {profile["name"] for profile in response.json["profiles"]}
+    assert {"en", "de"}.issubset(names)
+    english = next(
+        profile for profile in response.json["profiles"] if profile["name"] == "en"
+    )
+    assert "synonym" in {category["id"] for category in english["categories"]}
+    assert english["default_categories"]
+
+
+def test_query_expansion_profile_route_returns_profile_metadata(tmp_path):
+    app = create_app(file_storage_dir=str(tmp_path), logging_setup_tuples=[])
+    response = app.test_client().get("/query-expansion/profiles/de")
+
+    assert response.status_code == 200
+    assert response.json["name"] == "de"
+    assert response.json["language_name"] == "Deutsch"
+    assert "symptom" in {category["id"] for category in response.json["categories"]}
+
+
+def test_query_expansion_profile_route_404s_for_unknown_profile(tmp_path):
+    app = create_app(file_storage_dir=str(tmp_path), logging_setup_tuples=[])
+    response = app.test_client().get("/query-expansion/profiles/unknown")
+
+    assert response.status_code == 404
+    assert "Unknown query-expansion domain profile" in response.json["error"]
+
+
 def test_query_expansion_route_returns_service_response(monkeypatch, tmp_path):
     import src.api.routes.query_expansion as query_expansion_routes
 

@@ -62,7 +62,7 @@ class LocalTerminologySource(ExpansionSource):
 
     @staticmethod
     def _entry_categories(entry: dict[str, Any]) -> set[str]:
-        """Return explicit stable category IDs configured for an entry.
+        """Return explicit domain-profile category IDs configured for an entry.
 
         If an entry does not declare a category, it can ground candidates from any
         category for backwards compatibility. If it declares ``category`` or

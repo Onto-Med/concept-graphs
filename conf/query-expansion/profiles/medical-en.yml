@@ -7,6 +7,12 @@ schema_instruction: |
   Schema:
   {"candidates": [{"term": "...", "category": "...", "rationale": "..."}], "concepts": [{"id": "...", "label": "...", "category": "...", "terms": ["..."]}], "relations": [{"source_concept_id": "...", "relation": "...", "target_concept_id": "...", "confidence": 0.0}]}
   The output is validated as an ExpansionGeneration Pydantic model.
+default_categories:
+  - synonym
+  - medication
+  - diagnosis
+  - symptom
+  - procedure
 prompt_template: |
   Generate medical query-expansion candidates for the provided term.
 

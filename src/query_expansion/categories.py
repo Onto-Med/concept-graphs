@@ -1,8 +1,13 @@
-"""Query-expansion category definitions."""
+"""Fallback query-expansion category definitions.
 
-from typing import Literal
+Domain prompt profiles are the runtime source of truth for category vocabularies.
+The constants in this module remain as built-in medical defaults/fallbacks for
+profiles that do not define their own categories.
+"""
 
-ExpansionCategory = Literal[
+ExpansionCategory = str
+
+ALL_EXPANSION_CATEGORIES: tuple[ExpansionCategory, ...] = (
     "synonym",
     "medication",
     "diagnosis",
@@ -12,7 +17,7 @@ ExpansionCategory = Literal[
     "broader_term",
     "narrower_term",
     "related_term",
-]
+)
 
 DEFAULT_EXPANSION_CATEGORIES: tuple[ExpansionCategory, ...] = (
     "synonym",

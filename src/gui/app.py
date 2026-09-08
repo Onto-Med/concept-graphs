@@ -27,17 +27,6 @@ from src.gui.api_client import APIError, ConceptGraphsClient
 from src.query_expansion.relations import MEDICAL_RELATION_DEFINITIONS
 
 PIPELINE_STEPS = ["data", "embedding", "clustering", "graph", "integration"]
-CATEGORIES = [
-    "synonym",
-    "medication",
-    "diagnosis",
-    "symptom",
-    "procedure",
-    "abbreviation",
-    "broader_term",
-    "narrower_term",
-    "related_term",
-]
 RELATIONS = [relation.id for relation in MEDICAL_RELATION_DEFINITIONS]
 DEFAULT_RELATION_DEFINITIONS_BY_ID = {
     relation.id: relation.model_dump(mode="json")
@@ -45,7 +34,9 @@ DEFAULT_RELATION_DEFINITIONS_BY_ID = {
 }
 
 
-def relation_definition_controls(selected_relations: list[str]) -> list[dict[str, Any]]:
+def relation_definition_controls(
+    selected_relations: list[str], categories: list[str]
+) -> list[dict[str, Any]]:
     """Render user-friendly mini-ontology controls for selected relations."""
     relation_definitions = []
     if not selected_relations:
@@ -57,14 +48,22 @@ def relation_definition_controls(selected_relations: list[str]) -> list[dict[str
         with st.expander(f"Relation: {relation_id}", expanded=False):
             source_categories = st.multiselect(
                 "Source categories",
-                CATEGORIES,
-                default=list(default.get("source_categories", [])),
+                categories,
+                default=[
+                    category
+                    for category in default.get("source_categories", [])
+                    if category in categories
+                ],
                 key=f"qe_relation_{relation_id}_source_categories",
             )
             target_categories = st.multiselect(
                 "Target categories",
-                CATEGORIES,
-                default=list(default.get("target_categories", [])),
+                categories,
+                default=[
+                    category
+                    for category in default.get("target_categories", [])
+                    if category in categories
+                ],
                 key=f"qe_relation_{relation_id}_target_categories",
             )
             description = st.text_area(
@@ -427,11 +426,39 @@ def rag_tab(process: str, language: str) -> None:
 def query_expansion_tab(language: str) -> None:
     st.subheader("Query expansion")
     term = st.text_input("Term to expand")
+    try:
+        profiles_payload = get_client().query_expansion_profiles()
+        profiles = profiles_payload.get("profiles", [])
+    except Exception as exc:
+        st.error(f"Could not load query-expansion profiles from API: {exc}")
+        profiles = []
+    profile_names = [profile.get("name") for profile in profiles if profile.get("name")]
+    if not profile_names:
+        st.warning("No query-expansion domain profiles are available from the API.")
+        return
+    default_profile_index = profile_names.index(language) if language in profile_names else 0
+    profile = st.selectbox(
+        "Domain profile",
+        profile_names,
+        index=default_profile_index,
+        help="Profiles are loaded by the API from conf/query-expansion/profiles/.",
+    )
+    selected_profile = next(
+        item for item in profiles if item.get("name") == profile
+    )
+    profile_categories = [
+        category["id"] for category in selected_profile.get("categories", [])
+    ]
+    default_selected_categories = [
+        category
+        for category in selected_profile.get("default_categories", [])
+        if category in profile_categories
+    ] or profile_categories[:3]
     selected = st.multiselect(
         "Categories",
-        CATEGORIES,
-        default=["synonym", "diagnosis", "symptom"],
-        help="Semantic categories the LLM may use for candidates and concepts.",
+        profile_categories,
+        default=default_selected_categories,
+        help="Semantic categories from the selected domain profile.",
     )
     selected_relations = st.multiselect(
         "Relations",
@@ -451,7 +478,9 @@ def query_expansion_tab(language: str) -> None:
         "may connect. This is semantic structure only; no search-engine behavior "
         "is configured here."
     )
-    relation_definitions = relation_definition_controls(selected_relations)
+    relation_definitions = relation_definition_controls(
+        selected_relations, profile_categories
+    )
     relation_categories = {
         category
         for definition in relation_definitions
@@ -487,7 +516,6 @@ def query_expansion_tab(language: str) -> None:
     include_llm_only = st.checkbox("Include LLM-only expansions", value=True)
     minimum_score = st.slider("Minimum grounding score", 0.0, 1.0, 0.0)
     reject_below = st.checkbox("Reject below minimum", value=False)
-    profile = st.text_input("Prompt profile", value=language)
     sources_text = st.text_area(
         "Grounding sources JSON array",
         value='[]',

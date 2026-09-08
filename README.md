@@ -146,13 +146,13 @@ Typical API URL in Docker setups:
 http://localhost:9007
 ```
 
-### Providing extra localized prompt profiles in Docker
+### Providing extra prompt/domain profiles in Docker
 
-Prompt profiles are normal YAML files below `conf/`:
+Prompt/domain profiles are normal YAML files below `conf/`:
 
 ```text
 conf/rag/localization/<profile>.yml
-conf/query-expansion/localization/<profile>.yml
+conf/query-expansion/profiles/<profile>.yml
 ```
 
 When using the production image, do **not** bind-mount the whole project over `/rest_api`. Instead, mount only the additional profile file or profile directory into the matching `conf/` subdirectory.
@@ -189,7 +189,7 @@ services:
     image: ghcr.io/onto-med/concept-graphs/concept-graphs-api:1.1.2
     volumes:
       - ./local-conf/rag/localization/fr.yml:/rest_api/conf/rag/localization/fr.yml:ro
-      - ./local-conf/query-expansion/localization/fr.yml:/rest_api/conf/query-expansion/localization/fr.yml:ro
+      - ./local-conf/query-expansion/profiles/fr.yml:/rest_api/conf/query-expansion/profiles/fr.yml:ro
 ```
 
 `docker run` example:
@@ -707,7 +707,7 @@ POST /query-expansion
 
 The default implementation uses LangChain and validates the LLM output with Pydantic models. A PydanticAI generator remains available for future/custom use, but is not the default runtime path.
 
-Supported built-in categories are stable API identifiers:
+Query-expansion categories are runtime domain-profile identifiers. The built-in medical fallback/profile categories are:
 
 ```text
 synonym
@@ -721,19 +721,24 @@ narrower_term
 related_term
 ```
 
-Prompt profiles live in:
+Domain prompt profiles live in:
 
 ```text
-conf/query-expansion/localization/
+conf/query-expansion/profiles/
   en.yml
   de.yml
 ```
 
-The profile is selected from `prompt.profile` or, if omitted, from `language`. Prompt templates and category descriptions can also be overridden per request.
+The profile is selected from `prompt.profile` or, if omitted, from `language`. Its `category_descriptions` define the allowed runtime category IDs, and `default_categories` are used when a request omits `categories`. Prompt templates and selected category descriptions can also be overridden per request. Clients can inspect API-side profile metadata through:
+
+```text
+GET /query-expansion/profiles
+GET /query-expansion/profiles/{profile_name}
+```
 
 The response keeps the existing `expansions` map for compatibility and can also carry semantic `concepts` and `relations`. Relations use stable medical/domain identifiers such as `equivalent_to`, `related_to`, `may_indicate`, `treated_by`, `investigated_by`, `confirmed_by`, `broader_than`, and `narrower_than`. These describe meaning only; downstream clients decide how to translate them into search, RAG, or UI behavior.
 
-Requests may restrict the mini-ontology used by the LLM with `relations` and `relation_definitions`. The service validates generated concepts/relations against the requested categories, requested relation IDs, existing concept IDs, and allowed source/target category connections before returning them.
+Requests may restrict the mini-ontology used by the LLM with `relations` and `relation_definitions`. The service validates generated concepts/relations against the effective domain-profile/request categories, requested relation IDs, existing concept IDs, and allowed source/target category connections before returning them.
 
 ### Blablador example
 
@@ -771,7 +776,10 @@ X-API-Key: <token>
 X-Blablador-API-Key: <token>
 ```
 
-### Prompt override example
+### Domain profile and prompt override example
+
+Query-expansion profiles under `conf/query-expansion/profiles/` define the runtime category vocabulary with `category_descriptions` and optional `default_categories`. If a request omits `categories`, the selected profile defaults are used. `src/query_expansion/categories.py` only provides built-in medical fallback helpers for profiles that do not define categories.
+
 
 ```json
 {
@@ -803,7 +811,7 @@ Grounding sources are optional. Currently implemented source type:
 }
 ```
 
-Local grounding loads YAML or JSON and exact-matches generated candidates against each entry's `term` and `synonyms` after lowercasing and whitespace normalization. Optional `category` / `categories` metadata restricts grounding to matching stable category IDs.
+Local grounding loads YAML or JSON and exact-matches generated candidates against each entry's `term` and `synonyms` after lowercasing and whitespace normalization. Optional `category` / `categories` metadata restricts grounding to matching category IDs from the selected domain profile.
 
 Example YAML:
 

@@ -12,6 +12,7 @@ from src.query_expansion.models import (
     QueryExpansionResponse,
     SourceConfig,
 )
+from src.query_expansion.prompts import request_with_profile_defaults
 from src.query_expansion.relations import RelationDefinition
 from src.query_expansion.sources.base import ExpansionSource
 from src.query_expansion.sources.local import LocalTerminologySource
@@ -124,6 +125,7 @@ class QueryExpansionService:
             A response containing grounded and/or LLM-only candidates grouped by
             category.
         """
+        request = request_with_profile_defaults(request)
         sources = (
             [source_from_config(source_config) for source_config in request.sources]
             if sources is None

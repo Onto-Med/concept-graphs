@@ -25,7 +25,7 @@ The GUI is organized into four tabs:
 1. **Pipeline**: load default or process-specific pipeline configuration, edit the advanced JSON payload, choose document-server or ZIP-upload input, start `/pipeline`, and poll `/status` with a progress bar inferred from pipeline step statuses.
 2. **Graphs**: inspect `/graph/statistics`, load individual `/graph/{id}` payloads, render a local NetworkX/SVG overview, or display the API's `draw=true` interactive HTML response.
 3. **RAG**: initialize `/rag/init` with session-only provider credentials/configuration and ask `/rag/question` with optional document filters.
-4. **Query Expansion**: send `/query-expansion` requests with LLM provider settings, session-only API key headers, category selection, backend-neutral relation selection, per-relation mini-ontology controls for source categories, target categories, and descriptions, prompt profile selection, optional local grounding source configurations, request preview, and separated result views for expansions, concepts, relations, and raw JSON.
+4. **Query Expansion**: send `/query-expansion` requests with LLM provider settings, session-only API key headers, API-backed domain profile selection via `GET /query-expansion/profiles`, category selection from the selected profile, backend-neutral relation selection, per-relation mini-ontology controls for source categories, target categories, and descriptions, optional local grounding source configurations, request preview, and separated result views for expansions, concepts, relations, and raw JSON.
 
 # Runtime assumptions
 

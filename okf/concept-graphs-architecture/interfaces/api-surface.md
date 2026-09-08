@@ -30,7 +30,7 @@ sources:
 | Processes | `GET /processes`, `GET /status`, stop/delete endpoints | `src/api/routes/processes.py` |
 | Status | `POST /status/document-server`, `GET /status/rag` | `src/api/routes/status.py` |
 | RAG | `POST /rag/init`, `GET/POST /rag/question` | `src/api/routes/rag.py` |
-| Query expansion | `POST /query-expansion` | `src/api/routes/query_expansion.py` |
+| Query expansion | `GET /query-expansion/profiles`, `GET /query-expansion/profiles/{profile_name}`, `POST /query-expansion` | `src/api/routes/query_expansion.py` |
 | Static docs | `/`, `/openapi`, static assets | `src/api/routes/static.py` |
 
 # Request conventions

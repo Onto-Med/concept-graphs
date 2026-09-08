@@ -386,6 +386,49 @@ paths:
       tags:
       - RAG
       operationId: askRagQuestionWithDocumentFilter
+  /query-expansion/profiles:
+    get:
+      summary: List query-expansion domain profiles
+      description: Returns API-side query-expansion domain profile metadata used by clients such as the Streamlit GUI to populate category controls.
+      responses:
+        '200':
+          description: Available query-expansion domain profiles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  profiles:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/QueryExpansionDomainProfile'
+                required:
+                - profiles
+      tags:
+      - Query expansion
+      operationId: listQueryExpansionProfiles
+  /query-expansion/profiles/{profile_name}:
+    get:
+      summary: Get query-expansion domain profile metadata
+      parameters:
+      - name: profile_name
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Domain profile name, e.g. `en` or `de`.
+      responses:
+        '200':
+          description: Query-expansion domain profile metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QueryExpansionDomainProfile'
+        '404':
+          description: Domain profile not found
+      tags:
+      - Query expansion
+      operationId: getQueryExpansionProfile
   /query-expansion:
     post:
       summary: Generate source-grounded query-expansion candidates
@@ -713,17 +756,44 @@ components:
       - message
     ExpansionCategory:
       type: string
-      description: Semantic category requested from/assigned by the expansion LLM.
-      enum:
-      - synonym
-      - medication
-      - diagnosis
-      - symptom
-      - procedure
-      - abbreviation
-      - broader_term
-      - narrower_term
-      - related_term
+      description: Semantic category requested from/assigned by the expansion LLM. Allowed values are defined by the selected query-expansion domain profile; built-in medical profiles include synonym, medication, diagnosis, symptom, procedure, abbreviation, broader_term, narrower_term, and related_term.
+    QueryExpansionDomainProfileCategory:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Category ID defined by the domain profile.
+        description:
+          type: string
+          description: Localized/domain-specific category description.
+      required:
+      - id
+      - description
+    QueryExpansionDomainProfile:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Domain profile name.
+          example: de
+        language_name:
+          type: string
+          description: Human-readable language/domain label.
+          example: Deutsch
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueryExpansionDomainProfileCategory'
+        default_categories:
+          type: array
+          items:
+            type: string
+          description: Profile categories used when a request omits `categories`.
+      required:
+      - name
+      - language_name
+      - categories
+      - default_categories
     GroundingStatus:
       type: string
       description: How well a generated candidate is supported by configured sources.
@@ -804,20 +874,20 @@ components:
           description: Drop candidates below `minimum_score` instead of returning them as `llm_only`.
     QueryExpansionPromptConfig:
       type: object
-      description: Optional prompt profile/template/category-description overrides. Defaults are loaded from `conf/query-expansion/localization/{language}.yml`.
+      description: Optional domain profile/template/category-description overrides. Defaults are loaded from `conf/query-expansion/profiles/{language}.yml`.
       properties:
         profile:
           type: string
           nullable: true
-          description: Prompt profile/language file to load, e.g. `de` or `en`. Defaults to request language.
+          description: Domain profile/language file to load, e.g. `de` or `en`. Defaults to request language.
           example: de
         template:
           type: string
           nullable: true
-          description: Optional prompt template override. Supports `{term}`, `{language}`, `{language_name}`, `{limit_per_category}`, `{categories_json}`, and `{schema_instruction}`.
+          description: Optional prompt template override. Supports `{term}`, `{language}`, `{language_name}`, `{limit_per_category}`, `{categories_json}`, `{relations_json}`, and `{schema_instruction}`.
         category_descriptions:
           type: object
-          description: Optional localized/custom category descriptions keyed by stable category ID.
+          description: Optional localized/custom category descriptions keyed by selected domain-profile category ID.
           additionalProperties:
             type: string
     QueryExpansionRelationDefinition:
@@ -857,7 +927,7 @@ components:
           example: en
         categories:
           type: array
-          description: Semantic expansion categories requested from the LLM.
+          description: Semantic expansion categories requested from the LLM. If omitted, the selected domain profile's `default_categories` are used, falling back to built-in medical defaults.
           items:
             $ref: '#/components/schemas/ExpansionCategory'
         limit_per_category:

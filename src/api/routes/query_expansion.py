@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from src.api.responses import HTTPResponses
 from src.query_expansion.generator import LangChainExpansionGenerator
 from src.query_expansion.models import QueryExpansionRequest
+from src.query_expansion.prompts import domain_profile_metadata, list_domain_profiles
 from src.query_expansion.service import QueryExpansionService
 
 logger = logging.getLogger(__name__)
@@ -66,6 +67,21 @@ def _with_authorization_api_key(
 def create_query_expansion_blueprint():
     """Create the query-expansion blueprint."""
     blueprint = Blueprint("query_expansion_routes", __name__)
+
+    @blueprint.route("/query-expansion/profiles", methods=["GET"])
+    def list_query_expansion_profiles():
+        profiles = [
+            domain_profile_metadata(profile_name)
+            for profile_name in list_domain_profiles()
+        ]
+        return jsonify({"profiles": profiles}), int(HTTPResponses.OK)
+
+    @blueprint.route("/query-expansion/profiles/<profile_name>", methods=["GET"])
+    def get_query_expansion_profile(profile_name: str):
+        try:
+            return jsonify(domain_profile_metadata(profile_name)), int(HTTPResponses.OK)
+        except ValueError as exc:
+            return jsonify(error=str(exc)), int(HTTPResponses.NOT_FOUND)
 
     @blueprint.route("/query-expansion", methods=["POST"])
     def expand_query():
