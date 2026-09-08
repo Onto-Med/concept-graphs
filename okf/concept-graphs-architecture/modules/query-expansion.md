@@ -40,11 +40,14 @@ sources:
 
 `QueryExpansionService.expand()`:
 
-1. builds source adapters from `SourceConfig` objects unless adapters were injected,
-2. asks an `ExpansionGenerator` to generate candidate expansions from a localized/custom prompt profile,
-3. filters candidates to requested categories,
-4. grounds candidates against sources using configured grounding options, and
-5. returns a `QueryExpansionResponse` grouped by category.[^service]
+1. builds grounding source adapters from `SourceConfig` objects when request `sources` are provided, or uses injected adapters in tests/custom callers; an empty `sources` list means no grounding adapters are used,
+2. asks an `ExpansionGenerator` to generate structured expansion output from a localized/custom prompt profile,
+3. filters generated candidates to requested categories,
+4. grounds candidates against sources using configured grounding options,
+5. groups grounded/LLM-only candidates by category for the compatibility `expansions` response,
+6. validates generated concepts against requested categories and known terms,
+7. validates generated semantic relations against requested relation IDs, existing concept IDs, and allowed source/target category connections, and
+8. returns a backend-neutral `QueryExpansionResponse` with categorized `expansions` plus optional semantic `concepts` and `relations`.[^service]
 
 # Generator abstraction
 
@@ -58,13 +61,13 @@ Prompt profiles live under `conf/query-expansion/localization/` and are loaded b
 
 Built-in stable category IDs include `synonym`, `medication`, `diagnosis`, `symptom`, `procedure`, `abbreviation`, `broader_term`, `narrower_term`, and `related_term`.
 
-`relations.py` defines backend-neutral medical relation IDs such as `equivalent_to`, `related_to`, `may_indicate`, `treated_by`, `investigated_by`, `broader_than`, and `narrower_than`. These relations describe semantic structure only and intentionally do not reference search-engine methods, backend DSLs, boosts, or proximity settings.
+`relations.py` defines backend-neutral medical relation IDs such as `equivalent_to`, `related_to`, `may_indicate`, `treated_by`, `investigated_by`, `confirmed_by`, `broader_than`, and `narrower_than`. These relations describe semantic structure only and intentionally do not reference search-engine methods, backend DSLs, boosts, or proximity settings. The default `investigated_by` relation is symptom-to-procedure; diagnosis-to-procedure evidence uses `confirmed_by`.
 
 Requests may restrict the semantic mini-ontology with `relations` and `relation_definitions`. The LLM may propose candidates, concepts, and relations, but `QueryExpansionService` validates generated concepts/relations against requested categories, requested relation IDs, known concept IDs, and allowed source/target category connections before returning them.
 
 # Source adapters
 
-`source_from_config()` currently implements local YAML/JSON terminology sources. Local grounding exact-matches generated candidates against an entry's `term` and `synonyms`, and optional `category` / `categories` metadata can restrict which stable category IDs an entry grounds. HTTP source scaffolding exists under `sources/http.py`, but `service.py` raises `NotImplementedError` for unsupported source types.
+`source_from_config()` currently implements local YAML/JSON terminology sources when the request explicitly supplies `sources`. There is no automatic default grounding source. If no sources are supplied, generated candidates can still be returned as `llm_only` depending on grounding options. Local grounding exact-matches generated candidates against an entry's `term` and `synonyms`, and optional `category` / `categories` metadata can restrict which stable category IDs an entry grounds. HTTP source scaffolding exists under `sources/http.py`, but `service.py` raises `NotImplementedError` for unsupported source types.
 
 # API integration
 

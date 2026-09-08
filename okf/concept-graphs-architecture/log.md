@@ -2,9 +2,10 @@
 
 ## 2026-09-03
 * **Update**: Added backend-neutral query-expansion relation vocabulary and response model fields for optional semantic `concepts`/`relations`; clarified that search-engine-specific query construction is outside `src.query_expansion`.
+* **Cleanup**: Refreshed query-expansion OKF notes after the hybrid mini-ontology implementation: clarified no default grounding source is used, documented `{relations_json}` prompt injection, updated future-work status, and marked the old query-mode note as superseded downstream-translation context.
 
 ## 2026-09-02
-* **Design note**: Added `operations/query-expansion-query-modes.md` with proposed Elasticsearch-style query modes for relation-aware/mini-ontology query expansion.
+* **Historical design note**: Added `operations/query-expansion-query-modes.md`; this note is now superseded and retained only as downstream query-translation context.
 
 ## 2026-09-01
 * **Creation**: Added optional `src.gui` Streamlit frontend notes, documenting its thin-client API role and four tabs for pipeline, graph inspection, RAG, and query expansion.

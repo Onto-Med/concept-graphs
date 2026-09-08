@@ -1,9 +1,10 @@
 ---
 type: Design Note
-title: Query-expansion query modes
-description: Proposed mapping from query-expansion categories/relations to Elasticsearch-style classical queries.
-tags: [query-expansion, ontology, elasticsearch, search, roadmap]
-status: draft
+title: Query-expansion downstream query translation
+description: Historical note about translating backend-neutral query-expansion semantics into search queries outside src.query_expansion.
+tags: [query-expansion, ontology, search, roadmap, superseded]
+status: superseded
+superseded_by: /okf/concept-graphs-architecture/modules/query-expansion.md
 generated: { by: pi-agent/gpt-5.5, at: 2026-09-02T00:00:00Z }
 sources:
   - id: query-expansion
@@ -14,188 +15,98 @@ sources:
     title: Future work notes
 ---
 
-# Purpose
+# Status
 
-This note is retained as historical design context. The current direction is stricter: `src.query_expansion` should return backend-neutral semantic JSON only, with categories, concepts, and relations. It should not define search-engine methods or create Elasticsearch-like query plans.
+This page is retained as historical design context. It no longer describes code that should live inside `src.query_expansion`.
 
-Downstream applications may still translate semantic relation output into Elasticsearch-like queries, but that translation belongs outside the query-expansion package.
+The current boundary is:
 
-# Core idea
+* `src.query_expansion` returns backend-neutral semantic JSON: categorized `expansions`, optional `concepts`, and optional semantic `relations`.
+* `src.query_expansion` does not define search-engine methods, boosts, proximity windows, Elasticsearch DSL, Marqo behavior, or executable query plans.
+* Any conversion from semantic relations into a concrete search prompt/query belongs to a downstream service or caller.
 
-A good expanded query should not collapse every term into one large `OR` list. Instead:
+# Current semantic output shape
 
-* terms within the same concept/synonym group are combined with `OR`,
-* related concept groups are combined using relation-specific query modes,
-* weaker or indirect expansions are usually `should`/boost clauses,
-* high-confidence relational expansions can become `must`, `near`, or boosted proximity clauses.
+A downstream service should consume output such as:
 
-# Initial query modes
+```json
+{
+  "term": "Bauchschmerzen",
+  "language": "de",
+  "expansions": {
+    "symptom": [],
+    "diagnosis": []
+  },
+  "concepts": [
+    {
+      "id": "abdominal_pain",
+      "label": "Bauchschmerzen",
+      "category": "symptom",
+      "terms": ["Bauchschmerzen", "Abdominalschmerz"]
+    },
+    {
+      "id": "appendicitis",
+      "label": "Appendizitis",
+      "category": "diagnosis",
+      "terms": ["Appendizitis", "Blinddarmentzündung"]
+    }
+  ],
+  "relations": [
+    {
+      "source_concept_id": "abdominal_pain",
+      "relation": "may_indicate",
+      "target_concept_id": "appendicitis",
+      "confidence": 0.8
+    }
+  ]
+}
+```
 
-## `same_or_group`
+# Current relation vocabulary
 
-Use for synonyms, spelling variants, abbreviations, and lay terms.
-
-Semantics:
+The default backend-neutral medical relations are defined in `src/query_expansion/relations.py`:
 
 ```text
-(term_1 OR term_2 OR term_3 ...)
+equivalent_to
+related_to
+may_indicate
+treated_by
+investigated_by
+confirmed_by
+broader_than
+narrower_than
 ```
 
-Elasticsearch-style implementation: `bool.should` with `minimum_should_match: 1`, or a configured synonym analyzer if available.
-
-## `should_boost`
-
-Use for weak `related_to` / associative expansions.
-
-Semantics:
+Important current default directions include:
 
 ```text
-original_query MUST match; related terms SHOULD match and increase score
+symptom --may_indicate--> diagnosis
+diagnosis --treated_by--> medication/procedure
+symptom --investigated_by--> procedure
+diagnosis --confirmed_by--> procedure
 ```
 
-This improves recall without making loosely related terms mandatory.
+# Downstream translation examples
 
-## `must_both_boost_near`
+These examples are illustrative only and should not be implemented inside `src.query_expansion`.
 
-Use for strong relation pairs such as:
+A search/RAG caller might translate semantic output as follows:
 
-```text
-symptom may_indicate diagnosis
-```
+* `equivalent_to`: treat concept terms as alternatives/synonyms.
+* `may_indicate`: combine symptom and diagnosis concepts when looking for diagnostically relevant documents.
+* `treated_by`: include treatment concepts as optional or required context depending on the use case.
+* `investigated_by`: include diagnostic procedure/test concepts for symptom workups.
+* `confirmed_by`: include procedure/test concepts as evidence for diagnosis confirmation.
+* `broader_than` / `narrower_than`: use broader terms for recall or narrower terms for specificity.
 
-Semantics:
+Those choices are retrieval-policy decisions and belong to the consuming service.
 
-```text
-source concept group MUST match
-AND target concept group MUST match
-BOOST if source and target occur near each other
-```
+# Recommended evaluation
 
-Elasticsearch-style implementation: `bool.must` for both groups plus `match_phrase`/span/proximity query in `should` with a boost.
+Compare at least:
 
-## `must_source_should_target`
+1. category-only expansion,
+2. category + concept grouping,
+3. category + concept grouping + semantic relations.
 
-Use for directional but optional target relations, for example:
-
-```text
-diagnosis treated_by medication
-diagnosis investigated_by procedure
-```
-
-Semantics:
-
-```text
-source concept group MUST match
-target concept group SHOULD match and increase score
-```
-
-This avoids losing relevant documents that mention the diagnosis without explicitly mentioning treatment/procedure terms.
-
-## `should_low_boost`
-
-Use for broader terms and high-recall expansions.
-
-Semantics:
-
-```text
-broader terms SHOULD match with lower boost
-```
-
-Broader terms improve recall but can reduce precision, so they should usually not be required.
-
-## `should_high_boost`
-
-Use for narrower terms and highly specific descendants.
-
-Semantics:
-
-```text
-narrower terms SHOULD match with higher boost
-```
-
-Narrower terms are often useful precision signals, especially when the input concept is broad.
-
-# Suggested relation mapping
-
-```yaml
-relations:
-  equivalent_to:
-    applies_to: [synonym, abbreviation]
-    query_mode: same_or_group
-
-  related_to:
-    applies_to: [related_term]
-    query_mode: should_boost
-
-  symptom_may_indicate_diagnosis:
-    from: symptom
-    to: diagnosis
-    label: may_indicate
-    query_mode: must_both_boost_near
-
-  diagnosis_treated_by_medication:
-    from: diagnosis
-    to: medication
-    label: treated_by
-    query_mode: must_source_should_target
-
-  diagnosis_investigated_by_procedure:
-    from: diagnosis
-    to: procedure
-    label: investigated_by
-    query_mode: must_source_should_target
-
-  broader_term:
-    query_mode: should_low_boost
-
-  narrower_term:
-    query_mode: should_high_boost
-```
-
-# Example
-
-Input term:
-
-```text
-Bauchschmerzen
-```
-
-Expanded concept groups:
-
-```yaml
-concepts:
-  abdominal_pain:
-    category: symptom
-    terms: [Bauchschmerzen, Bauchweh, Abdominalschmerz]
-  appendicitis:
-    category: diagnosis
-    terms: [Appendizitis, Blinddarmentzündung]
-relations:
-  - subject: abdominal_pain
-    predicate: may_indicate
-    object: appendicitis
-    query_mode: must_both_boost_near
-```
-
-Classical query shape:
-
-```text
-(Bauchschmerzen OR Bauchweh OR Abdominalschmerz)
-AND
-(Appendizitis OR Blinddarmentzündung)
-BOOST if both groups occur near each other
-```
-
-# Recommended first experiment
-
-Compare three strategies on the same query set:
-
-1. flat synonym/category expansion,
-2. category-only grouped expansion,
-3. category + relation-aware query modes.
-
-Track at least precision, recall/coverage, duplicate/noisy expansions, hallucination rate, and grounding rate.
-
-# Implementation note
-
-The current `src.query_expansion` schema would need an extension to emit relation/query-plan metadata, for example fields such as `concept_id`, `relation`, `source_concept_id`, `target_concept_id`, and `query_mode`. The existing categorized response can remain as the compatibility layer.
+Track precision, recall/coverage, duplicate/noisy expansions, hallucination rate, grounding rate, concept grouping quality, relation validity, and downstream search/RAG usefulness.

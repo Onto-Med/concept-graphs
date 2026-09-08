@@ -24,6 +24,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 from src.gui.api_client import APIError, ConceptGraphsClient
+from src.query_expansion.relations import MEDICAL_RELATION_DEFINITIONS
 
 PIPELINE_STEPS = ["data", "embedding", "clustering", "graph", "integration"]
 CATEGORIES = [
@@ -37,6 +38,50 @@ CATEGORIES = [
     "narrower_term",
     "related_term",
 ]
+RELATIONS = [relation.id for relation in MEDICAL_RELATION_DEFINITIONS]
+DEFAULT_RELATION_DEFINITIONS_BY_ID = {
+    relation.id: relation.model_dump(mode="json")
+    for relation in MEDICAL_RELATION_DEFINITIONS
+}
+
+
+def relation_definition_controls(selected_relations: list[str]) -> list[dict[str, Any]]:
+    """Render user-friendly mini-ontology controls for selected relations."""
+    relation_definitions = []
+    if not selected_relations:
+        st.info("Select at least one relation to configure relation definitions.")
+        return relation_definitions
+
+    for relation_id in selected_relations:
+        default = DEFAULT_RELATION_DEFINITIONS_BY_ID.get(relation_id, {})
+        with st.expander(f"Relation: {relation_id}", expanded=False):
+            source_categories = st.multiselect(
+                "Source categories",
+                CATEGORIES,
+                default=list(default.get("source_categories", [])),
+                key=f"qe_relation_{relation_id}_source_categories",
+            )
+            target_categories = st.multiselect(
+                "Target categories",
+                CATEGORIES,
+                default=list(default.get("target_categories", [])),
+                key=f"qe_relation_{relation_id}_target_categories",
+            )
+            description = st.text_area(
+                "Definition",
+                value=default.get("description", ""),
+                key=f"qe_relation_{relation_id}_description",
+                height=80,
+            )
+            relation_definitions.append(
+                {
+                    "id": relation_id,
+                    "source_categories": source_categories,
+                    "target_categories": target_categories,
+                    "description": description,
+                }
+            )
+    return relation_definitions
 
 
 def get_client() -> ConceptGraphsClient:
@@ -53,7 +98,7 @@ def show_error(exc: Exception) -> None:
         st.error(str(exc))
 
 
-def json_editor(label: str, value: dict[str, Any], *, height: int = 360, key: str) -> dict[str, Any] | None:
+def json_editor(label: str, value: Any, *, height: int = 360, key: str) -> Any | None:
     text = st.text_area(label, json.dumps(value, indent=2, ensure_ascii=False), height=height, key=key)
     try:
         return json.loads(text)
@@ -382,12 +427,63 @@ def rag_tab(process: str, language: str) -> None:
 def query_expansion_tab(language: str) -> None:
     st.subheader("Query expansion")
     term = st.text_input("Term to expand")
-    selected = st.multiselect("Categories", CATEGORIES, default=["synonym", "diagnosis", "symptom"])
+    selected = st.multiselect(
+        "Categories",
+        CATEGORIES,
+        default=["synonym", "diagnosis", "symptom"],
+        help="Semantic categories the LLM may use for candidates and concepts.",
+    )
+    selected_relations = st.multiselect(
+        "Relations",
+        RELATIONS,
+        default=[
+            "equivalent_to",
+            "may_indicate",
+            "treated_by",
+            "investigated_by",
+            "confirmed_by",
+        ],
+        help="Backend-neutral semantic relations the LLM may use.",
+    )
+    st.markdown("##### Relation definitions / mini-ontology")
+    st.caption(
+        "For each selected relation, define which source and target categories it "
+        "may connect. This is semantic structure only; no search-engine behavior "
+        "is configured here."
+    )
+    relation_definitions = relation_definition_controls(selected_relations)
+    relation_categories = {
+        category
+        for definition in relation_definitions
+        for category in (
+            definition.get("source_categories", [])
+            + definition.get("target_categories", [])
+        )
+    }
+    missing_categories = sorted(relation_categories - set(selected))
+    if missing_categories:
+        st.warning(
+            "Some relation definitions reference categories that are not selected: "
+            f"{', '.join(missing_categories)}. Relations using those categories "
+            "will be filtered unless you select the categories too."
+        )
+    with st.expander("Relation definitions JSON preview"):
+        st.json(relation_definitions)
     limit = st.number_input("Limit per category", min_value=1, max_value=100, value=5)
     provider = st.selectbox("LLM provider", ["ollama", "blablador", "openai"])
-    model = st.text_input("Model", value="llama3.1" if provider == "ollama" else "alias-fast")
-    base_url = st.text_input("Base URL", value="http://localhost:11434" if provider == "ollama" else "")
-    api_key = st.text_input("Provider API key (session-only, optional)", type="password", key="qe_key")
+    model = st.text_input(
+        "Model",
+        value="llama3.1" if provider == "ollama" else "alias-fast",
+    )
+    base_url = st.text_input(
+        "Base URL",
+        value="http://localhost:11434" if provider == "ollama" else "",
+    )
+    api_key = st.text_input(
+        "Provider API key (session-only, optional)",
+        type="password",
+        key="qe_key",
+    )
     include_llm_only = st.checkbox("Include LLM-only expansions", value=True)
     minimum_score = st.slider("Minimum grounding score", 0.0, 1.0, 0.0)
     reject_below = st.checkbox("Reject below minimum", value=False)
@@ -395,7 +491,10 @@ def query_expansion_tab(language: str) -> None:
     sources_text = st.text_area(
         "Grounding sources JSON array",
         value='[]',
-        help='Example: [{"name":"local-medical-terms","type":"local","path":"conf/query-expansion/grounding/medical_terms.example.yml"}]',
+        help=(
+            'Example: [{"name":"local-medical-terms","type":"local",'
+            '"path":"conf/query-expansion/grounding/medical_terms.example.yml"}]'
+        ),
         height=120,
     )
     custom_payload = st.checkbox("Edit complete JSON before sending")
@@ -408,6 +507,8 @@ def query_expansion_tab(language: str) -> None:
         "term": term,
         "language": language,
         "categories": selected,
+        "relations": selected_relations,
+        "relation_definitions": relation_definitions or [],
         "limit_per_category": int(limit),
         "llm": {"model": model, "options": {"provider": provider}},
         "sources": sources,
@@ -424,15 +525,29 @@ def query_expansion_tab(language: str) -> None:
         edited = json_editor("Query expansion request", payload, key="qe_payload_text")
         if edited is not None:
             payload = edited
+    with st.expander("Request preview"):
+        st.json(payload)
     if st.button("Expand query", type="primary"):
         if not payload.get("term"):
             st.warning("Enter a term first.")
             return
         try:
-            result = get_client().expand_query(payload, api_key=api_key or None)
-            st.json(result)
+            st.session_state.qe_result = get_client().expand_query(
+                payload,
+                api_key=api_key or None,
+            )
         except Exception as exc:
             show_error(exc)
+    if result := st.session_state.get("qe_result"):
+        tabs = st.tabs(["Expansions", "Concepts", "Relations", "Raw JSON"])
+        with tabs[0]:
+            st.json(result.get("expansions", result))
+        with tabs[1]:
+            st.json(result.get("concepts", []))
+        with tabs[2]:
+            st.json(result.get("relations", []))
+        with tabs[3]:
+            st.json(result)
 
 
 def sidebar() -> tuple[str, str]:
