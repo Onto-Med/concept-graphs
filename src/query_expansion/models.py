@@ -93,7 +93,7 @@ class PromptConfig(BaseModel):
 
     profile: str | None = Field(
         default=None,
-        description="Domain profile/language file to load, e.g. 'de' or 'en'. Defaults to request.language.",
+        description="Domain profile file to load, e.g. 'medical_de' or 'medical_en'. Spaces and hyphens are normalized to underscores.",
     )
     template: str | None = Field(
         default=None,

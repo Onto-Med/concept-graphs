@@ -16,7 +16,7 @@ from src.query_expansion.models import QueryExpansionRequest
 DEFAULT_PROFILE_DIR = Path("conf/query-expansion/profiles")
 DEFAULT_PROMPT_DIR = DEFAULT_PROFILE_DIR
 DEFAULT_LANGUAGE = "en"
-DEFAULT_DOMAIN_PROFILE = "medical-en"
+DEFAULT_DOMAIN_PROFILE = "medical_en"
 SCHEMA_INSTRUCTION = (
     "Return JSON matching this schema exactly: "
     '{"candidates": [{"term": "...", "category": "...", "rationale": "..."}], '
@@ -74,20 +74,20 @@ def list_domain_profiles() -> list[str]:
 
 def load_domain_profile(profile_name: str | None) -> dict[str, Any]:
     """Load a query-expansion domain profile with English medical fallback."""
-    resolved = _resolve_profile_name(profile_name or DEFAULT_LANGUAGE)
-    return _load_prompt_profile(resolved) or _load_prompt_profile(DEFAULT_DOMAIN_PROFILE)
+    normalized = _normalize_profile_name(profile_name or DEFAULT_DOMAIN_PROFILE)
+    return _load_prompt_profile(normalized) or _load_prompt_profile(DEFAULT_DOMAIN_PROFILE)
 
 
 def domain_profile_metadata(profile_name: str) -> dict[str, Any]:
     """Return API/GUI-safe metadata for a query-expansion domain profile."""
-    resolved = _resolve_profile_name(profile_name)
-    profile = _load_prompt_profile(resolved)
+    normalized = _normalize_profile_name(profile_name)
+    profile = _load_prompt_profile(normalized)
     if not profile:
         raise ValueError(f"Unknown query-expansion domain profile: {profile_name}")
     categories = profile_category_descriptions(profile)
     return {
-        "name": resolved,
-        "language_name": profile.get("language_name", resolved),
+        "name": normalized,
+        "language_name": profile.get("language_name", normalized),
         "categories": [
             {"id": category, "description": description}
             for category, description in categories.items()
@@ -134,17 +134,8 @@ def request_with_profile_defaults(
 
 
 def _normalize_profile_name(profile_name: str) -> str:
-    return profile_name.strip().lower().replace("_", "-")
-
-
-def _resolve_profile_name(profile_name: str) -> str:
-    normalized = _normalize_profile_name(profile_name)
-    if _profile_path(normalized).exists():
-        return normalized
-    medical_profile = f"medical-{normalized}"
-    if _profile_path(medical_profile).exists():
-        return medical_profile
-    return normalized
+    hyphenated = "-".join(profile_name.strip().lower().replace("_", "-").split())
+    return hyphenated.replace("-", "_")
 
 
 def _profile_path(profile_name: str) -> Path:

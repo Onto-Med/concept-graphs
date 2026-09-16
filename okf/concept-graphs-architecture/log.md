@@ -7,6 +7,7 @@
 * **Update**: Promoted query-expansion profile YAML into runtime domain profiles: `category_descriptions` define allowed category IDs, `default_categories` drive omitted request categories, and `categories.py` is now fallback/default helper data rather than the primary source of truth.
 * **Rename**: Moved built-in query-expansion domain profiles from `conf/query-expansion/localization/` to `conf/query-expansion/profiles/`; no legacy localization-path fallback is kept.
 * **API/GUI**: Added query-expansion domain profile metadata endpoints and changed the Streamlit GUI to use an API-backed domain-profile select box instead of reading local profile files directly.
+* **Update**: Standardized query-expansion domain profile IDs and filenames to canonical underscore names such as `medical_de`; profile inputs with spaces or hyphens normalize to underscores, and bare language codes no longer imply medical profiles.
 
 ## 2026-09-02
 * **Historical design note**: Added `operations/query-expansion-query-modes.md`; this note is now superseded and retained only as downstream query-translation context.

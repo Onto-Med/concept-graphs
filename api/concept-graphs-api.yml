@@ -416,7 +416,7 @@ paths:
         required: true
         schema:
           type: string
-        description: Domain profile name, e.g. `medical-en` or `medical-de`; language shorthands such as `de` resolve to matching built-in medical profiles.
+        description: Domain profile name, e.g. `medical_en` or `medical_de`; spaces and hyphens are normalized to underscores, so `medical de` and `medical-de` resolve to `medical_de`.
       responses:
         '200':
           description: Query-expansion domain profile metadata
@@ -874,13 +874,13 @@ components:
           description: Drop candidates below `minimum_score` instead of returning them as `llm_only`.
     QueryExpansionPromptConfig:
       type: object
-      description: Optional domain profile/template/category-description overrides. Defaults are loaded from `conf/query-expansion/profiles/{language}.yml`.
+      description: Optional domain profile/template/category-description overrides. Profiles are loaded from `conf/query-expansion/profiles/<profile>.yml`; if no requested profile exists, the service falls back to the built-in default domain profile.
       properties:
         profile:
           type: string
           nullable: true
-          description: Domain profile/language file to load, e.g. `medical-de` or `medical-en`. Language shorthands such as `de` resolve to matching built-in medical profiles. Defaults to request language.
-          example: medical-de
+          description: Domain profile file to load, e.g. `medical_de` or `medical_en`. Spaces and hyphens are normalized to underscores, so `medical de` and `medical-de` resolve to `medical_de`. Bare language names such as `de` do not imply a medical profile.
+          example: medical_de
         template:
           type: string
           nullable: true

@@ -436,7 +436,7 @@ def query_expansion_tab(language: str) -> None:
     if not profile_names:
         st.warning("No query-expansion domain profiles are available from the API.")
         return
-    preferred_profile = language if language in profile_names else f"medical-{language}"
+    preferred_profile = language if language in profile_names else f"medical_{language}"
     default_profile_index = (
         profile_names.index(preferred_profile)
         if preferred_profile in profile_names
