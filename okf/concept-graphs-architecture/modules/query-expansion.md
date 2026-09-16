@@ -55,7 +55,7 @@ sources:
 
 # Prompt profiles
 
-Domain prompt profiles live under `conf/query-expansion/profiles/` and are loaded by `prompts.py`; built-ins use names such as `medical-en` and `medical-de`. The profile is selected from `request.prompt.profile` or the request language; language shorthands such as `de` resolve to `medical-de` when present, with `medical-en` fallback. Profiles define localized prompt text plus the runtime category vocabulary via `category_descriptions` and optional `default_categories`. Requests can override the template or per-category descriptions for selected categories. The API exposes profile metadata through `GET /query-expansion/profiles` and `GET /query-expansion/profiles/{profile_name}` so remote clients do not need filesystem access. See [Prompt profiles](/operations/prompt-profiles.md).
+Domain prompt profiles live under `conf/query-expansion/profiles/` and are loaded by `prompts.py`; built-ins use canonical underscore names such as `medical_en` and `medical_de`. The profile is selected from `request.prompt.profile`; profile inputs are normalized so `medical de`, `medical-de`, and `medical_de` all resolve to `medical_de`, while bare language names such as `de` do not imply a medical profile. Missing/unknown profiles fall back to `medical_en`. Profiles define localized prompt text plus the runtime category vocabulary via `category_descriptions` and optional `default_categories`. Requests can override the template or per-category descriptions for selected categories. The API exposes profile metadata through `GET /query-expansion/profiles` and `GET /query-expansion/profiles/{profile_name}` so remote clients do not need filesystem access. See [Prompt profiles](/operations/prompt-profiles.md).
 
 # Categories and relations
 

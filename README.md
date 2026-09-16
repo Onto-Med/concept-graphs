@@ -725,11 +725,11 @@ Domain prompt profiles live in:
 
 ```text
 conf/query-expansion/profiles/
-  medical-en.yml
-  medical-de.yml
+  medical_en.yml
+  medical_de.yml
 ```
 
-The profile is selected from `prompt.profile` or, if omitted, from `language`; language shorthands such as `de` resolve to built-in profiles such as `medical-de` when present. Its `category_descriptions` define the allowed runtime category IDs, and `default_categories` are used when a request omits `categories`. Prompt templates and selected category descriptions can also be overridden per request. Clients can inspect API-side profile metadata through:
+The profile is selected from `prompt.profile` or, if omitted, falls back to the default domain profile. Profile names are canonicalized to underscore IDs: values such as `medical de`, `medical-de`, and `medical_de` all resolve to `medical_de`; bare language names such as `de` do not imply a medical profile. The profile's `category_descriptions` define the allowed runtime category IDs, and `default_categories` are used when a request omits `categories`. Prompt templates and selected category descriptions can also be overridden per request. Clients can inspect API-side profile metadata through:
 
 ```text
 GET /query-expansion/profiles
@@ -793,7 +793,7 @@ Query-expansion profiles under `conf/query-expansion/profiles/` define the runti
     }
   },
   "prompt": {
-    "profile": "medical-de",
+    "profile": "medical_de",
     "category_descriptions": {
       "synonym": "Synonyme, laienverständliche Begriffe und häufige Schreibvarianten."
     }

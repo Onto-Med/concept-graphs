@@ -11,6 +11,7 @@ def test_build_generation_prompt_uses_german_profile():
         language="de",
         categories=["synonym", "medication"],
         llm=LLMConfig(model="test-model"),
+        prompt={"profile": "medical_de"},
     )
 
     prompt = build_generation_prompt(request)
@@ -48,8 +49,8 @@ def test_build_generation_prompt_accepts_request_template_override():
 def test_builtin_domain_profiles_cover_fallback_medical_vocabulary():
     expected_categories = set(ALL_EXPANSION_CATEGORIES)
     for profile_path in (
-        "conf/query-expansion/profiles/medical-en.yml",
-        "conf/query-expansion/profiles/medical-de.yml",
+        "conf/query-expansion/profiles/medical_en.yml",
+        "conf/query-expansion/profiles/medical_de.yml",
     ):
         with open(profile_path, encoding="utf-8") as file:
             profile = yaml.safe_load(file)
