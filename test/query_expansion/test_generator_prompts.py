@@ -2,6 +2,7 @@ import yaml
 
 from src.query_expansion.categories import ALL_EXPANSION_CATEGORIES
 from src.query_expansion.generator import build_generation_prompt
+from src.query_expansion.prompts import profile_relation_metadata
 from src.query_expansion.models import LLMConfig, QueryExpansionRequest
 
 
@@ -57,6 +58,19 @@ def test_builtin_domain_profiles_cover_fallback_medical_vocabulary():
 
         assert set(profile["category_descriptions"]) == expected_categories
         assert set(profile["default_categories"]).issubset(expected_categories)
+
+
+def test_profile_relation_metadata_filters_to_profile_categories():
+    profile = {
+        "category_descriptions": {
+            "symptom": "Symptoms",
+            "diagnosis": "Diagnoses",
+        }
+    }
+
+    relation_ids = {relation["id"] for relation in profile_relation_metadata(profile)}
+
+    assert relation_ids == {"may_indicate"}
 
 
 def test_build_generation_prompt_accepts_profile_defined_categories(tmp_path, monkeypatch):

@@ -1,9 +1,12 @@
 from main import create_app
 from src.query_expansion.models import (
+    ExpansionConcept,
+    ExpansionSemanticRelation,
     GroundedExpansionCandidate,
     GroundingStatus,
     QueryExpansionResponse,
 )
+from src.query_expansion.relations import MEDICAL_RELATION_DEFINITIONS
 
 
 class FakeQueryExpansionService:
@@ -41,6 +44,7 @@ def test_query_expansion_profiles_route_lists_profiles(tmp_path):
         profile for profile in response.json["profiles"] if profile["name"] == "medical_en"
     )
     assert "synonym" in {category["id"] for category in english["categories"]}
+    assert "equivalent_to" in {relation["id"] for relation in english["relations"]}
     assert english["default_categories"]
 
 
@@ -52,6 +56,56 @@ def test_query_expansion_profile_route_returns_profile_metadata(tmp_path):
     assert response.json["name"] == "medical_de"
     assert response.json["language_name"] == "Deutsch"
     assert "symptom" in {category["id"] for category in response.json["categories"]}
+    relation_ids = {relation["id"] for relation in response.json["relations"]}
+    assert {relation.id for relation in MEDICAL_RELATION_DEFINITIONS}.issubset(
+        relation_ids
+    )
+    may_indicate = next(
+        relation
+        for relation in response.json["relations"]
+        if relation["id"] == "may_indicate"
+    )
+    assert may_indicate["label"] == "May Indicate"
+    assert may_indicate["source_categories"] == ["symptom"]
+    assert may_indicate["target_categories"] == ["diagnosis"]
+
+
+def test_query_expansion_profile_relation_ids_cover_response_relation_ids(tmp_path):
+    app = create_app(file_storage_dir=str(tmp_path), logging_setup_tuples=[])
+    response = app.test_client().get("/query-expansion/profiles/medical_en")
+
+    profile_relation_ids = {relation["id"] for relation in response.json["relations"]}
+    expansion = QueryExpansionResponse(
+        term="abdominal pain",
+        language="en",
+        expansions={},
+        concepts=[
+            ExpansionConcept(
+                id="abdominal_pain",
+                label="abdominal pain",
+                category="symptom",
+                terms=["abdominal pain"],
+            ),
+            ExpansionConcept(
+                id="appendicitis",
+                label="appendicitis",
+                category="diagnosis",
+                terms=["appendicitis"],
+            ),
+        ],
+        relations=[
+            ExpansionSemanticRelation(
+                source_concept_id="abdominal_pain",
+                relation="may_indicate",
+                target_concept_id="appendicitis",
+                confidence=0.8,
+            )
+        ],
+    )
+
+    assert {relation.relation for relation in expansion.relations}.issubset(
+        profile_relation_ids
+    )
 
 
 def test_query_expansion_profile_route_normalizes_separators(tmp_path):

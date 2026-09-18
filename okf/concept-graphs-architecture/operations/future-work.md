@@ -39,6 +39,8 @@ Recommended direction:
 4. **Expand domain-profile support if non-medical SONs matter.**
    Category IDs are now runtime-defined by the selected query-expansion domain profile, with `categories.py` kept as a built-in medical fallback. Future work should consider moving relation definitions and domain-specific grounding/source hints into the same profile model.
 
+   **Deferred TODO: profile-owned relation definitions.** The current profile metadata API exposes relations derived from Python/global relation definitions and filtered by profile categories; this is sufficient for immediate TOP integration. Ultimately, query-expansion profiles should support explicit profile-owned relation definitions in `conf/query-expansion/profiles/*.yml`, similar to profile-owned category vocabularies. Profile relations should define a stable `id`, display `label`, `description`, and source/target category constraints. When implemented, `medical_de` and `medical_en` should explicitly declare the current medical relation set, and API profile relation metadata should be sourced from profile YAML rather than hardcoded Python defaults. Python relation definitions, if retained, should become generic schema/helpers or optional templates, not the source of truth. Tests should include a non-medical custom profile, for example an architecture profile with custom relations.
+
 5. **Improve grounding sources.**
    Local file grounding is implemented. External terminology/ontology adapters, especially HTTP/API-backed sources, remain the most important grounding extension.
 
