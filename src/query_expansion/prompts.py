@@ -12,6 +12,7 @@ from src.query_expansion.categories import (
     ExpansionCategory,
 )
 from src.query_expansion.models import QueryExpansionRequest
+from src.query_expansion.relations import MEDICAL_RELATION_DEFINITIONS, RelationDefinition
 
 DEFAULT_PROFILE_DIR = Path("conf/query-expansion/profiles")
 DEFAULT_PROMPT_DIR = DEFAULT_PROFILE_DIR
@@ -93,7 +94,37 @@ def domain_profile_metadata(profile_name: str) -> dict[str, Any]:
             for category, description in categories.items()
         ],
         "default_categories": profile_default_categories(profile),
+        "relations": profile_relation_metadata(profile),
     }
+
+
+def profile_relation_metadata(profile: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return semantic relation metadata applicable to a domain profile."""
+    profile_categories = set(profile_category_descriptions(profile))
+    relations = []
+    for relation in MEDICAL_RELATION_DEFINITIONS:
+        source_categories = [
+            category
+            for category in relation.source_categories
+            if category in profile_categories
+        ]
+        target_categories = [
+            category
+            for category in relation.target_categories
+            if category in profile_categories
+        ]
+        if not source_categories or not target_categories:
+            continue
+        relations.append(
+            {
+                "id": relation.id,
+                "label": _relation_label(relation),
+                "description": relation.description,
+                "source_categories": source_categories,
+                "target_categories": target_categories,
+            }
+        )
+    return relations
 
 
 def profile_category_descriptions(profile: dict[str, Any]) -> dict[str, str]:
@@ -136,6 +167,10 @@ def request_with_profile_defaults(
 def _normalize_profile_name(profile_name: str) -> str:
     hyphenated = "-".join(profile_name.strip().lower().replace("_", "-").split())
     return hyphenated.replace("-", "_")
+
+
+def _relation_label(relation: RelationDefinition) -> str:
+    return relation.id.replace("_", " ").title()
 
 
 def _profile_path(profile_name: str) -> Path:

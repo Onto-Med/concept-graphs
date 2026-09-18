@@ -738,7 +738,7 @@ GET /query-expansion/profiles/{profile_name}
 
 The response keeps the existing `expansions` map for compatibility and can also carry semantic `concepts` and `relations`. Relations use stable medical/domain identifiers such as `equivalent_to`, `related_to`, `may_indicate`, `treated_by`, `investigated_by`, `confirmed_by`, `broader_than`, and `narrower_than`. These describe meaning only; downstream clients decide how to translate them into search, RAG, or UI behavior.
 
-Requests may restrict the mini-ontology used by the LLM with `relations` and `relation_definitions`. The service validates generated concepts/relations against the effective domain-profile/request categories, requested relation IDs, existing concept IDs, and allowed source/target category connections before returning them.
+Requests may restrict the mini-ontology used by the LLM with `relations` and `relation_definitions`. Profile metadata includes the applicable backend-neutral relation IDs plus descriptions and source/target category constraints, so clients can intersect their configured relation IDs with Concept Graphs-supported profile relations without duplicating relation definitions. The service validates generated concepts/relations against the effective domain-profile/request categories, requested relation IDs, existing concept IDs, and allowed source/target category connections before returning them.
 
 ### Blablador example
 

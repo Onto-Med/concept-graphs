@@ -389,7 +389,7 @@ paths:
   /query-expansion/profiles:
     get:
       summary: List query-expansion domain profiles
-      description: Returns API-side query-expansion domain profile metadata used by clients such as the Streamlit GUI to populate category controls.
+      description: Returns API-side query-expansion domain profile metadata used by clients such as the Streamlit GUI to populate category and semantic-relation controls.
       responses:
         '200':
           description: Available query-expansion domain profiles
@@ -419,7 +419,7 @@ paths:
         description: Domain profile name, e.g. `medical_en` or `medical_de`; spaces and hyphens are normalized to underscores, so `medical de` and `medical-de` resolve to `medical_de`.
       responses:
         '200':
-          description: Query-expansion domain profile metadata
+          description: Query-expansion domain profile metadata, including applicable backend-neutral semantic relations.
           content:
             application/json:
               schema:
@@ -769,13 +769,52 @@ components:
       required:
       - id
       - description
+    QueryExpansionDomainProfileRelation:
+      type: object
+      description: Backend-neutral semantic relation available for a query-expansion domain profile. These are relation IDs used in query-expansion results, not retrieval strategy or query-language IDs.
+      properties:
+        id:
+          type: string
+          description: Stable semantic relation ID.
+          enum:
+          - equivalent_to
+          - related_to
+          - may_indicate
+          - treated_by
+          - investigated_by
+          - confirmed_by
+          - broader_than
+          - narrower_than
+        label:
+          type: string
+          description: Human-readable relation label.
+          example: May Indicate
+        description:
+          type: string
+          description: Human-readable semantic meaning of the relation.
+        source_categories:
+          type: array
+          items:
+            type: string
+          description: Profile category IDs that may appear on the source side of the relation.
+        target_categories:
+          type: array
+          items:
+            type: string
+          description: Profile category IDs that may appear on the target side of the relation.
+      required:
+      - id
+      - label
+      - description
+      - source_categories
+      - target_categories
     QueryExpansionDomainProfile:
       type: object
       properties:
         name:
           type: string
           description: Domain profile name.
-          example: de
+          example: medical_de
         language_name:
           type: string
           description: Human-readable language/domain label.
@@ -789,11 +828,17 @@ components:
           items:
             type: string
           description: Profile categories used when a request omits `categories`.
+        relations:
+          type: array
+          items:
+            $ref: '#/components/schemas/QueryExpansionDomainProfileRelation'
+          description: Backend-neutral semantic relations applicable to the profile categories.
       required:
       - name
       - language_name
       - categories
       - default_categories
+      - relations
     GroundingStatus:
       type: string
       description: How well a generated candidate is supported by configured sources.
