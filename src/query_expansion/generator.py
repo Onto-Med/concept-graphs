@@ -2,6 +2,8 @@
 
 import json
 import re
+import urllib.error
+import urllib.request
 from collections.abc import Callable
 from typing import Any, Protocol
 
@@ -39,11 +41,17 @@ class LangChainExpansionGenerator:
         llm = self._llm or self._build_llm(request)
         prompt = build_generation_prompt(request)
 
-        if not request.llm.options.get("no_structured_output", False):
-            if hasattr(llm, "with_structured_output"):
-                structured_llm = llm.with_structured_output(ExpansionGeneration)
-                result = structured_llm.invoke(prompt)
-                return _validate_generation(result)
+        no_structured_output = request.llm.options.get("no_structured_output", False)
+        if no_structured_output and request.llm.options.get("provider") in {
+            "openai",
+            "blablador",
+        }:
+            return _validate_generation(_openai_compatible_json_completion(request, prompt))
+
+        if not no_structured_output and hasattr(llm, "with_structured_output"):
+            structured_llm = llm.with_structured_output(ExpansionGeneration)
+            result = structured_llm.invoke(prompt)
+            return _validate_generation(result)
 
         result = llm.invoke(prompt)
         return _validate_generation(_extract_json_payload(result))
@@ -117,6 +125,72 @@ def _validate_generation(value: Any) -> ExpansionGeneration:
     if isinstance(value, ExpansionGeneration):
         return value
     return ExpansionGeneration.model_validate(value)
+
+
+def _openai_compatible_json_completion(
+    request: QueryExpansionRequest, prompt: str
+) -> dict[str, Any]:
+    """Call an OpenAI-compatible chat endpoint without SDK response parsing.
+
+    Some OpenAI-compatible providers support normal chat completions but do not
+    return objects that the OpenAI SDK/LangChain parser can handle. This fallback
+    is intentionally used only when ``no_structured_output`` is set.
+    """
+    base_url = request.llm.options.get("base_url")
+    if not base_url:
+        raise ValueError("base_url is required for OpenAI-compatible fallback.")
+
+    url = base_url.rstrip("/") + "/chat/completions"
+    payload = {
+        "model": request.llm.model,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": request.llm.options.get("temperature", 0.0),
+    }
+    headers = {"Content-Type": "application/json"}
+    api_key = request.llm.options.get("api_key")
+    if api_key:
+        headers["Authorization"] = f"Bearer {api_key}"
+
+    http_request = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers=headers,
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(http_request, timeout=120) as response:
+            response_body = response.read().decode("utf-8")
+    except urllib.error.HTTPError as exc:
+        error_body = exc.read().decode("utf-8", errors="replace")
+        raise RuntimeError(
+            f"OpenAI-compatible query expansion request failed with "
+            f"HTTP {exc.code}: {error_body}"
+        ) from exc
+
+    decoded = json.loads(response_body)
+    return _extract_json_payload(_extract_openai_compatible_content(decoded))
+
+
+def _extract_openai_compatible_content(value: Any) -> Any:
+    if isinstance(value, str):
+        return value
+    if not isinstance(value, dict):
+        raise TypeError(
+            f"Cannot extract chat completion content from {type(value)!r}"
+        )
+
+    choices = value.get("choices")
+    if isinstance(choices, list) and choices:
+        first_choice = choices[0]
+        if isinstance(first_choice, dict):
+            message = first_choice.get("message")
+            if isinstance(message, dict) and "content" in message:
+                return message["content"]
+            if "text" in first_choice:
+                return first_choice["text"]
+    if "content" in value:
+        return value["content"]
+    return value
 
 
 def _extract_json_payload(value: Any) -> dict[str, Any]:
