@@ -46,6 +46,12 @@ def test_query_expansion_profiles_route_lists_profiles(tmp_path):
     assert "synonym" in {category["id"] for category in english["categories"]}
     assert "equivalent_to" in {relation["id"] for relation in english["relations"]}
     assert english["default_categories"]
+    assert english["default_relations"] == [
+        "may_indicate",
+        "treated_by",
+        "investigated_by",
+        "confirmed_by",
+    ]
 
 
 def test_query_expansion_profile_route_returns_profile_metadata(tmp_path):
@@ -68,6 +74,13 @@ def test_query_expansion_profile_route_returns_profile_metadata(tmp_path):
     assert may_indicate["label"] == "May Indicate"
     assert may_indicate["source_categories"] == ["symptom"]
     assert may_indicate["target_categories"] == ["diagnosis"]
+    assert response.json["default_relations"] == [
+        "may_indicate",
+        "treated_by",
+        "investigated_by",
+        "confirmed_by",
+    ]
+    assert set(response.json["default_relations"]).issubset(relation_ids)
 
 
 def test_query_expansion_profile_relation_ids_cover_response_relation_ids(tmp_path):

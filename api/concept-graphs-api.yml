@@ -833,12 +833,32 @@ components:
           items:
             $ref: '#/components/schemas/QueryExpansionDomainProfileRelation'
           description: Backend-neutral semantic relations applicable to the profile categories.
+        default_relations:
+          type: array
+          items:
+            type: string
+            enum:
+            - equivalent_to
+            - related_to
+            - may_indicate
+            - treated_by
+            - investigated_by
+            - confirmed_by
+            - broader_than
+            - narrower_than
+          description: Profile relation IDs used by default for clients that pre-populate semantic relation mappings. Values are always a subset of `relations[*].id` and do not imply retrieval/query behavior.
+          example:
+          - may_indicate
+          - treated_by
+          - investigated_by
+          - confirmed_by
       required:
       - name
       - language_name
       - categories
       - default_categories
       - relations
+      - default_relations
     GroundingStatus:
       type: string
       description: How well a generated candidate is supported by configured sources.

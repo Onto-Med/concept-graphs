@@ -12,7 +12,11 @@ from src.query_expansion.categories import (
     ExpansionCategory,
 )
 from src.query_expansion.models import QueryExpansionRequest
-from src.query_expansion.relations import MEDICAL_RELATION_DEFINITIONS, RelationDefinition
+from src.query_expansion.relations import (
+    DEFAULT_PROFILE_RELATIONS,
+    MEDICAL_RELATION_DEFINITIONS,
+    RelationDefinition,
+)
 
 DEFAULT_PROFILE_DIR = Path("conf/query-expansion/profiles")
 DEFAULT_PROMPT_DIR = DEFAULT_PROFILE_DIR
@@ -95,6 +99,7 @@ def domain_profile_metadata(profile_name: str) -> dict[str, Any]:
         ],
         "default_categories": profile_default_categories(profile),
         "relations": profile_relation_metadata(profile),
+        "default_relations": profile_default_relations(profile),
     }
 
 
@@ -125,6 +130,19 @@ def profile_relation_metadata(profile: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     return relations
+
+
+def profile_default_relations(profile: dict[str, Any]) -> list[str]:
+    """Return default semantic relation IDs applicable to a domain profile."""
+    available_relations = {relation["id"] for relation in profile_relation_metadata(profile)}
+    configured_defaults = profile.get("default_relations") or list(
+        DEFAULT_PROFILE_RELATIONS
+    )
+    return [
+        relation_id
+        for relation_id in configured_defaults
+        if relation_id in available_relations
+    ]
 
 
 def profile_category_descriptions(profile: dict[str, Any]) -> dict[str, str]:
