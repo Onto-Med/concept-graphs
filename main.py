@@ -1,3 +1,4 @@
+import argparse
 import logging
 import os
 import pathlib
@@ -81,5 +82,38 @@ def create_app(
     return app
 
 
+def parse_args() -> argparse.Namespace:
+    """Parse development-server command line arguments."""
+    parser = argparse.ArgumentParser(description="Run the Concept Graphs Flask API.")
+    parser.add_argument(
+        "-p",
+        "--port",
+        type=int,
+        default=9010,
+        help="Port to bind the development server to. Defaults to 9010.",
+    )
+    parser.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="Host/interface to bind. Defaults to 127.0.0.1.",
+    )
+    parser.add_argument(
+        "--storage-dir",
+        default="tmp",
+        help="Directory for process artifacts. Defaults to tmp.",
+    )
+    parser.add_argument(
+        "--debug",
+        action="store_true",
+        help="Run Flask's development server in debug mode.",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
-    create_app().run(host="0.0.0.0", port=9010)
+    args = parse_args()
+    create_app(file_storage_dir=args.storage_dir).run(
+        host=args.host,
+        port=args.port,
+        debug=args.debug,
+    )
