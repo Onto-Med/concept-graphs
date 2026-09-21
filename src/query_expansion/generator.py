@@ -160,6 +160,8 @@ def _openai_compatible_json_completion(
     try:
         with urllib.request.urlopen(http_request, timeout=120) as response:
             response_body = response.read().decode("utf-8")
+            response_status = response.status
+            response_content_type = response.headers.get("Content-Type", "")
     except urllib.error.HTTPError as exc:
         error_body = exc.read().decode("utf-8", errors="replace")
         raise RuntimeError(
@@ -167,8 +169,23 @@ def _openai_compatible_json_completion(
             f"HTTP {exc.code}: {error_body}"
         ) from exc
 
-    decoded = json.loads(response_body)
-    return _extract_json_payload(_extract_openai_compatible_content(decoded))
+    try:
+        decoded = json.loads(response_body)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            "OpenAI-compatible query expansion response was not JSON "
+            f"(HTTP {response_status}, Content-Type: {response_content_type}). "
+            f"Response preview: {_preview_text(response_body)}"
+        ) from exc
+
+    content = _extract_openai_compatible_content(decoded)
+    try:
+        return _extract_json_payload(content)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            "OpenAI-compatible query expansion message content was not valid JSON. "
+            f"Content preview: {_preview_text(str(content))}"
+        ) from exc
 
 
 def _extract_openai_compatible_content(value: Any) -> Any:
@@ -191,6 +208,11 @@ def _extract_openai_compatible_content(value: Any) -> Any:
     if "content" in value:
         return value["content"]
     return value
+
+
+def _preview_text(value: str, limit: int = 500) -> str:
+    text = value.replace("\n", " ").replace("\r", " ").strip()
+    return text[:limit] + ("..." if len(text) > limit else "")
 
 
 def _extract_json_payload(value: Any) -> dict[str, Any]:
