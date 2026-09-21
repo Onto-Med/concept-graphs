@@ -61,7 +61,13 @@ def test_query_expansion_profile_route_returns_profile_metadata(tmp_path):
     assert response.status_code == 200
     assert response.json["name"] == "medical_de"
     assert response.json["language_name"] == "Deutsch"
-    assert "symptom" in {category["id"] for category in response.json["categories"]}
+    symptom = next(
+        category
+        for category in response.json["categories"]
+        if category["id"] == "symptom"
+    )
+    assert symptom["label"] == "Symptom"
+    assert symptom["description"]
     relation_ids = {relation["id"] for relation in response.json["relations"]}
     assert {relation.id for relation in MEDICAL_RELATION_DEFINITIONS}.issubset(
         relation_ids
@@ -71,7 +77,7 @@ def test_query_expansion_profile_route_returns_profile_metadata(tmp_path):
         for relation in response.json["relations"]
         if relation["id"] == "may_indicate"
     )
-    assert may_indicate["label"] == "May Indicate"
+    assert may_indicate["label"] == "Kann hinweisen auf"
     assert may_indicate["source_categories"] == ["symptom"]
     assert may_indicate["target_categories"] == ["diagnosis"]
     assert response.json["default_relations"] == [

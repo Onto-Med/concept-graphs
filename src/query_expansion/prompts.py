@@ -90,11 +90,16 @@ def domain_profile_metadata(profile_name: str) -> dict[str, Any]:
     if not profile:
         raise ValueError(f"Unknown query-expansion domain profile: {profile_name}")
     categories = profile_category_descriptions(profile)
+    category_labels = profile_category_labels(profile)
     return {
         "name": normalized,
         "language_name": profile.get("language_name", normalized),
         "categories": [
-            {"id": category, "description": description}
+            {
+                "id": category,
+                "label": category_labels.get(category, _category_label(category)),
+                "description": description,
+            }
             for category, description in categories.items()
         ],
         "default_categories": profile_default_categories(profile),
@@ -106,6 +111,7 @@ def domain_profile_metadata(profile_name: str) -> dict[str, Any]:
 def profile_relation_metadata(profile: dict[str, Any]) -> list[dict[str, Any]]:
     """Return semantic relation metadata applicable to a domain profile."""
     profile_categories = set(profile_category_descriptions(profile))
+    relation_labels = profile_relation_labels(profile)
     relations = []
     for relation in MEDICAL_RELATION_DEFINITIONS:
         source_categories = [
@@ -123,7 +129,7 @@ def profile_relation_metadata(profile: dict[str, Any]) -> list[dict[str, Any]]:
         relations.append(
             {
                 "id": relation.id,
-                "label": _relation_label(relation),
+                "label": relation_labels.get(relation.id, _relation_label(relation)),
                 "description": relation.description,
                 "source_categories": source_categories,
                 "target_categories": target_categories,
@@ -149,6 +155,25 @@ def profile_category_descriptions(profile: dict[str, Any]) -> dict[str, str]:
     """Return the category vocabulary defined by a profile or fallback defaults."""
     descriptions = profile.get("category_descriptions", {}) or {}
     return dict(descriptions) if descriptions else dict(CATEGORY_DESCRIPTIONS)
+
+
+def profile_category_labels(profile: dict[str, Any]) -> dict[str, str]:
+    """Return user-facing category labels defined by a profile or generated from IDs."""
+    descriptions = profile_category_descriptions(profile)
+    configured_labels = profile.get("category_labels", {}) or {}
+    return {
+        category: configured_labels.get(category, _category_label(category))
+        for category in descriptions
+    }
+
+
+def profile_relation_labels(profile: dict[str, Any]) -> dict[str, str]:
+    """Return user-facing relation labels defined by a profile or generated from IDs."""
+    configured_labels = profile.get("relation_labels", {}) or {}
+    return {
+        relation.id: configured_labels.get(relation.id, _relation_label(relation))
+        for relation in MEDICAL_RELATION_DEFINITIONS
+    }
 
 
 def profile_default_categories(profile: dict[str, Any]) -> list[str]:
@@ -185,6 +210,10 @@ def request_with_profile_defaults(
 def _normalize_profile_name(profile_name: str) -> str:
     hyphenated = "-".join(profile_name.strip().lower().replace("_", "-").split())
     return hyphenated.replace("-", "_")
+
+
+def _category_label(category: str) -> str:
+    return category.replace("_", " ").title()
 
 
 def _relation_label(relation: RelationDefinition) -> str:

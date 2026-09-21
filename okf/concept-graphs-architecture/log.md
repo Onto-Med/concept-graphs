@@ -10,6 +10,7 @@
 * **Update**: Standardized query-expansion domain profile IDs and filenames to canonical underscore names such as `medical_de`; profile inputs with spaces or hyphens normalize to underscores, and bare language codes no longer imply medical profiles.
 * **API**: Extended query-expansion profile metadata with applicable backend-neutral semantic relations (`id`, `label`, `description`, source/target category constraints) so downstream clients can intersect supported relation IDs without duplicating Concept Graphs relation definitions or exposing retrieval strategies.
 * **API**: Added `default_relations` to query-expansion profile metadata and built-in medical profiles as semantic defaults for client-side relation mapping pre-population; these defaults are filtered to available profile relations and do not imply retrieval/query behavior.
+* **API**: Added UI-only category/relation display labels to query-expansion profile metadata; labels may come from profile `category_labels` / `relation_labels` and fall back to title-cased IDs, while IDs remain the stable payload values.
 
 ## 2026-09-02
 * **Historical design note**: Added `operations/query-expansion-query-modes.md`; this note is now superseded and retained only as downstream query-translation context.

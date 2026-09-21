@@ -18,6 +18,25 @@ default_relations:
   - treated_by
   - investigated_by
   - confirmed_by
+category_labels:
+  synonym: Synonym
+  medication: Medikament
+  diagnosis: Diagnose
+  symptom: Symptom
+  procedure: Prozedur
+  abbreviation: Abkürzung
+  broader_term: Oberbegriff
+  narrower_term: Unterbegriff
+  related_term: Verwandter Begriff
+relation_labels:
+  equivalent_to: Entspricht
+  related_to: Verwandt mit
+  may_indicate: Kann hinweisen auf
+  treated_by: Behandelt durch
+  investigated_by: Untersucht durch
+  confirmed_by: Bestätigt durch
+  broader_than: Oberbegriff von
+  narrower_than: Unterbegriff von
 prompt_template: |
   Erzeuge medizinische Query-Expansion-Kandidaten für den angegebenen Begriff.
 

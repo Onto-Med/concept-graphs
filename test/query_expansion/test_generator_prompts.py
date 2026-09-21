@@ -3,6 +3,7 @@ import yaml
 from src.query_expansion.categories import ALL_EXPANSION_CATEGORIES
 from src.query_expansion.generator import build_generation_prompt
 from src.query_expansion.prompts import (
+    domain_profile_metadata,
     profile_default_relations,
     profile_relation_metadata,
 )
@@ -61,6 +62,31 @@ def test_builtin_domain_profiles_cover_fallback_medical_vocabulary():
 
         assert set(profile["category_descriptions"]) == expected_categories
         assert set(profile["default_categories"]).issubset(expected_categories)
+
+
+def test_domain_profile_metadata_returns_display_labels(tmp_path, monkeypatch):
+    profile_dir = tmp_path / "profiles"
+    profile_dir.mkdir()
+    (profile_dir / "custom.yml").write_text(
+        """
+language_name: Custom
+category_descriptions:
+  custom_category: Custom category description.
+  fallback_category: Fallback category description.
+category_labels:
+  custom_category: Custom Label
+default_categories:
+  - custom_category
+""".strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("src.query_expansion.prompts.DEFAULT_PROMPT_DIR", profile_dir)
+
+    metadata = domain_profile_metadata("custom")
+    labels = {category["id"]: category["label"] for category in metadata["categories"]}
+
+    assert labels["custom_category"] == "Custom Label"
+    assert labels["fallback_category"] == "Fallback Category"
 
 
 def test_profile_relation_metadata_filters_to_profile_categories():
