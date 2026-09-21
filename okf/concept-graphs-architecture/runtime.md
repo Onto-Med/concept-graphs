@@ -25,7 +25,7 @@ sources:
 app.extensions["concept_graphs_context"]
 ```
 
-Running `python main.py` starts the development server on `0.0.0.0:9010`.[^main]
+Running `python main.py` starts the development server on `127.0.0.1:9010` by default. The script entrypoint accepts development-server CLI options: `-p/--port`, `--host`, `--storage-dir`, and `--debug`.[^main]
 
 # Context objects
 
