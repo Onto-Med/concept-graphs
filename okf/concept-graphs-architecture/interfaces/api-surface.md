@@ -30,7 +30,7 @@ sources:
 | Processes | `GET /processes`, `GET /status`, stop/delete endpoints | `src/api/routes/processes.py` |
 | Status | `POST /status/document-server`, `GET /status/rag` | `src/api/routes/status.py` |
 | RAG | `POST /rag/init`, `GET/POST /rag/question` | `src/api/routes/rag.py` |
-| Query expansion | `GET /query-expansion/profiles`, `GET /query-expansion/profiles/{profile_name}`, `POST /query-expansion` | `src/api/routes/query_expansion.py`; profile metadata includes category defaults and applicable backend-neutral semantic relation metadata |
+| Query expansion | `GET /query-expansion/profiles`, `GET /query-expansion/profiles/{profile_name}`, `POST /query-expansion` | `src/api/routes/query_expansion.py`; profile metadata includes category defaults, applicable backend-neutral semantic relation metadata, and default relation IDs |
 | Static docs | `/`, `/openapi`, static assets | `src/api/routes/static.py` |
 
 # Request conventions

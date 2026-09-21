@@ -97,6 +97,13 @@ MEDICAL_RELATION_DEFINITIONS: tuple[RelationDefinition, ...] = (
     ),
 )
 
+DEFAULT_PROFILE_RELATIONS: tuple[QueryExpansionRelation, ...] = (
+    "may_indicate",
+    "treated_by",
+    "investigated_by",
+    "confirmed_by",
+)
+
 RELATION_DESCRIPTIONS: dict[QueryExpansionRelation, str] = {
     relation.id: relation.description for relation in MEDICAL_RELATION_DEFINITIONS
 }

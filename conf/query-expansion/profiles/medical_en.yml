@@ -13,6 +13,11 @@ default_categories:
   - diagnosis
   - symptom
   - procedure
+default_relations:
+  - may_indicate
+  - treated_by
+  - investigated_by
+  - confirmed_by
 prompt_template: |
   Generate medical query-expansion candidates for the provided term.
 

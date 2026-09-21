@@ -2,7 +2,10 @@ import yaml
 
 from src.query_expansion.categories import ALL_EXPANSION_CATEGORIES
 from src.query_expansion.generator import build_generation_prompt
-from src.query_expansion.prompts import profile_relation_metadata
+from src.query_expansion.prompts import (
+    profile_default_relations,
+    profile_relation_metadata,
+)
 from src.query_expansion.models import LLMConfig, QueryExpansionRequest
 
 
@@ -71,6 +74,19 @@ def test_profile_relation_metadata_filters_to_profile_categories():
     relation_ids = {relation["id"] for relation in profile_relation_metadata(profile)}
 
     assert relation_ids == {"may_indicate"}
+
+
+def test_profile_default_relations_filters_to_available_relations():
+    profile = {
+        "category_descriptions": {
+            "diagnosis": "Diagnoses",
+            "medication": "Medications",
+            "symptom": "Symptoms",
+        },
+        "default_relations": ["may_indicate", "treated_by", "confirmed_by"],
+    }
+
+    assert profile_default_relations(profile) == ["may_indicate", "treated_by"]
 
 
 def test_build_generation_prompt_accepts_profile_defined_categories(tmp_path, monkeypatch):
