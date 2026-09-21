@@ -729,7 +729,7 @@ conf/query-expansion/profiles/
   medical_de.yml
 ```
 
-The profile is selected from `prompt.profile` or, if omitted, falls back to the default domain profile. Profile names are canonicalized to underscore IDs: values such as `medical de`, `medical-de`, and `medical_de` all resolve to `medical_de`; bare language names such as `de` do not imply a medical profile. The profile's `category_descriptions` define the allowed runtime category IDs, and `default_categories` are used when a request omits `categories`. Prompt templates and selected category descriptions can also be overridden per request. Clients can inspect API-side profile metadata through:
+The profile is selected from `prompt.profile` or, if omitted, falls back to the default domain profile. Profile names are canonicalized to underscore IDs: values such as `medical de`, `medical-de`, and `medical_de` all resolve to `medical_de`; bare language names such as `de` do not imply a medical profile. The profile's `category_descriptions` define the allowed runtime category IDs, optional `category_labels` / `relation_labels` provide UI-only display labels, and `default_categories` are used when a request omits `categories`. IDs remain the stable payload values. Prompt templates and selected category descriptions can also be overridden per request. Clients can inspect API-side profile metadata through:
 
 ```text
 GET /query-expansion/profiles

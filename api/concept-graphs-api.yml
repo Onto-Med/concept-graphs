@@ -763,11 +763,16 @@ components:
         id:
           type: string
           description: Category ID defined by the domain profile.
+        label:
+          type: string
+          description: Human-readable category label.
+          example: Symptom
         description:
           type: string
           description: Localized/domain-specific category description.
       required:
       - id
+      - label
       - description
     QueryExpansionDomainProfileRelation:
       type: object
