@@ -124,7 +124,11 @@ class LLMConfig(BaseModel):
     )
     options: dict[str, Any] = Field(
         default_factory=dict,
-        description="Additional provider/generator-specific keyword arguments.",
+        description=(
+            "Additional provider/generator-specific keyword arguments. "
+            "Set no_structured_output=true to skip LangChain structured-output "
+            "mode and parse JSON from a normal chat response."
+        ),
     )
 
 

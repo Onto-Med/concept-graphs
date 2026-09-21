@@ -39,10 +39,11 @@ class LangChainExpansionGenerator:
         llm = self._llm or self._build_llm(request)
         prompt = build_generation_prompt(request)
 
-        if hasattr(llm, "with_structured_output"):
-            structured_llm = llm.with_structured_output(ExpansionGeneration)
-            result = structured_llm.invoke(prompt)
-            return _validate_generation(result)
+        if not request.llm.options.get("no_structured_output", False):
+            if hasattr(llm, "with_structured_output"):
+                structured_llm = llm.with_structured_output(ExpansionGeneration)
+                result = structured_llm.invoke(prompt)
+                return _validate_generation(result)
 
         result = llm.invoke(prompt)
         return _validate_generation(_extract_json_payload(result))
