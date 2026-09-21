@@ -158,7 +158,7 @@ def _openai_compatible_json_completion(
         method="POST",
     )
     try:
-        with urllib.request.urlopen(http_request, timeout=120) as response:
+        with urllib.request.urlopen(http_request, timeout=300) as response:
             response_body = response.read().decode("utf-8")
             response_status = response.status
             response_content_type = response.headers.get("Content-Type", "")
