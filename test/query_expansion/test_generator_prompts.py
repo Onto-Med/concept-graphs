@@ -2,12 +2,12 @@ import yaml
 
 from src.query_expansion.categories import ALL_EXPANSION_CATEGORIES
 from src.query_expansion.generator import build_generation_prompt
+from src.query_expansion.models import LLMConfig, QueryExpansionRequest
 from src.query_expansion.prompts import (
     domain_profile_metadata,
     profile_default_relations,
     profile_relation_metadata,
 )
-from src.query_expansion.models import LLMConfig, QueryExpansionRequest
 
 
 def test_build_generation_prompt_uses_german_profile():
