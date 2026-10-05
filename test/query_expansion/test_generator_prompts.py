@@ -1,10 +1,9 @@
-import yaml
-
 from src.query_expansion.categories import ALL_EXPANSION_CATEGORIES
 from src.query_expansion.generator import build_generation_prompt
 from src.query_expansion.models import LLMConfig, QueryExpansionRequest
 from src.query_expansion.prompts import (
     domain_profile_metadata,
+    load_domain_profile,
     profile_default_relations,
     profile_relation_definitions,
     profile_relation_metadata,
@@ -54,16 +53,12 @@ def test_build_generation_prompt_accepts_request_template_override():
 
 def test_builtin_domain_profiles_cover_fallback_medical_vocabulary():
     expected_categories = set(ALL_EXPANSION_CATEGORIES)
-    for profile_path in (
-        "conf/query-expansion/profiles/medical_en.yml",
-        "conf/query-expansion/profiles/medical_de.yml",
-    ):
-        with open(profile_path, encoding="utf-8") as file:
-            profile = yaml.safe_load(file)
+    for profile_name in ("medical_en", "medical_de"):
+        profile = load_domain_profile(profile_name)
 
         assert set(profile["category_descriptions"]) == expected_categories
         assert set(profile["default_categories"]).issubset(expected_categories)
-        assert {relation["id"] for relation in profile["relation_definitions"]} >= set(
+        assert {relation["id"] for relation in profile["relations"]} >= set(
             profile["default_relations"]
         )
 
@@ -112,7 +107,7 @@ def test_profile_relation_metadata_uses_profile_owned_definitions():
             "symptom": "Symptoms",
             "diagnosis": "Diagnoses",
         },
-        "relation_definitions": [
+        "relations": [
             {
                 "id": "may_indicate",
                 "source_categories": ["symptom"],
@@ -215,23 +210,37 @@ prompt_template: |
     assert "synonym" not in prompt
 
 
-def test_build_generation_prompt_uses_profile_relation_definitions(tmp_path, monkeypatch):
+def test_build_generation_prompt_uses_profile_referenced_ontology(tmp_path, monkeypatch):
     profile_dir = tmp_path / "profiles"
+    ontology_dir = tmp_path / "ontologies"
     profile_dir.mkdir()
+    ontology_dir.mkdir()
+    (ontology_dir / "custom.yml").write_text(
+        """
+categories:
+  - id: symptom
+  - id: diagnosis
+default_categories:
+  - symptom
+  - diagnosis
+relations:
+  - id: may_indicate
+    source_categories: [symptom]
+    target_categories: [diagnosis]
+default_relations:
+  - may_indicate
+""".strip(),
+        encoding="utf-8",
+    )
     (profile_dir / "custom.yml").write_text(
         """
+ontology: custom
 language_name: Custom
 category_descriptions:
   symptom: Symptoms.
   diagnosis: Diagnoses.
-default_categories:
-  - symptom
-  - diagnosis
-relation_definitions:
-  - id: may_indicate
-    source_categories: [symptom]
-    target_categories: [diagnosis]
-    description: Profile-owned relation description.
+relation_descriptions:
+  may_indicate: Profile-owned relation description.
 prompt_template: |
   Relations: {relations_json}
   {schema_instruction}
@@ -239,6 +248,7 @@ prompt_template: |
         encoding="utf-8",
     )
     monkeypatch.setattr("src.query_expansion.prompts.DEFAULT_PROMPT_DIR", profile_dir)
+    monkeypatch.setattr("src.query_expansion.prompts.DEFAULT_ONTOLOGY_DIR", ontology_dir)
     request = QueryExpansionRequest(
         term="fever",
         language="custom",

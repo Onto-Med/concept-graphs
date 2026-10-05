@@ -153,6 +153,7 @@ Prompt/domain profiles are normal YAML files below `conf/`:
 ```text
 conf/rag/localization/<profile>.yml
 conf/query-expansion/profiles/<profile>.yml
+conf/query-expansion/ontologies/<ontology>.yml
 ```
 
 When using the production image, do **not** bind-mount the whole project over `/rest_api`. Instead, mount only the additional profile file or profile directory into the matching `conf/` subdirectory.
@@ -190,6 +191,7 @@ services:
     volumes:
       - ./local-conf/rag/localization/fr.yml:/rest_api/conf/rag/localization/fr.yml:ro
       - ./local-conf/query-expansion/profiles/fr.yml:/rest_api/conf/query-expansion/profiles/fr.yml:ro
+      - ./local-conf/query-expansion/ontologies/medical.yml:/rest_api/conf/query-expansion/ontologies/medical.yml:ro
 ```
 
 `docker run` example:
@@ -721,15 +723,17 @@ narrower_term
 related_term
 ```
 
-Domain prompt profiles live in:
+Domain prompt profiles and semantic ontologies live in:
 
 ```text
 conf/query-expansion/profiles/
   medical_en.yml
   medical_de.yml
+conf/query-expansion/ontologies/
+  medical.yml
 ```
 
-The profile is selected from `prompt.profile` or, if omitted, falls back to the default domain profile. Profile names are canonicalized to underscore IDs: values such as `medical de`, `medical-de`, and `medical_de` all resolve to `medical_de`; bare language names such as `de` do not imply a medical profile. The profile's `category_descriptions` define the allowed runtime category IDs, optional `category_labels` / `relation_labels` provide UI-only display labels, and `default_categories` are used when a request omits `categories`. IDs remain the stable payload values. Prompt templates and selected category descriptions can also be overridden per request. Clients can inspect API-side profile metadata through:
+The profile is selected from `prompt.profile` or, if omitted, falls back to the default domain profile. Profile names are canonicalized to underscore IDs: values such as `medical de`, `medical-de`, and `medical_de` all resolve to `medical_de`; bare language names such as `de` do not imply a medical profile. A profile can reference a semantic ontology with `ontology: medical`. The ontology defines stable IDs and graph constraints; the profile defines prompt text and localized labels/descriptions. IDs remain the stable payload values. Prompt templates and selected category descriptions can also be overridden per request. Clients can inspect API-side profile metadata through:
 
 ```text
 GET /query-expansion/profiles
@@ -738,7 +742,86 @@ GET /query-expansion/profiles/{profile_name}
 
 The response keeps the existing `expansions` map for compatibility and can also carry semantic `concepts` and `relations`. Relations use stable medical/domain identifiers such as `equivalent_to`, `related_to`, `may_indicate`, `treated_by`, `investigated_by`, `confirmed_by`, `broader_than`, and `narrower_than`. These describe meaning only; downstream clients decide how to translate them into search, RAG, or UI behavior.
 
-Requests may restrict the mini-ontology used by the LLM with `relations` and `relation_definitions`. Profile metadata includes the applicable backend-neutral relation IDs plus descriptions, source/target category constraints, and `default_relations` for clients that pre-populate semantic relation mappings. These defaults are metadata only and do not imply retrieval/query behavior. The service validates generated concepts/relations against the effective domain-profile/request categories, requested relation IDs, existing concept IDs, and allowed source/target category connections before returning them.
+Requests may restrict the mini-ontology used by the LLM with `relations` and `relation_definitions`. Profile metadata includes the applicable backend-neutral relation IDs plus localized descriptions, source/target category constraints, and `default_relations` for clients that pre-populate semantic relation mappings. These defaults are metadata only and do not imply retrieval/query behavior. The service validates generated concepts/relations against the effective ontology/profile/request categories, requested relation IDs, existing concept IDs, and allowed source/target category connections before returning them.
+
+### Adding query-expansion ontologies and profiles
+
+Use an ontology when you need a new semantic vocabulary or relation graph. Use a profile when you need a new language, prompt wording, or localized labels/descriptions for an existing ontology.
+
+Ontology files live under `conf/query-expansion/ontologies/<ontology>.yml` and may contain:
+
+```yaml
+categories:
+  - id: symptom
+  - id: diagnosis
+  - id: medication
+
+default_categories:
+  - symptom
+  - diagnosis
+
+relations:
+  - id: may_indicate
+    source_categories: [symptom]
+    target_categories: [diagnosis]
+  - id: treated_by
+    source_categories: [diagnosis]
+    target_categories: [medication]
+
+default_relations:
+  - may_indicate
+  - treated_by
+```
+
+Profile files live under `conf/query-expansion/profiles/<profile>.yml` and may contain:
+
+```yaml
+ontology: medical
+language_name: Deutsch
+
+schema_instruction: |
+  Gib ausschließlich valides JSON zurück.
+
+prompt_template: |
+  Erzeuge Query-Expansion-Kandidaten für: {term}
+  Kategorien: {categories_json}
+  Relationen: {relations_json}
+  {schema_instruction}
+
+category_labels:
+  symptom: Symptom
+  diagnosis: Diagnose
+
+category_descriptions:
+  symptom: Symptome, Zeichen oder klinische Befunde.
+  diagnosis: Diagnosen oder diagnostische Entitäten.
+
+relation_labels:
+  may_indicate: Kann hinweisen auf
+  treated_by: Behandelt durch
+
+relation_descriptions:
+  may_indicate: Ein Symptom, Zeichen oder Befund kann auf eine Diagnose hinweisen.
+  treated_by: Eine Diagnose oder Erkrankung kann durch ein Medikament behandelt werden.
+```
+
+Profile field meanings:
+
+- `ontology`: ontology file stem from `conf/query-expansion/ontologies/`.
+- `language_name`: display/prompt language name used by `{language_name}`.
+- `schema_instruction`: localized instruction appended to the prompt; should still require the fixed JSON field names.
+- `prompt_template`: template for generation. Supported placeholders:
+  - `{term}`: the input term from the request.
+  - `{language}`: the request language code, for example `de` or `en`.
+  - `{language_name}`: the profile's localized language name, for example `Deutsch`.
+  - `{limit_per_category}`: requested maximum number of candidates per category.
+  - `{categories_json}`: JSON object of selected category IDs to localized category descriptions.
+  - `{relations_json}`: JSON array of selected relation definitions with IDs, localized descriptions, and allowed source/target categories.
+  - `{schema_instruction}`: profile/default instruction describing the required JSON output shape.
+- `category_labels` / `relation_labels`: localized UI/display labels keyed by stable ontology IDs.
+- `category_descriptions` / `relation_descriptions`: localized prompt/API descriptions keyed by stable ontology IDs.
+
+If a profile omits ontology metadata, `src/query_expansion/categories.py` and `src/query_expansion/relations.py` provide built-in medical fallback helpers.
 
 ### Blablador example
 
@@ -778,8 +861,7 @@ X-Blablador-API-Key: <token>
 
 ### Domain profile and prompt override example
 
-Query-expansion profiles under `conf/query-expansion/profiles/` define the runtime category vocabulary with `category_descriptions` and optional `default_categories`. If a request omits `categories`, the selected profile defaults are used. `src/query_expansion/categories.py` only provides built-in medical fallback helpers for profiles that do not define categories.
-
+Query-expansion profiles under `conf/query-expansion/profiles/` reference semantic ontologies under `conf/query-expansion/ontologies/`. If a request omits `categories`, the selected ontology/profile defaults are used. `src/query_expansion/categories.py` and `src/query_expansion/relations.py` only provide built-in medical fallback helpers for profiles that do not reference ontology metadata.
 
 ```json
 {

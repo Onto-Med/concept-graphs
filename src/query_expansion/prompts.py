@@ -19,6 +19,7 @@ from src.query_expansion.relations import (
 )
 
 DEFAULT_PROFILE_DIR = Path("conf/query-expansion/profiles")
+DEFAULT_ONTOLOGY_DIR = Path("conf/query-expansion/ontologies")
 DEFAULT_PROMPT_DIR = DEFAULT_PROFILE_DIR
 DEFAULT_LANGUAGE = "en"
 DEFAULT_DOMAIN_PROFILE = "medical_en"
@@ -139,11 +140,23 @@ def profile_relation_metadata(profile: dict[str, Any]) -> list[dict[str, Any]]:
 
 
 def profile_relation_definitions(profile: dict[str, Any]) -> list[RelationDefinition]:
-    """Return profile-owned semantic relation definitions or medical fallback definitions."""
-    configured_definitions = profile.get("relation_definitions") or []
+    """Return ontology/profile-owned semantic relation definitions or medical fallbacks."""
+    configured_definitions = profile.get("relation_definitions") or profile.get("relations") or []
     if not configured_definitions:
         return [relation.model_copy(deep=True) for relation in MEDICAL_RELATION_DEFINITIONS]
-    return [RelationDefinition.model_validate(definition) for definition in configured_definitions]
+    relation_descriptions = profile.get("relation_descriptions", {}) or {}
+    return [
+        RelationDefinition.model_validate(
+            {
+                **definition,
+                "description": relation_descriptions.get(
+                    definition["id"],
+                    definition.get("description") or _relation_label_from_id(definition["id"]),
+                ),
+            }
+        )
+        for definition in configured_definitions
+    ]
 
 
 def profile_default_relations(profile: dict[str, Any]) -> list[str]:
@@ -160,9 +173,17 @@ def profile_default_relations(profile: dict[str, Any]) -> list[str]:
 
 
 def profile_category_descriptions(profile: dict[str, Any]) -> dict[str, str]:
-    """Return the category vocabulary defined by a profile or fallback defaults."""
+    """Return the category vocabulary defined by a profile/ontology or fallback defaults."""
     descriptions = profile.get("category_descriptions", {}) or {}
-    return dict(descriptions) if descriptions else dict(CATEGORY_DESCRIPTIONS)
+    if descriptions:
+        return dict(descriptions)
+    categories = profile.get("categories") or []
+    if categories:
+        return {
+            _category_id(category): _category_label(_category_id(category))
+            for category in categories
+        }
+    return dict(CATEGORY_DESCRIPTIONS)
 
 
 def profile_category_labels(profile: dict[str, Any]) -> dict[str, str]:
@@ -203,7 +224,11 @@ def request_with_profile_defaults(
     """Apply domain-profile category defaults and validation to a request."""
     profile = profile or load_domain_profile(request.prompt.profile or request.language)
     descriptions = profile_category_descriptions(profile)
-    categories = list(request.categories) if request.categories else profile_default_categories(profile)
+    categories = (
+        list(request.categories)
+        if request.categories
+        else profile_default_categories(profile)
+    )
     unknown_categories = [category for category in categories if category not in descriptions]
     if unknown_categories:
         raise ValueError(
@@ -231,7 +256,11 @@ def _category_label(category: str) -> str:
 
 
 def _relation_label(relation: RelationDefinition) -> str:
-    return relation.id.replace("_", " ").title()
+    return _relation_label_from_id(relation.id)
+
+
+def _relation_label_from_id(relation_id: str) -> str:
+    return relation_id.replace("_", " ").title()
 
 
 def _profile_path(profile_name: str) -> Path:
@@ -243,7 +272,34 @@ def _load_prompt_profile(profile_name: str) -> dict[str, Any]:
     if not path.exists():
         return {}
     with path.open(encoding="utf-8") as file:
+        profile = yaml.safe_load(file) or {}
+    return _profile_with_ontology(profile)
+
+
+def _profile_with_ontology(profile: dict[str, Any]) -> dict[str, Any]:
+    ontology_name = profile.get("ontology")
+    if not ontology_name:
+        return profile
+    ontology = _load_ontology(str(ontology_name))
+    merged = {**ontology, **profile}
+    for key in ("categories", "default_categories", "relations", "default_relations"):
+        if key not in profile and key in ontology:
+            merged[key] = ontology[key]
+    return merged
+
+
+def _load_ontology(ontology_name: str) -> dict[str, Any]:
+    path = DEFAULT_ONTOLOGY_DIR / f"{_normalize_profile_name(ontology_name)}.yml"
+    if not path.exists():
+        return {}
+    with path.open(encoding="utf-8") as file:
         return yaml.safe_load(file) or {}
+
+
+def _category_id(category: str | dict[str, Any]) -> str:
+    if isinstance(category, dict):
+        return str(category["id"])
+    return str(category)
 
 
 def _relation_definitions(request: QueryExpansionRequest) -> list[dict[str, Any]]:

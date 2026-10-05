@@ -1,0 +1,49 @@
+categories:
+  - id: synonym
+  - id: medication
+  - id: diagnosis
+  - id: symptom
+  - id: procedure
+  - id: abbreviation
+  - id: broader_term
+  - id: narrower_term
+  - id: related_term
+
+default_categories:
+  - synonym
+  - medication
+  - diagnosis
+  - symptom
+  - procedure
+
+default_relations:
+  - may_indicate
+  - treated_by
+  - investigated_by
+  - confirmed_by
+
+relations:
+  - id: equivalent_to
+    source_categories: [synonym, abbreviation]
+    target_categories: [synonym, abbreviation]
+  - id: related_to
+    source_categories: [related_term]
+    target_categories: [related_term]
+  - id: may_indicate
+    source_categories: [symptom]
+    target_categories: [diagnosis]
+  - id: treated_by
+    source_categories: [diagnosis]
+    target_categories: [medication, procedure]
+  - id: investigated_by
+    source_categories: [symptom]
+    target_categories: [procedure]
+  - id: confirmed_by
+    source_categories: [diagnosis]
+    target_categories: [procedure]
+  - id: broader_than
+    source_categories: [broader_term]
+    target_categories: [narrower_term]
+  - id: narrower_than
+    source_categories: [narrower_term]
+    target_categories: [broader_term]
