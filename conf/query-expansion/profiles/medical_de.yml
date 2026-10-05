@@ -37,6 +37,39 @@ relation_labels:
   confirmed_by: Bestätigt durch
   broader_than: Oberbegriff von
   narrower_than: Unterbegriff von
+relation_definitions:
+  - id: equivalent_to
+    source_categories: [synonym, abbreviation]
+    target_categories: [synonym, abbreviation]
+    description: Konzepte oder Begriffe sind äquivalente Bezeichnungen, Varianten oder Abkürzungen.
+  - id: related_to
+    source_categories: [related_term]
+    target_categories: [related_term]
+    description: Konzepte sind klinisch oder semantisch assoziiert, ohne eine spezifischere Relation zu verwenden.
+  - id: may_indicate
+    source_categories: [symptom]
+    target_categories: [diagnosis]
+    description: Ein Symptom, Zeichen oder Befund kann auf eine Diagnose hinweisen.
+  - id: treated_by
+    source_categories: [diagnosis]
+    target_categories: [medication, procedure]
+    description: Eine Diagnose oder Erkrankung kann durch ein Medikament oder eine Prozedur behandelt werden.
+  - id: investigated_by
+    source_categories: [symptom]
+    target_categories: [procedure]
+    description: Ein Symptom, Zeichen oder Befund kann durch eine Prozedur oder einen Test untersucht werden.
+  - id: confirmed_by
+    source_categories: [diagnosis]
+    target_categories: [procedure]
+    description: Eine Diagnose oder Erkrankung kann durch eine Prozedur oder einen Test bestätigt werden.
+  - id: broader_than
+    source_categories: [broader_term]
+    target_categories: [narrower_term]
+    description: Das Quellkonzept ist allgemeiner als das Zielkonzept.
+  - id: narrower_than
+    source_categories: [narrower_term]
+    target_categories: [broader_term]
+    description: Das Quellkonzept ist spezifischer als das Zielkonzept.
 prompt_template: |
   Erzeuge medizinische Query-Expansion-Kandidaten für den angegebenen Begriff.
 

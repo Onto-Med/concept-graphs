@@ -18,6 +18,39 @@ default_relations:
   - treated_by
   - investigated_by
   - confirmed_by
+relation_definitions:
+  - id: equivalent_to
+    source_categories: [synonym, abbreviation]
+    target_categories: [synonym, abbreviation]
+    description: Concepts or terms are equivalent labels, variants, or abbreviations.
+  - id: related_to
+    source_categories: [related_term]
+    target_categories: [related_term]
+    description: Concepts are clinically or semantically associated without a more specific relation.
+  - id: may_indicate
+    source_categories: [symptom]
+    target_categories: [diagnosis]
+    description: A symptom, sign, or finding may indicate a diagnosis.
+  - id: treated_by
+    source_categories: [diagnosis]
+    target_categories: [medication, procedure]
+    description: A diagnosis or condition may be treated by a medication or procedure.
+  - id: investigated_by
+    source_categories: [symptom]
+    target_categories: [procedure]
+    description: A symptom, sign, or finding may be investigated by a procedure or test.
+  - id: confirmed_by
+    source_categories: [diagnosis]
+    target_categories: [procedure]
+    description: A diagnosis or condition may be confirmed by a procedure or test.
+  - id: broader_than
+    source_categories: [broader_term]
+    target_categories: [narrower_term]
+    description: The source concept is broader than the target concept.
+  - id: narrower_than
+    source_categories: [narrower_term]
+    target_categories: [broader_term]
+    description: The source concept is narrower than the target concept.
 prompt_template: |
   Generate medical query-expansion candidates for the provided term.
 

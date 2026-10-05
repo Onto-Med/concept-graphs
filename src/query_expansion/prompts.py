@@ -113,7 +113,7 @@ def profile_relation_metadata(profile: dict[str, Any]) -> list[dict[str, Any]]:
     profile_categories = set(profile_category_descriptions(profile))
     relation_labels = profile_relation_labels(profile)
     relations = []
-    for relation in MEDICAL_RELATION_DEFINITIONS:
+    for relation in profile_relation_definitions(profile):
         source_categories = [
             category
             for category in relation.source_categories
@@ -136,6 +136,14 @@ def profile_relation_metadata(profile: dict[str, Any]) -> list[dict[str, Any]]:
             }
         )
     return relations
+
+
+def profile_relation_definitions(profile: dict[str, Any]) -> list[RelationDefinition]:
+    """Return profile-owned semantic relation definitions or medical fallback definitions."""
+    configured_definitions = profile.get("relation_definitions") or []
+    if not configured_definitions:
+        return [relation.model_copy(deep=True) for relation in MEDICAL_RELATION_DEFINITIONS]
+    return [RelationDefinition.model_validate(definition) for definition in configured_definitions]
 
 
 def profile_default_relations(profile: dict[str, Any]) -> list[str]:
@@ -172,7 +180,7 @@ def profile_relation_labels(profile: dict[str, Any]) -> dict[str, str]:
     configured_labels = profile.get("relation_labels", {}) or {}
     return {
         relation.id: configured_labels.get(relation.id, _relation_label(relation))
-        for relation in MEDICAL_RELATION_DEFINITIONS
+        for relation in profile_relation_definitions(profile)
     }
 
 
@@ -202,9 +210,15 @@ def request_with_profile_defaults(
             "Unknown query-expansion category IDs for selected prompt profile: "
             + ", ".join(sorted(set(unknown_categories)))
         )
-    if categories == request.categories:
+    updates: dict[str, Any] = {}
+    if categories != request.categories:
+        updates["categories"] = categories
+    profile_definitions = profile_relation_definitions(profile)
+    if request.relation_definitions == list(MEDICAL_RELATION_DEFINITIONS):
+        updates["relation_definitions"] = profile_definitions
+    if not updates:
         return request
-    return request.model_copy(update={"categories": categories})
+    return request.model_copy(update=updates)
 
 
 def _normalize_profile_name(profile_name: str) -> str:

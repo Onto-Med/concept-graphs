@@ -6,6 +6,7 @@ from src.query_expansion.models import LLMConfig, QueryExpansionRequest
 from src.query_expansion.prompts import (
     domain_profile_metadata,
     profile_default_relations,
+    profile_relation_definitions,
     profile_relation_metadata,
 )
 
@@ -62,6 +63,9 @@ def test_builtin_domain_profiles_cover_fallback_medical_vocabulary():
 
         assert set(profile["category_descriptions"]) == expected_categories
         assert set(profile["default_categories"]).issubset(expected_categories)
+        assert {relation["id"] for relation in profile["relation_definitions"]} >= set(
+            profile["default_relations"]
+        )
 
 
 def test_domain_profile_metadata_returns_display_labels(tmp_path, monkeypatch):
@@ -100,6 +104,43 @@ def test_profile_relation_metadata_filters_to_profile_categories():
     relation_ids = {relation["id"] for relation in profile_relation_metadata(profile)}
 
     assert relation_ids == {"may_indicate"}
+
+
+def test_profile_relation_metadata_uses_profile_owned_definitions():
+    profile = {
+        "category_descriptions": {
+            "symptom": "Symptoms",
+            "diagnosis": "Diagnoses",
+        },
+        "relation_definitions": [
+            {
+                "id": "may_indicate",
+                "source_categories": ["symptom"],
+                "target_categories": ["diagnosis"],
+                "description": "Profile-specific indication relation.",
+            },
+            {
+                "id": "treated_by",
+                "source_categories": ["diagnosis"],
+                "target_categories": ["medication"],
+                "description": "Filtered because medication is not in this profile.",
+            },
+        ],
+    }
+
+    definitions = profile_relation_definitions(profile)
+    metadata = profile_relation_metadata(profile)
+
+    assert [definition.id for definition in definitions] == ["may_indicate", "treated_by"]
+    assert metadata == [
+        {
+            "id": "may_indicate",
+            "label": "May Indicate",
+            "description": "Profile-specific indication relation.",
+            "source_categories": ["symptom"],
+            "target_categories": ["diagnosis"],
+        }
+    ]
 
 
 def test_profile_default_relations_filters_to_available_relations():
@@ -172,6 +213,42 @@ prompt_template: |
 
     assert "lab_value" in prompt
     assert "synonym" not in prompt
+
+
+def test_build_generation_prompt_uses_profile_relation_definitions(tmp_path, monkeypatch):
+    profile_dir = tmp_path / "profiles"
+    profile_dir.mkdir()
+    (profile_dir / "custom.yml").write_text(
+        """
+language_name: Custom
+category_descriptions:
+  symptom: Symptoms.
+  diagnosis: Diagnoses.
+default_categories:
+  - symptom
+  - diagnosis
+relation_definitions:
+  - id: may_indicate
+    source_categories: [symptom]
+    target_categories: [diagnosis]
+    description: Profile-owned relation description.
+prompt_template: |
+  Relations: {relations_json}
+  {schema_instruction}
+""".strip(),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("src.query_expansion.prompts.DEFAULT_PROMPT_DIR", profile_dir)
+    request = QueryExpansionRequest(
+        term="fever",
+        language="custom",
+        llm=LLMConfig(model="test-model"),
+    )
+
+    prompt = build_generation_prompt(request)
+
+    assert "Profile-owned relation description" in prompt
+    assert "treated_by" not in prompt
 
 
 def test_build_generation_prompt_rejects_categories_outside_profile(tmp_path, monkeypatch):
