@@ -9,19 +9,6 @@ categories:
   - id: narrower_term
   - id: related_term
 
-default_categories:
-  - synonym
-  - medication
-  - diagnosis
-  - symptom
-  - procedure
-
-default_relations:
-  - may_indicate
-  - treated_by
-  - investigated_by
-  - confirmed_by
-
 relations:
   - id: equivalent_to
     source_categories: [synonym, abbreviation]
@@ -47,3 +34,16 @@ relations:
   - id: narrower_than
     source_categories: [narrower_term]
     target_categories: [broader_term]
+
+default_categories:
+  - synonym
+  - medication
+  - diagnosis
+  - symptom
+  - procedure
+
+default_relations:
+  - may_indicate
+  - treated_by
+  - investigated_by
+  - confirmed_by
